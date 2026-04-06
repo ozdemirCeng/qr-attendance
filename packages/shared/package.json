@@ -1,0 +1,23 @@
+{
+  "name": "@qr-attendance/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "pnpm run typecheck",
+    "test": "node -e \"console.log('No package-level tests are currently defined for @qr-attendance/shared')\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "ioredis": "^5.8.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "eslint": "^9.38.0",
+    "typescript": "^5.9.3"
+  }
+}

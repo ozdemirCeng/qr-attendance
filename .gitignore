@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+.pnpm-store/
+**/node_modules/
+
+# local env
+.env
+.env.local
+.env.*.local
+
+# build outputs
+.next/
+dist/
+coverage/
+**/.next/
+**/dist/
+**/coverage/
+
+# tooling
+.turbo/
+*.tsbuildinfo
+**/.turbo/
+**/*.tsbuildinfo
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

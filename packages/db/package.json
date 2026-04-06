@@ -1,0 +1,27 @@
+{
+  "name": "@qr-attendance/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/client.ts",
+  "types": "src/client.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "pnpm run typecheck",
+    "test": "node -e \"console.log('No package-level tests are currently defined for @qr-attendance/db')\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "drizzle-orm": "^0.44.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "drizzle-kit": "^0.31.6",
+    "dotenv": "^17.2.3",
+    "eslint": "^9.38.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "qr-attendance",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "quality": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "clean": "turbo clean",
+    "db:generate": "pnpm --filter @qr-attendance/db db:generate",
+    "db:migrate": "pnpm --filter @qr-attendance/db db:migrate"
+  },
+  "devDependencies": {
+    "eslint": "^9.38.0",
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.8",
+    "typescript": "^5.9.3"
+  }
+}
