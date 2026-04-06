@@ -6,6 +6,8 @@ const envSchema = z.object({
     .default('development'),
   API_PORT: z.coerce.number().default(3001),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  NEON_AUTH_BASE_URL: z.string().url(),
+  AUTH_COOKIE_NAME: z.string().default('session'),
 });
 
 export function validateEnv(config: Record<string, unknown>) {

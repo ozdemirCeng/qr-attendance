@@ -272,16 +272,17 @@ status: review      #7057ff
 
 ```
 Backend:
-[ ] AuthModule, AuthService, AuthController
-[ ] POST /auth/login → email + password doğrula → session oluştur
-[ ] POST /auth/logout → session sil
-[ ] GET /auth/me → session bilgisi dön
-[ ] Bcrypt ile password hash
-[ ] Better Auth session (httpOnly cookie)
-[ ] JwtAuthGuard → korumalı routelar için
-[ ] RolesGuard → role bazlı yetkilendirme
-[ ] @CurrentUser() decorator
-[ ] @Roles() decorator
+[x] AuthModule, AuthService, AuthController
+[x] POST /auth/login → email + password doğrula → session oluştur
+[x] POST /auth/logout → session sil
+[x] GET /auth/me → session bilgisi dön
+[x] Bcrypt ile password hash
+[x] Better Auth session (httpOnly cookie)
+[x] JwtAuthGuard → korumalı routelar için
+[x] RolesGuard → role bazlı yetkilendirme
+[x] @CurrentUser() decorator
+[x] @Roles() decorator
+[x] Auth backend'i Neon Auth base URL uzerinden session proxy ile calisir
 
 Frontend:
 [ ] /login sayfası (React Hook Form + Zod)
