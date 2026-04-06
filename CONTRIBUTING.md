@@ -12,6 +12,8 @@ Bu repo tek kisilik (solo) gelistirme modeli ile yonetilir.
 
 ## Temel Kurallar
 
+- Node surumu sabit: `20.x` (ilk adim: `nvm use`).
+- `.npmrc` icinde `engine-strict=true` aktif oldugu icin farkli Node surumlerinde komutlar fail eder.
 - Gunluk gelistirme dogrudan develop uzerinde yapilabilir.
 - Release icin onerilen akis develop -> main PR merge.
 - Acil hotfix gerekiyorsa fix/* dali acilip main'e PR acilabilir.
@@ -77,6 +79,7 @@ Ornekler:
 
 git checkout develop
 git pull origin develop
+nvm use
 
 2) Opsiyonel branch ac (buyuk/riskli islerde):
 

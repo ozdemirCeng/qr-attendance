@@ -28,9 +28,13 @@ qr-attendance/
 ## Hizli Baslangic
 
 ```bash
+nvm use
 pnpm install
 pnpm dev
 ```
+
+Not: Proje Node.js 20.x ile calisir. Bu nedenle `.nvmrc` ve `.node-version`
+dosyalari repoda tutulur.
 
 ## Ortam Degiskenleri
 
