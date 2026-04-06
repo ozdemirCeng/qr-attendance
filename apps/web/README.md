@@ -1,0 +1,18 @@
+# Web Uygulamasi
+
+Bu paket admin paneli ve mobil tarama arayuzunu barindirir.
+
+## Gelistirme Komutlari
+
+```bash
+pnpm --filter @qr-attendance/web dev
+pnpm --filter @qr-attendance/web build
+pnpm --filter @qr-attendance/web lint
+pnpm --filter @qr-attendance/web typecheck
+```
+
+## Notlar
+
+- Next.js App Router kullanilir.
+- Veri cekme icin TanStack Query kullanilir.
+- API baglantisi NEXT_PUBLIC_API_URL degiskeni ile yonetilir.
