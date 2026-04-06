@@ -1,0 +1,38 @@
+name: Branch Name Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-release-source:
+    name: Validate release source branch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate release PR source
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          echo "Checking PR flow: ${BRANCH_NAME} -> ${BASE_BRANCH}"
+
+          if [[ "${BASE_BRANCH}" != "main" ]]; then
+            echo "Invalid target branch: ${BASE_BRANCH}. This workflow is only for main release PRs."
+            exit 1
+          fi
+
+          if [[ "${BRANCH_NAME}" == "develop" ]]; then
+            echo "Valid release PR: develop -> main"
+            exit 0
+          fi
+
+          if [[ "${BRANCH_NAME}" =~ ^fix/[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+            echo "Valid hotfix PR: fix/* -> main"
+            exit 0
+          fi
+
+          echo "Invalid release source branch: ${BRANCH_NAME}"
+          echo "Allowed: develop or fix/<kebab-case>"
+          exit 1

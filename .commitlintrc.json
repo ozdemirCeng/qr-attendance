@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/commitlintrc",
+  "rules": {
+    "header-max-length": [2, "always", 120],
+    "type-empty": [2, "never"],
+    "type-enum": [
+      2,
+      "always",
+      ["feat", "fix", "refactor", "chore", "test", "docs", "style", "perf"]
+    ],
+    "scope-enum": [
+      2,
+      "always",
+      [
+        "auth",
+        "events",
+        "sessions",
+        "qr",
+        "attendance",
+        "participants",
+        "exports",
+        "imports",
+        "location",
+        "db",
+        "ui"
+      ]
+    ],
+    "scope-empty": [0],
+    "subject-empty": [2, "never"],
+    "subject-case": [0]
+  }
+}
