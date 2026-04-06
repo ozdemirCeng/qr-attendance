@@ -2,6 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -9,6 +10,8 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -24,6 +27,10 @@ async function bootstrap() {
     'CORS_ORIGIN',
     'http://localhost:3000',
   );
+  const sessionCookieName = configService.get<string>(
+    'AUTH_COOKIE_NAME',
+    'session',
+  );
   app.enableCors({
     origin: corsOrigin.split(',').map((origin) => origin.trim()),
     credentials: true,
@@ -33,7 +40,7 @@ async function bootstrap() {
     .setTitle('QR Attendance API')
     .setDescription('QR kod ile yoklama sistemi backend API')
     .setVersion('1.0.0')
-    .addCookieAuth('session')
+    .addCookieAuth(sessionCookieName)
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);
