@@ -10,9 +10,14 @@ import { CurrentQrTokenResponse, getCurrentQrToken } from "@/lib/qr";
 type QrDisplayTabPanelProps = {
   eventId: string;
   onToast: (input: { tone: "success" | "error"; message: string }) => void;
+  onOpenSessionsTab?: () => void;
 };
 
-export function QrDisplayTabPanel({ eventId, onToast }: QrDisplayTabPanelProps) {
+export function QrDisplayTabPanel({
+  eventId,
+  onToast,
+  onOpenSessionsTab,
+}: QrDisplayTabPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isRefreshingRef = useRef(false);
   const downloadCanvasId = useMemo(() => `qr-download-canvas-${eventId}`, [eventId]);
@@ -156,10 +161,27 @@ export function QrDisplayTabPanel({ eventId, onToast }: QrDisplayTabPanelProps) 
       error instanceof ApiError
         ? error.message
         : "QR token alinamadi. Lutfen tekrar deneyin.";
+    const isMissingActiveSession = error instanceof ApiError && error.statusCode === 404;
 
     return (
       <article className="rounded-2xl border border-rose-200 bg-rose-50 p-6 shadow-sm">
         <p className="text-sm text-rose-700">{message}</p>
+        {isMissingActiveSession ? (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-rose-700">
+              QR uretimi icin su an aktif (baslangic-bitis zamani icinde) en az bir oturum olmali.
+            </p>
+            {onOpenSessionsTab ? (
+              <button
+                type="button"
+                onClick={onOpenSessionsTab}
+                className="rounded-xl border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+              >
+                Oturumlar Sekmesine Git
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={() => {

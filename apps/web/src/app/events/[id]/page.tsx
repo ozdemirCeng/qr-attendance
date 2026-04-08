@@ -342,6 +342,9 @@ export default function EventDetailPage() {
                 onToast={(nextToast) => {
                   setToast(nextToast);
                 }}
+                onOpenSessionsTab={() => {
+                  setActiveTab("sessions");
+                }}
               />
             ) : null}
 

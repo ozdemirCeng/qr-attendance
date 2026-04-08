@@ -47,12 +47,17 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
   const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const processingRef = useRef(false);
+  const hasAutoStartedRef = useRef(false);
+  const startScannerRef = useRef<() => Promise<void>>(async () => {
+    return Promise.resolve();
+  });
 
   const [state, setState] = useState<ScanState>("idle");
   const [scannerMode, setScannerMode] = useState<"barcode" | "zxing" | "manual">("manual");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [manualToken, setManualToken] = useState("");
   const [location, setLocation] = useState<ScanLocation | null>(null);
+  const [locationNotice, setLocationNotice] = useState<string | null>(null);
   const [isPulseVisible, setIsPulseVisible] = useState(false);
 
   useEffect(() => {
@@ -61,8 +66,32 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (hasAutoStartedRef.current) {
+      return;
+    }
+
+    hasAutoStartedRef.current = true;
+    void startScannerRef.current();
+  }, []);
+
   async function startScanner() {
     setErrorMessage(null);
+
+    if (!window.isSecureContext) {
+      setState("error");
+      setErrorMessage(
+        "Kamera ve konum icin guvenli baglanti gerekir. HTTPS veya localhost ile acin.",
+      );
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setState("error");
+      setErrorMessage("Bu tarayici kamera erisimini desteklemiyor.");
+      return;
+    }
+
     setState("starting");
 
     const currentLocation = await captureLocation();
@@ -76,6 +105,8 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     setScannerMode("zxing");
     await startWithZxing(currentLocation);
   }
+
+  startScannerRef.current = startScanner;
 
   function stopScanner() {
     if (animationFrameRef.current) {
@@ -106,6 +137,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
 
   async function captureLocation() {
     if (!navigator.geolocation) {
+      setLocationNotice("Bu cihazda konum servisi desteklenmiyor.");
       return null;
     }
 
@@ -118,9 +150,18 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
             accuracy: position.coords.accuracy,
           };
           setLocation(nextLocation);
+          setLocationNotice(null);
           resolve(nextLocation);
         },
-        () => {
+        (positionError) => {
+          if (positionError.code === 1) {
+            setLocationNotice("Konum izni verilmedi. Check-in konum dogrulamasi basarisiz olabilir.");
+          } else if (positionError.code === 3) {
+            setLocationNotice("Konum zamani asimina ugradi. Lutfen tekrar deneyin.");
+          } else {
+            setLocationNotice("Konum bilgisi alinamadi.");
+          }
+
           resolve(null);
         },
         {
@@ -297,7 +338,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
               Konum hazir: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
             </p>
           ) : (
-            <p className="mt-1 text-xs text-zinc-500">Konum bilgisi alinmadi.</p>
+            <p className="mt-1 text-xs text-zinc-500">{locationNotice ?? "Konum bilgisi alinmadi."}</p>
           )}
         </div>
 
