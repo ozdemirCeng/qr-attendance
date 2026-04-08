@@ -321,6 +321,237 @@ describe('AttendanceService', () => {
       'ALREADY_CHECKED_IN',
     );
   });
+
+  it('supports attendance list pagination and filters', () => {
+    const { event, session } = seedActiveEventAndSession(
+      eventsRepository,
+      sessionsRepository,
+    );
+
+    const secondSession = sessionsRepository.create({
+      eventId: event.id,
+      name: 'Ikinci Oturum',
+      startsAt: new Date(Date.now() - 900_000).toISOString(),
+      endsAt: new Date(Date.now() + 2_700_000).toISOString(),
+    });
+
+    const registeredParticipant = participantsRepository.create({
+      eventId: event.id,
+      name: 'Mina Ak',
+      email: 'mina@example.com',
+      phone: '+905551111111',
+      source: 'manual',
+      externalId: null,
+    });
+
+    const walkInParticipant = participantsRepository.create({
+      eventId: event.id,
+      name: 'Sena Oz',
+      email: 'sena@example.com',
+      phone: null,
+      source: 'self_registered',
+      externalId: null,
+    });
+
+    const secondRegisteredParticipant = participantsRepository.create({
+      eventId: event.id,
+      name: 'Can Yildiz',
+      email: 'can@example.com',
+      phone: null,
+      source: 'csv',
+      externalId: 'csv-1',
+    });
+
+    const now = Date.now();
+    const firstRecord = createAttendanceRecord(attendanceRecordsRepository, {
+      eventId: event.id,
+      sessionId: session.id,
+      participantId: registeredParticipant.id,
+      fullName: registeredParticipant.name,
+      email: registeredParticipant.email,
+      scannedAt: new Date(now - 3_000).toISOString(),
+      isValid: true,
+    });
+
+    const secondRecord = createAttendanceRecord(attendanceRecordsRepository, {
+      eventId: event.id,
+      sessionId: secondSession.id,
+      participantId: walkInParticipant.id,
+      fullName: walkInParticipant.name,
+      email: walkInParticipant.email,
+      scannedAt: new Date(now - 2_000).toISOString(),
+      isValid: false,
+      invalidReason: 'GPS mismatch',
+    });
+
+    const thirdRecord = createAttendanceRecord(attendanceRecordsRepository, {
+      eventId: event.id,
+      sessionId: session.id,
+      participantId: secondRegisteredParticipant.id,
+      fullName: secondRegisteredParticipant.name,
+      email: secondRegisteredParticipant.email,
+      scannedAt: new Date(now - 1_000).toISOString(),
+      isValid: true,
+    });
+
+    const paged = service.listByEvent(event.id, {
+      page: 1,
+      limit: 1,
+    });
+
+    expect(paged.data).toHaveLength(1);
+    expect(paged.data[0].id).toBe(thirdRecord.id);
+    expect(paged.data[0].registrationType).toBe('registered');
+    expect(paged.pagination.total).toBe(3);
+    expect(paged.pagination.totalPages).toBe(3);
+
+    const filteredBySearch = service.listByEvent(event.id, {
+      page: 1,
+      limit: 20,
+      search: 'sena@',
+    });
+
+    expect(filteredBySearch.data).toHaveLength(1);
+    expect(filteredBySearch.data[0].id).toBe(secondRecord.id);
+    expect(filteredBySearch.data[0].registrationType).toBe('walkIn');
+
+    const filteredByValidity = service.listByEvent(event.id, {
+      page: 1,
+      limit: 20,
+      isValid: false,
+    });
+
+    expect(filteredByValidity.data).toHaveLength(1);
+    expect(filteredByValidity.data[0].id).toBe(secondRecord.id);
+
+    const filteredBySession = service.listByEvent(event.id, {
+      page: 1,
+      limit: 20,
+      sessionId: session.id,
+    });
+
+    expect(filteredBySession.data).toHaveLength(2);
+    expect(filteredBySession.data.map((item) => item.id)).toEqual([
+      thirdRecord.id,
+      firstRecord.id,
+    ]);
+  });
+
+  it('builds attendance stats by event', () => {
+    const { event, session } = seedActiveEventAndSession(
+      eventsRepository,
+      sessionsRepository,
+    );
+
+    const secondSession = sessionsRepository.create({
+      eventId: event.id,
+      name: 'Ikinci Oturum',
+      startsAt: new Date(Date.now() - 900_000).toISOString(),
+      endsAt: new Date(Date.now() + 2_700_000).toISOString(),
+    });
+
+    const registeredParticipant = participantsRepository.create({
+      eventId: event.id,
+      name: 'Asli',
+      email: 'asli@example.com',
+      phone: null,
+      source: 'csv',
+      externalId: null,
+    });
+
+    const walkInParticipant = participantsRepository.create({
+      eventId: event.id,
+      name: 'Baris',
+      email: 'baris@example.com',
+      phone: null,
+      source: 'self_registered',
+      externalId: null,
+    });
+
+    createAttendanceRecord(attendanceRecordsRepository, {
+      eventId: event.id,
+      sessionId: session.id,
+      participantId: registeredParticipant.id,
+      fullName: registeredParticipant.name,
+      email: registeredParticipant.email,
+      scannedAt: new Date(Date.now() - 3_000).toISOString(),
+      isValid: true,
+    });
+
+    createAttendanceRecord(attendanceRecordsRepository, {
+      eventId: event.id,
+      sessionId: secondSession.id,
+      participantId: walkInParticipant.id,
+      fullName: walkInParticipant.name,
+      email: walkInParticipant.email,
+      scannedAt: new Date(Date.now() - 2_000).toISOString(),
+      isValid: false,
+      invalidReason: 'Manual invalid',
+    });
+
+    createAttendanceRecord(attendanceRecordsRepository, {
+      eventId: event.id,
+      sessionId: session.id,
+      participantId: registeredParticipant.id,
+      fullName: registeredParticipant.name,
+      email: registeredParticipant.email,
+      scannedAt: new Date(Date.now() - 1_000).toISOString(),
+      isValid: true,
+    });
+
+    const stats = service.statsByEvent(event.id);
+
+    expect(stats.data).toEqual({
+      total: 3,
+      valid: 2,
+      invalid: 1,
+      walkIn: 1,
+      registered: 2,
+    });
+  });
+
+  it('updates attendance record manual validity status', () => {
+    const { event, session } = seedActiveEventAndSession(
+      eventsRepository,
+      sessionsRepository,
+    );
+
+    const participant = participantsRepository.create({
+      eventId: event.id,
+      name: 'Nisan',
+      email: 'nisan@example.com',
+      phone: null,
+      source: 'manual',
+      externalId: null,
+    });
+
+    const record = createAttendanceRecord(attendanceRecordsRepository, {
+      eventId: event.id,
+      sessionId: session.id,
+      participantId: participant.id,
+      fullName: participant.name,
+      email: participant.email,
+      scannedAt: new Date().toISOString(),
+      isValid: true,
+    });
+
+    const invalidated = service.updateManualStatus(record.id, {
+      isValid: false,
+      reason: 'Manuel kontrol ile guncellendi',
+    });
+
+    expect(invalidated.data.isValid).toBe(false);
+    expect(invalidated.data.invalidReason).toBe(
+      'Manuel kontrol ile guncellendi',
+    );
+
+    const validated = service.updateManualStatus(record.id, {
+      isValid: true,
+    });
+
+    expect(validated.data.isValid).toBe(true);
+    expect(validated.data.invalidReason).toBeNull();
+  });
 });
 
 function seedActiveEventAndSession(
@@ -376,4 +607,37 @@ async function expectCode(promise: Promise<unknown>, expectedCode: string) {
     >;
     expect(payload.code).toBe(expectedCode);
   }
+}
+
+function createAttendanceRecord(
+  attendanceRecordsRepository: AttendanceRecordsRepository,
+  input: {
+    eventId: string;
+    sessionId: string;
+    participantId: string;
+    fullName: string;
+    email: string | null;
+    scannedAt: string;
+    isValid: boolean;
+    invalidReason?: string;
+  },
+) {
+  return attendanceRecordsRepository.create({
+    eventId: input.eventId,
+    sessionId: input.sessionId,
+    participantId: input.participantId,
+    fullName: input.fullName,
+    email: input.email,
+    phone: null,
+    scannedAt: input.scannedAt,
+    latitude: 40.765,
+    longitude: 29.94,
+    accuracy: 10,
+    distanceFromVenue: 5,
+    isValid: input.isValid,
+    invalidReason: input.invalidReason ?? null,
+    qrNonce: crypto.randomUUID(),
+    ipAddress: '127.0.0.1',
+    deviceFingerprint: 'jest-device',
+  });
 }

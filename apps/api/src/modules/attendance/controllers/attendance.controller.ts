@@ -1,9 +1,28 @@
-import { Body, Controller, Post, Req } from '@nestjs/common';
-import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBody,
+  ApiCookieAuth,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 
+import { Roles } from '../../../common/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
 import { ScanAttendanceDto } from '../dto/scan-attendance.dto';
+import { UpdateManualStatusDto } from '../dto/update-manual-status.dto';
 import { AttendanceService } from '../services/attendance.service';
 
 @ApiTags('Attendance')
@@ -26,5 +45,22 @@ export class AttendanceController {
       ip: request.ip ?? null,
       userAgent: request.headers['user-agent'] ?? null,
     });
+  }
+
+  @ApiOperation({
+    summary: 'Katilim kaydinin manuel gecerlilik durumunu gunceller',
+  })
+  @ApiCookieAuth('session')
+  @ApiBody({ type: UpdateManualStatusDto })
+  @ApiOkResponse({ description: 'Katilim kaydi guncellendi.' })
+  @ApiNotFoundResponse({ description: 'Katilim kaydi bulunamadi.' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Patch(':id/manual-status')
+  updateManualStatus(
+    @Param('id') id: string,
+    @Body() payload: UpdateManualStatusDto,
+  ) {
+    return this.attendanceService.updateManualStatus(id, payload);
   }
 }

@@ -13,10 +13,15 @@ import { QrVerificationCode } from '../../qr/qr.types';
 import { QrTokenService } from '../../qr/services/qr-token.service';
 import { SessionEntity } from '../../sessions/sessions.types';
 import { SessionsRepository } from '../../sessions/repositories/sessions.repository';
+import { ListAttendanceQueryDto } from '../dto/list-attendance-query.dto';
 import { ScanAttendanceDto } from '../dto/scan-attendance.dto';
+import { UpdateManualStatusDto } from '../dto/update-manual-status.dto';
 import { AttendanceAttemptsRepository } from '../repositories/attendance-attempts.repository';
 import { AttendanceRecordsRepository } from '../repositories/attendance-records.repository';
-import { AttendanceScanErrorCode } from '../attendance.types';
+import {
+  AttendanceRecordEntity,
+  AttendanceScanErrorCode,
+} from '../attendance.types';
 
 type ScanRequestMeta = {
   ip?: string | null;
@@ -28,6 +33,8 @@ type LocationCheckResult = {
   distance: number;
   reason?: 'NO_LOCATION_DATA' | 'LOCATION_OUT_OF_RANGE';
 };
+
+type RegistrationType = 'walkIn' | 'registered';
 
 @Injectable()
 export class AttendanceService {
@@ -197,6 +204,135 @@ export class AttendanceService {
       });
 
       throw error;
+    }
+  }
+
+  listByEvent(eventId: string, query: ListAttendanceQueryDto) {
+    this.ensureEventExists(eventId);
+
+    if (query.sessionId) {
+      const session = this.sessionsRepository.findByEventAndId(
+        eventId,
+        query.sessionId,
+      );
+
+      if (!session) {
+        throw new NotFoundException('Oturum bulunamadi.');
+      }
+    }
+
+    const result = this.attendanceRecordsRepository.findAllByEvent({
+      eventId,
+      sessionId: query.sessionId,
+      page: query.page,
+      limit: query.limit,
+      search: query.search,
+      isValid: query.isValid,
+    });
+
+    return {
+      success: true,
+      data: result.items.map((record) => this.toAttendanceListItem(record)),
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    };
+  }
+
+  statsByEvent(eventId: string) {
+    this.ensureEventExists(eventId);
+
+    const records = this.attendanceRecordsRepository.findByEventId(eventId);
+
+    let valid = 0;
+    let invalid = 0;
+    let walkIn = 0;
+    let registered = 0;
+
+    for (const record of records) {
+      if (record.isValid) {
+        valid += 1;
+      } else {
+        invalid += 1;
+      }
+
+      if (this.resolveRegistrationType(record.participantId) === 'walkIn') {
+        walkIn += 1;
+      } else {
+        registered += 1;
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        total: records.length,
+        valid,
+        invalid,
+        walkIn,
+        registered,
+      },
+    };
+  }
+
+  updateManualStatus(id: string, payload: UpdateManualStatusDto) {
+    const current = this.attendanceRecordsRepository.findById(id);
+
+    if (!current) {
+      throw new NotFoundException('Katilim kaydi bulunamadi.');
+    }
+
+    const normalizedReason = this.normalizeNullable(payload.reason);
+    const invalidReason = payload.isValid
+      ? null
+      : (normalizedReason ?? current.invalidReason ?? 'MANUAL_REVIEW');
+
+    const updated = this.attendanceRecordsRepository.update(id, {
+      isValid: payload.isValid,
+      invalidReason,
+    });
+
+    if (!updated) {
+      throw new NotFoundException('Katilim kaydi bulunamadi.');
+    }
+
+    return {
+      success: true,
+      data: this.toAttendanceListItem(updated),
+    };
+  }
+
+  private toAttendanceListItem(record: AttendanceRecordEntity) {
+    return {
+      ...record,
+      registrationType: this.resolveRegistrationType(record.participantId),
+    };
+  }
+
+  private resolveRegistrationType(
+    participantId: string | null,
+  ): RegistrationType {
+    if (!participantId) {
+      return 'walkIn';
+    }
+
+    const participant = this.participantsRepository.findById(participantId);
+
+    if (!participant || participant.source === 'self_registered') {
+      return 'walkIn';
+    }
+
+    return 'registered';
+  }
+
+  private ensureEventExists(eventId: string) {
+    const event = this.eventsRepository.findById(eventId);
+
+    if (!event) {
+      throw new NotFoundException('Etkinlik bulunamadi.');
     }
   }
 

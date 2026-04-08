@@ -116,6 +116,10 @@ export class ParticipantsRepository {
     );
   }
 
+  findById(participantId: string): ParticipantEntity | null {
+    return this.participants.get(participantId) ?? null;
+  }
+
   remove(eventId: string, participantId: string): ParticipantEntity | null {
     const participant = this.findByEventAndId(eventId, participantId);
 
