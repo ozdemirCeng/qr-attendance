@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.5",
+    "@tanstack/react-table": "^8.21.3",
     "@zxing/library": "^0.21.3",
     "next": "16.2.2",
     "qrcode.react": "^4.2.0",
