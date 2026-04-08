@@ -60,5 +60,4 @@ pnpm quality
 ## Dokumanlar
 
 - Gelistirme kurallari: CONTRIBUTING.md
-- Sprint plani: QR_Yoklama_Proje_Plani.md
-- Case metni: stajcase.md
+- Yerel notlar: Sprint plani ve case dokumani lokal tutulur, repoya commit edilmez.
