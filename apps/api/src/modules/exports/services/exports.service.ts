@@ -3,8 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import * as XLSX from 'xlsx';
 
 import { AttendanceRecordsRepository } from '../../attendance/repositories/attendance-records.repository';
 import { EventsRepository } from '../../events/repositories/events.repository';
@@ -178,43 +179,40 @@ export class ExportsService {
     );
     await mkdir(outputDirectory, { recursive: true });
 
-    const fileName = `${this.sanitizeFileName(payload.eventName)}-${Date.now()}.csv`;
+    const fileName = `${this.sanitizeFileName(payload.eventName)}-${Date.now()}.xlsx`;
     const filePath = join(outputDirectory, fileName);
 
-    const header = [
-      'Ad Soyad',
-      'E-posta',
-      'Telefon',
-      'Katilim Tarihi',
-      'Katilim Saati',
-      'Konum Gecerli',
-      'Mesafe (m)',
-      'Kayit Turu',
-    ];
-
-    const body = payload.rows.map((row) => {
+    const worksheetRows = payload.rows.map((row) => {
       const scannedAt = new Date(row.scannedAt);
       const hasValidDate = !Number.isNaN(scannedAt.getTime());
 
-      const columns = [
-        row.fullName,
-        row.email ?? '-',
-        row.phone ?? '-',
-        hasValidDate ? this.dateFormatter.format(scannedAt) : '-',
-        hasValidDate ? this.timeFormatter.format(scannedAt) : '-',
-        row.distanceFromVenue !== null ? 'Evet' : 'Hayir',
-        typeof row.distanceFromVenue === 'number'
-          ? String(Math.round(row.distanceFromVenue))
+      return {
+        'Ad Soyad': row.fullName,
+        'E-posta': row.email ?? '-',
+        Telefon: row.phone ?? '-',
+        'Katilim Tarihi': hasValidDate
+          ? this.dateFormatter.format(scannedAt)
           : '-',
-        row.registrationType === 'walkIn' ? 'Walk-in' : 'Kayitli',
-      ];
-
-      return columns.map((value) => this.escapeCsvValue(value)).join(',');
+        'Katilim Saati': hasValidDate
+          ? this.timeFormatter.format(scannedAt)
+          : '-',
+        'Konum Gecerli': row.distanceFromVenue !== null ? 'Evet' : 'Hayir',
+        'Mesafe (m)':
+          typeof row.distanceFromVenue === 'number'
+            ? Math.round(row.distanceFromVenue)
+            : '-',
+        'Kayit Turu': row.registrationType === 'walkIn' ? 'Walk-in' : 'Kayitli',
+      };
     });
 
-    const csvContent = `\uFEFF${[header.map((value) => this.escapeCsvValue(value)).join(','), ...body].join('\n')}`;
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
 
-    await writeFile(filePath, csvContent, 'utf8');
+    this.styleHeaderRow(worksheet);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Katilim');
+    XLSX.writeFile(workbook, filePath, {
+      bookType: 'xlsx',
+    });
 
     return {
       filePath,
@@ -222,10 +220,31 @@ export class ExportsService {
     };
   }
 
-  private escapeCsvValue(value: string) {
-    const escaped = value.replace(/"/g, '""');
+  private styleHeaderRow(worksheet: XLSX.WorkSheet) {
+    if (!worksheet['!ref']) {
+      return;
+    }
 
-    return `"${escaped}"`;
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+
+    for (let column = range.s.c; column <= range.e.c; column += 1) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: column });
+      const cell = worksheet[cellAddress] as
+        | (XLSX.CellObject & { s?: unknown })
+        | undefined;
+
+      if (!cell) {
+        continue;
+      }
+
+      cell.s = {
+        font: { bold: true },
+        fill: {
+          patternType: 'solid',
+          fgColor: { rgb: 'D4D4D8' },
+        },
+      };
+    }
   }
 
   private sanitizeFileName(value: string) {
