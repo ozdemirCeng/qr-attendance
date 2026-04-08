@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { resolveApiErrorMessage } from "@/lib/api";
+
 type ResultPageProps = {
   searchParams: {
     status?: string;
@@ -9,42 +11,79 @@ type ResultPageProps = {
   };
 };
 
-const errorMessages: Record<string, { title: string; message: string }> = {
+type ErrorMeta = {
+  title: string;
+  icon: string;
+  textClassName: string;
+  badgeClassName: string;
+};
+
+const errorMetaMap: Record<string, ErrorMeta> = {
   EXPIRED_TOKEN: {
-    title: "QR Suresi Dolmus",
-    message: "Yeni QR icin organizatorle iletisime gecin.",
-  },
-  LOCATION_OUT_OF_RANGE: {
-    title: "Konum Uygun Degil",
-    message: "Katilim kaydi icin etkinlik alaninda olman gerekiyor.",
-  },
-  ALREADY_CHECKED_IN: {
-    title: "Zaten Katildiniz",
-    message: "Daha once katilim kaydin alindi.",
-  },
-  SESSION_NOT_FOUND: {
-    title: "Etkinlik Bulunamadi",
-    message: "Gecersiz veya suresi dolmus QR kodu kullanildi.",
-  },
-  MALFORMED_TOKEN: {
-    title: "Gecersiz QR",
-    message: "QR kodu okunamadi. Lutfen yeniden deneyin.",
+    title: "QR Suresi Doldu",
+    icon: "T",
+    textClassName: "text-amber-700",
+    badgeClassName: "bg-amber-100 text-amber-700",
   },
   INVALID_SIGNATURE: {
     title: "Gecersiz QR",
-    message: "QR token dogrulanamadi.",
+    icon: "X",
+    textClassName: "text-rose-700",
+    badgeClassName: "bg-rose-100 text-rose-700",
+  },
+  MALFORMED_TOKEN: {
+    title: "Gecersiz QR",
+    icon: "X",
+    textClassName: "text-rose-700",
+    badgeClassName: "bg-rose-100 text-rose-700",
   },
   REPLAY_ATTACK: {
     title: "QR Tekrar Kullanildi",
-    message: "Bu QR kodu daha once kullanildigi icin gecersiz.",
+    icon: "R",
+    textClassName: "text-fuchsia-700",
+    badgeClassName: "bg-fuchsia-100 text-fuchsia-700",
   },
-  NO_LOCATION_DATA: {
-    title: "Konum Gerekli",
-    message: "Konum izni verilmeden check-in tamamlanamaz.",
+  SESSION_NOT_FOUND: {
+    title: "Etkinlik Bulunamadi",
+    icon: "E",
+    textClassName: "text-zinc-700",
+    badgeClassName: "bg-zinc-200 text-zinc-700",
   },
   SESSION_INACTIVE: {
     title: "Oturum Aktif Degil",
-    message: "Bu oturum su anda check-in kabul etmiyor.",
+    icon: "S",
+    textClassName: "text-sky-700",
+    badgeClassName: "bg-sky-100 text-sky-700",
+  },
+  LOCATION_OUT_OF_RANGE: {
+    title: "Konum Uygun Degil",
+    icon: "L",
+    textClassName: "text-red-700",
+    badgeClassName: "bg-red-100 text-red-700",
+  },
+  NO_LOCATION_DATA: {
+    title: "Konum Gerekli",
+    icon: "N",
+    textClassName: "text-orange-700",
+    badgeClassName: "bg-orange-100 text-orange-700",
+  },
+  ALREADY_CHECKED_IN: {
+    title: "Zaten Katildiniz",
+    icon: "C",
+    textClassName: "text-emerald-700",
+    badgeClassName: "bg-emerald-100 text-emerald-700",
+  },
+  NETWORK_ERROR: {
+    title: "Baglanti Hatasi",
+    icon: "W",
+    textClassName: "text-indigo-700",
+    badgeClassName: "bg-indigo-100 text-indigo-700",
+  },
+  UNKNOWN_ERROR: {
+    title: "Islem Basarisiz",
+    icon: "!",
+    textClassName: "text-zinc-700",
+    badgeClassName: "bg-zinc-200 text-zinc-700",
   },
 };
 
@@ -54,10 +93,12 @@ export default function CheckInResultPage({ searchParams }: ResultPageProps) {
   const eventName = typeof searchParams.event === "string" ? decodeURIComponent(searchParams.event) : "";
   const code = typeof searchParams.code === "string" ? searchParams.code : "UNKNOWN_ERROR";
 
-  const errorMeta = errorMessages[code] ?? {
-    title: "Islem Basarisiz",
-    message: "Beklenmeyen bir hata olustu. Lutfen tekrar deneyin.",
-  };
+  const normalizedCode = code.toUpperCase();
+  const errorMeta = errorMetaMap[normalizedCode] ?? errorMetaMap.UNKNOWN_ERROR;
+  const errorMessage = resolveApiErrorMessage({
+    code: normalizedCode,
+    fallbackMessage: "Beklenmeyen bir hata olustu. Lutfen tekrar deneyin.",
+  });
 
   return (
     <main className="min-h-screen bg-zinc-100 px-4 py-10 text-zinc-900 sm:px-6">
@@ -71,9 +112,16 @@ export default function CheckInResultPage({ searchParams }: ResultPageProps) {
           </>
         ) : (
           <>
-            <p className="text-6xl text-rose-500">!</p>
-            <h1 className="mt-3 text-2xl font-semibold text-rose-700">{errorMeta.title}</h1>
-            <p className="mt-2 text-sm text-zinc-600">{errorMeta.message}</p>
+            <div
+              className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold ${errorMeta.badgeClassName}`}
+            >
+              {errorMeta.icon}
+            </div>
+            <h1 className={`mt-3 text-2xl font-semibold ${errorMeta.textClassName}`}>
+              {errorMeta.title}
+            </h1>
+            <p className="mt-2 text-sm text-zinc-600">{errorMessage}</p>
+            <p className="mt-1 text-xs uppercase tracking-wide text-zinc-400">Kod: {normalizedCode}</p>
           </>
         )}
 

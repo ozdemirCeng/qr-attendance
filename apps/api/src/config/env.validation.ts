@@ -10,6 +10,7 @@ const envSchema = z.object({
   QR_SECRET: z.string().min(16),
   QR_ROTATION_SECONDS: z.coerce.number().int().min(15).max(300).default(60),
   NEON_AUTH_BASE_URL: z.string().url(),
+  SENTRY_DSN: z.string().url().optional(),
   AUTH_COOKIE_NAME: z.string().default('session'),
 });
 
