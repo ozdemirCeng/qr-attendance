@@ -8,6 +8,7 @@ import { useAuth } from "@/providers/auth-provider";
 
 const navigationItems = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/dashboard/audit", label: "Audit" },
   { href: "/events/new", label: "Yeni Etkinlik" },
   { href: "/scan", label: "Scan" },
 ] as const;

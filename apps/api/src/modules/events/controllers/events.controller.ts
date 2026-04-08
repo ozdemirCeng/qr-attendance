@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { Audit } from '../../../common/decorators/audit.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -45,6 +46,11 @@ export class EventsController {
 
   @ApiOperation({ summary: 'Yeni etkinlik olusturur' })
   @ApiOkResponse({ description: 'Etkinlik olusturuldu.' })
+  @Audit({
+    action: 'event.created',
+    entityType: 'event',
+    entityIdResponsePath: 'data.id',
+  })
   @Post()
   create(@Body() payload: CreateEventDto) {
     return this.eventsService.create(payload);
@@ -61,6 +67,11 @@ export class EventsController {
   @ApiOperation({ summary: 'Etkinligi gunceller' })
   @ApiOkResponse({ description: 'Etkinlik guncellendi.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
+  @Audit({
+    action: 'event.updated',
+    entityType: 'event',
+    entityIdParam: 'id',
+  })
   @Patch(':id')
   update(@Param('id') id: string, @Body() payload: UpdateEventDto) {
     return this.eventsService.update(id, payload);
@@ -70,6 +81,11 @@ export class EventsController {
   @ApiOkResponse({ description: 'Etkinlik silindi.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
   @Roles('admin')
+  @Audit({
+    action: 'event.deleted',
+    entityType: 'event',
+    entityIdParam: 'id',
+  })
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.eventsService.remove(id);

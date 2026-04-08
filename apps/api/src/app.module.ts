@@ -1,11 +1,13 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { validateEnv } from './config/env.validation';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EventsModule } from './modules/events/events.module';
 import { ExportsModule } from './modules/exports/exports.module';
@@ -42,6 +44,7 @@ function getRedisConnection() {
       },
     ]),
     HealthModule,
+    AuditModule,
     AuthModule,
     EventsModule,
     SessionsModule,
@@ -54,6 +57,10 @@ function getRedisConnection() {
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
     },
   ],
 })

@@ -18,6 +18,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 
+import { Audit } from '../../../common/decorators/audit.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -56,6 +57,11 @@ export class AttendanceController {
   @ApiNotFoundResponse({ description: 'Katilim kaydi bulunamadi.' })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
+  @Audit({
+    action: 'attendance.manual_override',
+    entityType: 'attendance',
+    entityIdParam: 'id',
+  })
   @Patch(':id/manual-status')
   updateManualStatus(
     @Param('id') id: string,

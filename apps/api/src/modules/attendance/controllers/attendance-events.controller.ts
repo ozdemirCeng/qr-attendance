@@ -17,6 +17,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { Audit } from '../../../common/decorators/audit.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -63,6 +64,11 @@ export class AttendanceEventsController {
     description: 'Etkinlik, katilimci veya oturum bulunamadi.',
   })
   @Roles('admin')
+  @Audit({
+    action: 'attendance.manual_override',
+    entityType: 'attendance',
+    entityIdResponsePath: 'data.id',
+  })
   @Post('manual-upsert')
   manualUpsert(
     @Param('eventId') eventId: string,

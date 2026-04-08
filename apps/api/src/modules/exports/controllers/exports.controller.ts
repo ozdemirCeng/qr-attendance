@@ -9,6 +9,7 @@ import {
 import { Response } from 'express';
 import { basename } from 'node:path';
 
+import { Audit } from '../../../common/decorators/audit.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -25,6 +26,11 @@ export class ExportsController {
   @ApiOperation({ summary: 'Etkinlik katilim export islemini baslatir' })
   @ApiOkResponse({ description: 'Export istegi kuyruga eklendi.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
+  @Audit({
+    action: 'export.requested',
+    entityType: 'export',
+    entityIdResponsePath: 'data.exportId',
+  })
   @Post('events/:eventId/attendance/export')
   requestExport(@Param('eventId') eventId: string) {
     return this.exportsService.requestAttendanceExport(eventId);
@@ -41,6 +47,11 @@ export class ExportsController {
   @ApiOperation({ summary: 'Hazir export dosyasini indirir' })
   @ApiOkResponse({ description: 'Export dosyasi indiriliyor.' })
   @ApiNotFoundResponse({ description: 'Export kaydi veya dosyasi bulunamadi.' })
+  @Audit({
+    action: 'export.completed',
+    entityType: 'export',
+    entityIdParam: 'id',
+  })
   @Get('exports/:id/download')
   async download(@Param('id') exportId: string, @Res() response: Response) {
     const filePath = await this.exportsService.getDownloadFilePath(exportId);

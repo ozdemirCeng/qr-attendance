@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
+import { Audit } from '../../../common/decorators/audit.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RequestUser } from '../../../common/types/request-user.type';
@@ -20,6 +21,11 @@ import { AuthService } from '../services/auth.service';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Audit({
+    action: 'admin.login',
+    entityType: 'auth',
+    entityIdBody: 'email',
+  })
   @Post('login')
   async login(
     @Body() payload: LoginDto,
@@ -37,6 +43,10 @@ export class AuthController {
     };
   }
 
+  @Audit({
+    action: 'admin.logout',
+    entityType: 'auth',
+  })
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.logout(req.headers.cookie);
