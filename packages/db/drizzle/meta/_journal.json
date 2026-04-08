@@ -8,6 +8,13 @@
       "when": 1775484803904,
       "tag": "0000_breezy_terrax",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775645889838,
+      "tag": "0001_premium_logan",
+      "breakpoints": true
     }
   ]
 }
