@@ -18,5 +18,6 @@ import { AttendanceService } from './services/attendance.service';
     AttendanceRecordsRepository,
     AttendanceAttemptsRepository,
   ],
+  exports: [AttendanceRecordsRepository],
 })
 export class AttendanceModule {}
