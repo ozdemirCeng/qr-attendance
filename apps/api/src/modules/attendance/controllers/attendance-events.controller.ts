@@ -1,5 +1,14 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBody,
   ApiCookieAuth,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -12,6 +21,7 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { ListAttendanceQueryDto } from '../dto/list-attendance-query.dto';
+import { ManualAttendanceUpsertDto } from '../dto/manual-attendance-upsert.dto';
 import { AttendanceService } from '../services/attendance.service';
 
 @ApiTags('Attendance')
@@ -44,5 +54,20 @@ export class AttendanceEventsController {
   @Get('stats')
   stats(@Param('eventId') eventId: string) {
     return this.attendanceService.statsByEvent(eventId);
+  }
+
+  @ApiOperation({ summary: 'Katilimciyi manuel var/yok olarak isaretler' })
+  @ApiBody({ type: ManualAttendanceUpsertDto })
+  @ApiOkResponse({ description: 'Katilim kaydi olusturuldu veya guncellendi.' })
+  @ApiNotFoundResponse({
+    description: 'Etkinlik, katilimci veya oturum bulunamadi.',
+  })
+  @Roles('admin')
+  @Post('manual-upsert')
+  manualUpsert(
+    @Param('eventId') eventId: string,
+    @Body() payload: ManualAttendanceUpsertDto,
+  ) {
+    return this.attendanceService.manualUpsertForParticipant(eventId, payload);
   }
 }

@@ -82,6 +82,13 @@ export type UpdateManualAttendanceStatusResponse = {
   data: AttendanceRecordItem;
 };
 
+export type ManualAttendanceUpsertPayload = {
+  participantId: string;
+  isValid: boolean;
+  sessionId?: string;
+  reason?: string;
+};
+
 type ListAttendanceInput = {
   page?: number;
   limit?: number;
@@ -132,6 +139,19 @@ export async function updateAttendanceManualStatus(
     `/attendance/${attendanceId}/manual-status`,
     {
       method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function manualUpsertAttendance(
+  eventId: string,
+  payload: ManualAttendanceUpsertPayload,
+) {
+  return apiFetch<UpdateManualAttendanceStatusResponse>(
+    `/events/${eventId}/attendance/manual-upsert`,
+    {
+      method: "POST",
       body: JSON.stringify(payload),
     },
   );

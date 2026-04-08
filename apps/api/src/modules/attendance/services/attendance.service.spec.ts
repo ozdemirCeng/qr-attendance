@@ -552,6 +552,78 @@ describe('AttendanceService', () => {
     expect(validated.data.isValid).toBe(true);
     expect(validated.data.invalidReason).toBeNull();
   });
+
+  it('creates attendance record with manual upsert when record does not exist', () => {
+    const { event, session } = seedActiveEventAndSession(
+      eventsRepository,
+      sessionsRepository,
+    );
+
+    const participant = participantsRepository.create({
+      eventId: event.id,
+      name: 'Ela Koc',
+      email: 'ela@example.com',
+      phone: '+905557778899',
+      source: 'manual',
+      externalId: null,
+    });
+
+    const result = service.manualUpsertForParticipant(event.id, {
+      participantId: participant.id,
+      sessionId: session.id,
+      isValid: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data.participantId).toBe(participant.id);
+    expect(result.data.sessionId).toBe(session.id);
+    expect(result.data.isValid).toBe(true);
+    expect(result.data.registrationType).toBe('registered');
+    expect(
+      attendanceRecordsRepository.findByParticipantAndSession(
+        participant.id,
+        session.id,
+      ),
+    ).not.toBeNull();
+  });
+
+  it('updates existing attendance record with manual upsert', () => {
+    const { event, session } = seedActiveEventAndSession(
+      eventsRepository,
+      sessionsRepository,
+    );
+
+    const participant = participantsRepository.create({
+      eventId: event.id,
+      name: 'Sude Acar',
+      email: 'sude@example.com',
+      phone: null,
+      source: 'manual',
+      externalId: null,
+    });
+
+    const existing = createAttendanceRecord(attendanceRecordsRepository, {
+      eventId: event.id,
+      sessionId: session.id,
+      participantId: participant.id,
+      fullName: participant.name,
+      email: participant.email,
+      scannedAt: new Date().toISOString(),
+      isValid: true,
+    });
+
+    const result = service.manualUpsertForParticipant(event.id, {
+      participantId: participant.id,
+      sessionId: session.id,
+      isValid: false,
+      reason: 'Yok olarak duzeltildi',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data.id).toBe(existing.id);
+    expect(result.data.isValid).toBe(false);
+    expect(result.data.invalidReason).toBe('Yok olarak duzeltildi');
+  });
 });
 
 function seedActiveEventAndSession(

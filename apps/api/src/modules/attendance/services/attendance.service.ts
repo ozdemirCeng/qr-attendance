@@ -14,6 +14,7 @@ import { QrTokenService } from '../../qr/services/qr-token.service';
 import { SessionEntity } from '../../sessions/sessions.types';
 import { SessionsRepository } from '../../sessions/repositories/sessions.repository';
 import { ListAttendanceQueryDto } from '../dto/list-attendance-query.dto';
+import { ManualAttendanceUpsertDto } from '../dto/manual-attendance-upsert.dto';
 import { ScanAttendanceDto } from '../dto/scan-attendance.dto';
 import { UpdateManualStatusDto } from '../dto/update-manual-status.dto';
 import { AttendanceAttemptsRepository } from '../repositories/attendance-attempts.repository';
@@ -305,6 +306,85 @@ export class AttendanceService {
     };
   }
 
+  manualUpsertForParticipant(
+    eventId: string,
+    payload: ManualAttendanceUpsertDto,
+  ) {
+    this.ensureEventExists(eventId);
+
+    const participant = this.participantsRepository.findByEventAndId(
+      eventId,
+      payload.participantId,
+    );
+
+    if (!participant) {
+      throw new NotFoundException('Katilimci bulunamadi.');
+    }
+
+    const session = this.resolveSessionForManualAttendance(
+      eventId,
+      payload.sessionId,
+    );
+
+    if (!session) {
+      throw new NotFoundException('Oturum bulunamadi.');
+    }
+
+    const existingRecord =
+      this.attendanceRecordsRepository.findByParticipantAndSession(
+        participant.id,
+        session.id,
+      );
+
+    const normalizedReason = this.normalizeNullable(payload.reason);
+    const invalidReason = payload.isValid
+      ? null
+      : (normalizedReason ?? existingRecord?.invalidReason ?? 'MANUAL_REVIEW');
+
+    if (existingRecord) {
+      const updated = this.attendanceRecordsRepository.update(
+        existingRecord.id,
+        {
+          isValid: payload.isValid,
+          invalidReason,
+        },
+      );
+
+      if (!updated) {
+        throw new NotFoundException('Katilim kaydi bulunamadi.');
+      }
+
+      return {
+        success: true,
+        data: this.toAttendanceListItem(updated),
+      };
+    }
+
+    const created = this.attendanceRecordsRepository.create({
+      eventId,
+      sessionId: session.id,
+      participantId: participant.id,
+      fullName: participant.name,
+      email: participant.email,
+      phone: participant.phone,
+      scannedAt: new Date().toISOString(),
+      latitude: null,
+      longitude: null,
+      accuracy: null,
+      distanceFromVenue: null,
+      isValid: payload.isValid,
+      invalidReason,
+      qrNonce: null,
+      ipAddress: null,
+      deviceFingerprint: 'manual-admin',
+    });
+
+    return {
+      success: true,
+      data: this.toAttendanceListItem(created),
+    };
+  }
+
   private toAttendanceListItem(record: AttendanceRecordEntity) {
     return {
       ...record,
@@ -334,6 +414,25 @@ export class AttendanceService {
     if (!event) {
       throw new NotFoundException('Etkinlik bulunamadi.');
     }
+  }
+
+  private resolveSessionForManualAttendance(
+    eventId: string,
+    sessionId?: string,
+  ) {
+    if (sessionId) {
+      return this.sessionsRepository.findByEventAndId(eventId, sessionId);
+    }
+
+    const activeSession = this.sessionsRepository.findActiveByEventId(eventId);
+
+    if (activeSession) {
+      return activeSession;
+    }
+
+    const sessions = this.sessionsRepository.findByEventId(eventId);
+
+    return sessions.at(-1) ?? null;
   }
 
   private resolveParticipant(eventId: string, payload: ScanAttendanceDto) {
