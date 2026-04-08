@@ -22,7 +22,11 @@
         "imports",
         "location",
         "db",
-        "ui"
+        "ui",
+        "repo",
+        "process",
+        "workflow",
+        "ci"
       ]
     ],
     "scope-empty": [0],
