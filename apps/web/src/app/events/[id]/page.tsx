@@ -10,6 +10,7 @@ import { z } from "zod";
 import { InlineToast } from "@/components/feedback/inline-toast";
 import { AppShell } from "@/components/layout/app-shell";
 import { ParticipantsTabPanel } from "@/features/participants/components/participants-tab-panel";
+import { QrDisplayTabPanel } from "@/features/qr/components/qr-display-tab-panel";
 import { ApiError } from "@/lib/api";
 import { getEvent } from "@/lib/events";
 import { createSession, listSessions } from "@/lib/sessions";
@@ -333,7 +334,19 @@ export default function EventDetailPage() {
               />
             ) : null}
 
-            {activeTab !== "general" && activeTab !== "sessions" && activeTab !== "participants" ? (
+            {activeTab === "qr" ? (
+              <QrDisplayTabPanel
+                eventId={eventId}
+                onToast={(nextToast) => {
+                  setToast(nextToast);
+                }}
+              />
+            ) : null}
+
+            {activeTab !== "general" &&
+            activeTab !== "sessions" &&
+            activeTab !== "participants" &&
+            activeTab !== "qr" ? (
               <article className="rounded-2xl bg-white p-6 text-sm text-zinc-600 shadow-sm">
                 Bu sekme sonraki adimlarda tamamlanacak.
               </article>
