@@ -97,6 +97,25 @@ export class ParticipantsRepository {
     return participant;
   }
 
+  findByEventAndEmail(
+    eventId: string,
+    email: string,
+  ): ParticipantEntity | null {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      return null;
+    }
+
+    return (
+      [...this.participants.values()].find(
+        (participant) =>
+          participant.eventId === eventId &&
+          participant.email?.toLowerCase() === normalizedEmail,
+      ) ?? null
+    );
+  }
+
   remove(eventId: string, participantId: string): ParticipantEntity | null {
     const participant = this.findByEventAndId(eventId, participantId);
 

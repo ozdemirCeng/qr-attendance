@@ -9,5 +9,6 @@ import { ParticipantsService } from './services/participants.service';
   imports: [EventsModule],
   controllers: [ParticipantsController],
   providers: [ParticipantsService, ParticipantsRepository],
+  exports: [ParticipantsRepository],
 })
 export class ParticipantsModule {}

@@ -66,6 +66,10 @@ export class SessionsRepository {
     return session;
   }
 
+  findById(sessionId: string): SessionEntity | null {
+    return this.sessions.get(sessionId) ?? null;
+  }
+
   update(
     eventId: string,
     sessionId: string,
