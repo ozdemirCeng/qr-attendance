@@ -11,7 +11,8 @@
     "test": "node -e \"console.log('No package-level tests are currently defined for @qr-attendance/db')\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "node ./scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
