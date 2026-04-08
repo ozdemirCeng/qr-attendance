@@ -285,11 +285,11 @@ Backend:
 [x] Auth backend'i Neon Auth base URL uzerinden session proxy ile calisir
 
 Frontend:
-[ ] /login sayfası (React Hook Form + Zod)
-[ ] lib/auth.ts → login, logout, getMe
-[ ] AuthProvider → session context
-[ ] Middleware: /dashboard/* rotaları login gerektirsin
-[ ] Login sonrası /dashboard yönlendirme
+[x] /login sayfası (React Hook Form + Zod)
+[x] lib/auth.ts → login, logout, getMe
+[x] AuthProvider → session context
+[x] Middleware: /dashboard/* rotaları login gerektirsin
+[x] Login sonrası /dashboard yönlendirme
 ```
 
 ---
