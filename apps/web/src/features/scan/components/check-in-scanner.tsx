@@ -279,14 +279,14 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-6 text-zinc-900 sm:px-6">
+    <main className="min-h-screen bg-zinc-100 px-3 py-4 text-zinc-900 sm:px-6 sm:py-6">
       <section className="mx-auto max-w-3xl space-y-4">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h1 className="text-xl font-semibold">QR Check-in</h1>
             <Link
               href="/scan"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+              className="min-h-11 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
             >
               Geri
             </Link>
@@ -302,7 +302,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
         </div>
 
         <article className="rounded-2xl bg-white p-5 shadow-sm">
-          <div className="relative mx-auto aspect-video w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900">
+          <div className="relative mx-auto h-[58vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900 sm:h-auto sm:aspect-video">
             <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div
@@ -320,14 +320,14 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                 void startScanner();
               }}
               disabled={state === "starting" || state === "processing" || state === "scanning"}
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+              className="min-h-11 rounded-xl bg-zinc-900 px-4 py-2 text-base font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
             >
               {state === "starting" ? "Baslatiliyor..." : "Taramaya Basla"}
             </button>
             <button
               type="button"
               onClick={stopScanner}
-              className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+              className="min-h-11 rounded-xl border border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-700 hover:bg-zinc-100"
             >
               Durdur
             </button>
@@ -349,7 +349,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                 setManualToken(event.target.value);
               }}
               placeholder="QR token"
-              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-base"
             />
             <button
               type="button"
@@ -357,7 +357,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
               onClick={() => {
                 void onTokenDetected(manualToken, location);
               }}
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+              className="min-h-11 rounded-xl bg-zinc-900 px-4 py-2 text-base font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
             >
               Gonder
             </button>

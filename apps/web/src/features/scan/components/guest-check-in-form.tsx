@@ -121,7 +121,7 @@ export function GuestCheckInForm({ eventId }: GuestCheckInFormProps) {
         </label>
         <input
           id="guestName"
-          className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+          className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-base"
           {...form.register("name")}
         />
         {form.formState.errors.name ? (
@@ -135,7 +135,7 @@ export function GuestCheckInForm({ eventId }: GuestCheckInFormProps) {
         </label>
         <input
           id="guestEmail"
-          className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+          className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-base"
           {...form.register("email")}
         />
         {form.formState.errors.email ? (
@@ -149,7 +149,7 @@ export function GuestCheckInForm({ eventId }: GuestCheckInFormProps) {
         </label>
         <input
           id="guestPhone"
-          className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+          className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-base"
           {...form.register("phone")}
         />
         {form.formState.errors.phone ? (
@@ -162,14 +162,14 @@ export function GuestCheckInForm({ eventId }: GuestCheckInFormProps) {
       <div className="flex justify-end gap-2 pt-2">
         <Link
           href={`/check-in/${eventId}`}
-          className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+          className="min-h-11 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
         >
           Geri
         </Link>
         <button
           type="submit"
           disabled={form.formState.isSubmitting}
-          className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+          className="min-h-11 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
         >
           {form.formState.isSubmitting ? "Gonderiliyor..." : "Katilimi Onayla"}
         </button>

@@ -20,6 +20,7 @@ export function QrDisplayTabPanel({ eventId, onToast }: QrDisplayTabPanelProps) 
   const [maxCountdown, setMaxCountdown] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isCompactLandscape, setIsCompactLandscape] = useState(false);
 
   const qrQuery = useQuery<CurrentQrTokenResponse, ApiError>({
     queryKey: ["qr-current", eventId],
@@ -85,6 +86,21 @@ export function QrDisplayTabPanel({ eventId, onToast }: QrDisplayTabPanelProps) 
     };
   }, []);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(orientation: landscape) and (max-height: 540px)");
+
+    const update = () => {
+      setIsCompactLandscape(mediaQuery.matches);
+    };
+
+    update();
+    mediaQuery.addEventListener("change", update);
+
+    return () => {
+      mediaQuery.removeEventListener("change", update);
+    };
+  }, []);
+
   const progressPercent =
     maxCountdown > 0 ? Math.max(0, Math.min(100, (countdown / maxCountdown) * 100)) : 0;
 
@@ -94,6 +110,8 @@ export function QrDisplayTabPanel({ eventId, onToast }: QrDisplayTabPanelProps) 
       : progressPercent > 25
         ? "bg-amber-500"
         : "bg-rose-500";
+
+  const forceFullscreenLayout = isCompactLandscape && !isFullscreen;
 
   function handleToggleFullscreen() {
     if (!containerRef.current) {
@@ -159,7 +177,9 @@ export function QrDisplayTabPanel({ eventId, onToast }: QrDisplayTabPanelProps) 
     <section className="space-y-4">
       <article
         ref={containerRef}
-        className="rounded-2xl bg-white p-6 shadow-sm transition sm:p-8"
+        className={`rounded-2xl bg-white p-6 shadow-sm transition sm:p-8 ${
+          forceFullscreenLayout ? "fixed inset-0 z-40 overflow-y-auto rounded-none p-4 sm:p-6" : ""
+        }`}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -200,28 +220,48 @@ export function QrDisplayTabPanel({ eventId, onToast }: QrDisplayTabPanelProps) 
           </div>
         </div>
 
-        <div className="mt-6 flex justify-center">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-            <QRCodeSVG
-              value={data.data.token}
-              size={280}
-              level="M"
-              includeMargin
-              className="h-auto w-[220px] sm:w-[280px]"
-            />
-          </div>
-        </div>
+        {forceFullscreenLayout ? (
+          <p className="mt-3 text-xs font-medium text-zinc-500">
+            Yatay mobil modunda QR otomatik tam ekran gorunuyor.
+          </p>
+        ) : null}
 
-        <div className="mt-6 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-zinc-700">Yenileniyor:</span>
-            <span className="font-semibold text-zinc-900">{countdown}s</span>
+        <div className="mt-6 grid items-start gap-6 md:grid-cols-[minmax(0,340px)_1fr]">
+          <div className="flex justify-center md:justify-start">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+              <QRCodeSVG
+                value={data.data.token}
+                size={320}
+                level="M"
+                includeMargin
+                className="h-auto w-[min(82vw,360px)] md:w-[320px]"
+              />
+            </div>
           </div>
-          <div className="h-2 w-full rounded-full bg-zinc-200">
-            <div
-              className={`h-full rounded-full transition-all ${progressBarClass}`}
-              style={{ width: `${progressPercent}%` }}
-            />
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Kalan Sure</p>
+              <p className="mt-2 text-3xl font-semibold text-zinc-900">{countdown}s</p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-zinc-700">Yenilenme Ilerlemesi</span>
+                <span className="font-semibold text-zinc-900">%{Math.round(progressPercent)}</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-zinc-200">
+                <div
+                  className={`h-full rounded-full transition-all ${progressBarClass}`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2 rounded-2xl border border-zinc-200 bg-white p-4 text-sm text-zinc-600">
+              <p>QR her dongude otomatik yenilenir.</p>
+              <p>Tablet ekranlarda QR ve sure paneli yanyana gorunur.</p>
+            </div>
           </div>
         </div>
       </article>
