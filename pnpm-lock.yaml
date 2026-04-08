@@ -50,6 +50,9 @@ importers:
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
+      ioredis:
+        specifier: ^5.10.1
+        version: 5.10.1
       papaparse:
         specifier: ^5.5.3
         version: 5.5.3

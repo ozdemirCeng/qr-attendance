@@ -9,5 +9,6 @@ import { SessionsService } from './services/sessions.service';
   imports: [EventsModule],
   controllers: [SessionsController],
   providers: [SessionsService, SessionsRepository],
+  exports: [SessionsRepository],
 })
 export class SessionsModule {}

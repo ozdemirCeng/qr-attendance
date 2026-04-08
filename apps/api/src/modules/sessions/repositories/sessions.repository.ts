@@ -36,6 +36,26 @@ export class SessionsRepository {
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   }
 
+  findActiveByEventId(
+    eventId: string,
+    nowIso = new Date().toISOString(),
+  ): SessionEntity | null {
+    const now = new Date(nowIso).getTime();
+
+    return (
+      this.findByEventId(eventId).find((session) => {
+        const startsAt = new Date(session.startsAt).getTime();
+        const endsAt = new Date(session.endsAt).getTime();
+
+        if (Number.isNaN(startsAt) || Number.isNaN(endsAt)) {
+          return false;
+        }
+
+        return now >= startsAt && now <= endsAt;
+      }) ?? null
+    );
+  }
+
   findByEventAndId(eventId: string, sessionId: string): SessionEntity | null {
     const session = this.sessions.get(sessionId);
 
