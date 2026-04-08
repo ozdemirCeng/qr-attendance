@@ -72,6 +72,10 @@ export function ExportTabPanel({ eventId, onToast }: ExportTabPanelProps) {
   });
 
   const statusData = exportStatusQuery.data?.data;
+  const showInlineSpinner =
+    exportStatusQuery.isFetching ||
+    statusData?.status === "pending" ||
+    statusData?.status === "processing";
 
   const progress = useMemo(() => {
     if (!statusData) {
@@ -148,9 +152,14 @@ export function ExportTabPanel({ eventId, onToast }: ExportTabPanelProps) {
         <article className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-zinc-600">Export ID: {activeExportId}</p>
-            <p className={`text-sm font-semibold ${statusToneClass[statusData?.status ?? "pending"]}`}>
-              {statusLabel[statusData?.status ?? "pending"]}
-            </p>
+            <div className="inline-flex items-center gap-2">
+              {showInlineSpinner ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />
+              ) : null}
+              <p className={`text-sm font-semibold ${statusToneClass[statusData?.status ?? "pending"]}`}>
+                {statusLabel[statusData?.status ?? "pending"]}
+              </p>
+            </div>
           </div>
 
           <div className="mt-4 h-2 w-full rounded-full bg-zinc-200">

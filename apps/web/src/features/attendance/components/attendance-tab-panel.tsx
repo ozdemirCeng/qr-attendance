@@ -9,6 +9,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
+import { EmptyState } from "@/components/feedback/empty-state";
 import { ApiError } from "@/lib/api";
 import {
   AttendanceRecordItem,
@@ -334,10 +335,33 @@ export function AttendanceTabPanel({ eventId, onToast }: AttendanceTabPanelProps
         <h3 className="text-lg font-semibold text-zinc-900">Katilim Listesi</h3>
 
         {attendanceListQuery.isPending ? (
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="h-10 animate-pulse rounded-lg bg-zinc-100" />
-            ))}
+          <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-200">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2">Ad Soyad</th>
+                  <th className="px-3 py-2">E-posta</th>
+                  <th className="px-3 py-2">Telefon</th>
+                  <th className="px-3 py-2">Katilim Saati</th>
+                  <th className="px-3 py-2">Konum</th>
+                  <th className="px-3 py-2">Kayit Turu</th>
+                  <th className="px-3 py-2">Islem</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index} className="border-t border-zinc-100">
+                    <td className="px-3 py-2"><div className="h-4 w-28 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-32 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-24 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-24 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-16 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-16 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-6 w-20 animate-pulse rounded bg-zinc-200" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : null}
 
@@ -359,7 +383,13 @@ export function AttendanceTabPanel({ eventId, onToast }: AttendanceTabPanelProps
         {!attendanceListQuery.isPending &&
         !attendanceListQuery.isError &&
         attendanceListQuery.data.data.length === 0 ? (
-          <p className="mt-4 text-sm text-zinc-600">Henuz katilim kaydi yok</p>
+          <EmptyState
+            iconLabel="AT"
+            title="Henuz katilim kaydi yok"
+            message="Henuz QR taramasi yapilmadi."
+            ctaLabel="Scan Ekranini Ac"
+            ctaHref="/scan"
+          />
         ) : null}
 
         {!attendanceListQuery.isPending &&

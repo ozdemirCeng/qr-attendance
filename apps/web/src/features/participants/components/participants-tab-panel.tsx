@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
+import { EmptyState } from "@/components/feedback/empty-state";
 import { ApiError } from "@/lib/api";
 import {
   AttendanceRecordItem,
@@ -640,10 +641,35 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
         <h3 className="text-lg font-semibold text-zinc-900">Katilimci Listesi</h3>
 
         {participantsQuery.isPending ? (
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div key={index} className="h-10 animate-pulse rounded-lg bg-zinc-100" />
-            ))}
+          <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-200">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2">&nbsp;</th>
+                  <th className="px-3 py-2">Ad</th>
+                  <th className="px-3 py-2">E-posta</th>
+                  <th className="px-3 py-2">Telefon</th>
+                  <th className="px-3 py-2">Kaynak</th>
+                  <th className="px-3 py-2">Var / Yok</th>
+                  <th className="px-3 py-2">Tarih</th>
+                  <th className="px-3 py-2">Islem</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index} className="border-t border-zinc-100">
+                    <td className="px-3 py-2"><div className="h-4 w-4 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-28 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-32 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-24 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-16 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-6 w-16 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-24 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-6 w-14 animate-pulse rounded bg-zinc-200" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : null}
 
@@ -665,7 +691,15 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
         {!participantsQuery.isPending &&
         !participantsQuery.isError &&
         participantsQuery.data.data.length === 0 ? (
-          <p className="mt-4 text-sm text-zinc-600">Filtreye uygun katilimci bulunamadi.</p>
+          <EmptyState
+            iconLabel="PT"
+            title="Katilimci listesi bos"
+            message="CSV yukleyin veya manuel ekleyin."
+            ctaLabel="Manuel Ekle"
+            onCtaClick={() => {
+              setIsManualModalOpen(true);
+            }}
+          />
         ) : null}
 
         {!participantsQuery.isPending &&

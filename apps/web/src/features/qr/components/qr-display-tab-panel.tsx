@@ -144,7 +144,7 @@ export function QrDisplayTabPanel({ eventId, onToast }: QrDisplayTabPanelProps) 
     return (
       <article className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex items-center gap-3 text-sm text-zinc-600">
-          <span className="h-3 w-3 animate-pulse rounded-full bg-zinc-400" />
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />
           QR token yukleniyor...
         </div>
       </article>
