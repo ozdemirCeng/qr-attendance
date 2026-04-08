@@ -53,8 +53,8 @@ export class ExportsController {
     entityIdParam: 'id',
   })
   @Get('exports/:id/download')
-  async download(@Param('id') exportId: string, @Res() response: Response) {
-    const filePath = await this.exportsService.getDownloadFilePath(exportId);
+  download(@Param('id') exportId: string, @Res() response: Response) {
+    const filePath = this.exportsService.getDownloadFilePath(exportId);
 
     return response.download(filePath, basename(filePath));
   }

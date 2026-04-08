@@ -1,10 +1,10 @@
-import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Job, Queue } from 'bullmq';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 
 import { AttendanceRecordsRepository } from '../../attendance/repositories/attendance-records.repository';
 import { EventsRepository } from '../../events/repositories/events.repository';
@@ -23,6 +23,7 @@ type ExportJobRow = {
 };
 
 type ExportJobPayload = {
+  exportId: string;
   eventId: string;
   eventName: string;
   requestedAt: string;
@@ -31,16 +32,32 @@ type ExportJobPayload = {
 
 type ExportJobResult = {
   filePath: string;
-  fileName: string;
-  rowCount: number;
   downloadUrl: string;
+};
+
+type ExportJobRecord = {
+  exportId: string;
+  status: ExportStatus;
+  progress: number;
+  filePath: string | null;
+  downloadUrl: string | null;
+  errorMessage: string | null;
 };
 
 @Injectable()
 export class ExportsService {
+  private readonly jobs = new Map<string, ExportJobRecord>();
+  private readonly dateFormatter = new Intl.DateTimeFormat('tr-TR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  private readonly timeFormatter = new Intl.DateTimeFormat('tr-TR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   constructor(
-    @InjectQueue('export.queue')
-    private readonly exportQueue: Queue<ExportJobPayload, ExportJobResult>,
     private readonly eventsRepository: EventsRepository,
     private readonly attendanceRecordsRepository: AttendanceRecordsRepository,
     private readonly participantsRepository: ParticipantsRepository,
@@ -65,75 +82,83 @@ export class ExportsService {
         registrationType: this.resolveRegistrationType(record.participantId),
       }));
 
-    await this.exportQueue.add(
-      'attendance-excel',
-      {
+    this.jobs.set(exportId, {
+      exportId,
+      status: 'processing',
+      progress: 20,
+      filePath: null,
+      downloadUrl: null,
+      errorMessage: null,
+    });
+
+    try {
+      const result = await this.generateAttendanceExportFile({
+        exportId,
         eventId,
         eventName: event.name,
         requestedAt: new Date().toISOString(),
         rows,
-      },
-      {
-        jobId: exportId,
-        removeOnComplete: false,
-        removeOnFail: false,
-      },
-    );
+      });
+
+      this.jobs.set(exportId, {
+        exportId,
+        status: 'ready',
+        progress: 100,
+        filePath: result.filePath,
+        downloadUrl: result.downloadUrl,
+        errorMessage: null,
+      });
+    } catch {
+      this.jobs.set(exportId, {
+        exportId,
+        status: 'failed',
+        progress: 100,
+        filePath: null,
+        downloadUrl: null,
+        errorMessage: 'Export dosyasi olusturulamadi.',
+      });
+    }
 
     return {
       success: true,
       data: {
         exportId,
-        message: 'Hazirlaniyor...',
+        message: 'Export istegi alindi.',
       },
     };
   }
 
-  async getStatus(exportId: string) {
-    const job = await this.getJobOrThrow(exportId);
-    const queueState = await job.getState();
-    const status = this.mapQueueState(queueState);
-    const progress = this.resolveProgress(job.progress, status);
-    const result = (job.returnvalue ?? null) as ExportJobResult | null;
+  getStatus(exportId: string) {
+    const job = this.getJobOrThrow(exportId);
 
     return {
       success: true,
       data: {
         exportId,
-        status,
-        progress,
-        downloadUrl:
-          status === 'ready'
-            ? (result?.downloadUrl ?? `/exports/${exportId}/download`)
-            : null,
-        errorMessage:
-          status === 'failed'
-            ? (job.failedReason ?? 'Export basarisiz.')
-            : null,
+        status: job.status,
+        progress: job.progress,
+        downloadUrl: job.downloadUrl,
+        errorMessage: job.errorMessage,
       },
     };
   }
 
-  async getDownloadFilePath(exportId: string) {
-    const job = await this.getJobOrThrow(exportId);
-    const queueState = await job.getState();
-    const status = this.mapQueueState(queueState);
+  getDownloadFilePath(exportId: string) {
+    const job = this.getJobOrThrow(exportId);
 
-    if (status !== 'ready') {
+    if (job.status !== 'ready') {
       throw new BadRequestException('Export henuz hazir degil.');
     }
 
-    const result = (job.returnvalue ?? null) as ExportJobResult | null;
-
-    if (!result?.filePath) {
+    if (!job.filePath) {
       throw new NotFoundException('Export dosyasi bulunamadi.');
     }
 
-    return result.filePath;
+    return job.filePath;
   }
 
-  private async getJobOrThrow(exportId: string) {
-    const job = await this.exportQueue.getJob(exportId);
+  private getJobOrThrow(exportId: string) {
+    const job = this.jobs.get(exportId) ?? null;
 
     if (!job) {
       throw new NotFoundException('Export kaydi bulunamadi.');
@@ -142,44 +167,75 @@ export class ExportsService {
     return job;
   }
 
-  private mapQueueState(state: string): ExportStatus {
-    if (state === 'completed') {
-      return 'ready';
-    }
+  private async generateAttendanceExportFile(
+    payload: ExportJobPayload,
+  ): Promise<ExportJobResult> {
+    const outputDirectory = resolve(
+      process.cwd(),
+      'tmp',
+      'exports',
+      payload.eventId,
+    );
+    await mkdir(outputDirectory, { recursive: true });
 
-    if (state === 'failed') {
-      return 'failed';
-    }
+    const fileName = `${this.sanitizeFileName(payload.eventName)}-${Date.now()}.csv`;
+    const filePath = join(outputDirectory, fileName);
 
-    if (state === 'active') {
-      return 'processing';
-    }
+    const header = [
+      'Ad Soyad',
+      'E-posta',
+      'Telefon',
+      'Katilim Tarihi',
+      'Katilim Saati',
+      'Konum Gecerli',
+      'Mesafe (m)',
+      'Kayit Turu',
+    ];
 
-    return 'pending';
+    const body = payload.rows.map((row) => {
+      const scannedAt = new Date(row.scannedAt);
+      const hasValidDate = !Number.isNaN(scannedAt.getTime());
+
+      const columns = [
+        row.fullName,
+        row.email ?? '-',
+        row.phone ?? '-',
+        hasValidDate ? this.dateFormatter.format(scannedAt) : '-',
+        hasValidDate ? this.timeFormatter.format(scannedAt) : '-',
+        row.distanceFromVenue !== null ? 'Evet' : 'Hayir',
+        typeof row.distanceFromVenue === 'number'
+          ? String(Math.round(row.distanceFromVenue))
+          : '-',
+        row.registrationType === 'walkIn' ? 'Walk-in' : 'Kayitli',
+      ];
+
+      return columns.map((value) => this.escapeCsvValue(value)).join(',');
+    });
+
+    const csvContent = `\uFEFF${[header.map((value) => this.escapeCsvValue(value)).join(','), ...body].join('\n')}`;
+
+    await writeFile(filePath, csvContent, 'utf8');
+
+    return {
+      filePath,
+      downloadUrl: `/exports/${payload.exportId}/download`,
+    };
   }
 
-  private resolveProgress(progress: Job['progress'], status: ExportStatus) {
-    if (typeof progress === 'number') {
-      return Math.min(100, Math.max(0, Math.round(progress)));
-    }
+  private escapeCsvValue(value: string) {
+    const escaped = value.replace(/"/g, '""');
 
-    if (typeof progress === 'object' && progress !== null) {
-      const percentage = (progress as { percentage?: unknown }).percentage;
+    return `"${escaped}"`;
+  }
 
-      if (typeof percentage === 'number') {
-        return Math.min(100, Math.max(0, Math.round(percentage)));
-      }
-    }
+  private sanitizeFileName(value: string) {
+    const normalized = value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '');
 
-    if (status === 'ready') {
-      return 100;
-    }
-
-    if (status === 'processing') {
-      return 60;
-    }
-
-    return 0;
+    return normalized || 'attendance-export';
   }
 
   private resolveRegistrationType(

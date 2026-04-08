@@ -1,4 +1,3 @@
-import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -16,26 +15,12 @@ import { ParticipantsModule } from './modules/participants/participants.module';
 import { QrModule } from './modules/qr/qr.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 
-function getRedisConnection() {
-  const redisUrl = new URL(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
-
-  return {
-    host: redisUrl.hostname,
-    port: Number(redisUrl.port || '6379'),
-    username: redisUrl.username || undefined,
-    password: redisUrl.password || undefined,
-    tls: redisUrl.protocol === 'rediss:' ? {} : undefined,
-  };
-}
-
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['../../.env', '.env'],
       validate: validateEnv,
-    }),
-    BullModule.forRoot({
-      connection: getRedisConnection(),
     }),
     ThrottlerModule.forRoot([
       {
@@ -49,9 +34,9 @@ function getRedisConnection() {
     EventsModule,
     SessionsModule,
     ParticipantsModule,
+    ExportsModule,
     QrModule,
     AttendanceModule,
-    ExportsModule,
   ],
   providers: [
     {
