@@ -5,7 +5,9 @@ const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? "session";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (!pathname.startsWith("/dashboard")) {
+  const isProtectedPath = pathname.startsWith("/dashboard") || pathname.startsWith("/events");
+
+  if (!isProtectedPath) {
     return NextResponse.next();
   }
 
@@ -20,5 +22,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/events/:path*"],
 };
