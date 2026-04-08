@@ -299,16 +299,16 @@ Frontend:
 `Branch: feature/event-crud-api`
 
 ```
-[ ] EventsModule, EventsService, EventsController, EventsRepository
-[ ] POST   /events → yeni etkinlik oluştur
-[ ] GET    /events → liste (pagination)
-[ ] GET    /events/:id → detay
-[ ] PATCH  /events/:id → güncelle
-[ ] DELETE /events/:id → sil (soft delete)
-[ ] CreateEventDto (class-validator)
-[ ] UpdateEventDto
-[ ] Swagger decorator'ları
-[ ] Unit test: EventsService
+[x] EventsModule, EventsService, EventsController, EventsRepository
+[x] POST   /events → yeni etkinlik oluştur
+[x] GET    /events → liste (pagination)
+[x] GET    /events/:id → detay
+[x] PATCH  /events/:id → güncelle
+[x] DELETE /events/:id → sil (soft delete)
+[x] CreateEventDto (class-validator)
+[x] UpdateEventDto
+[x] Swagger decorator'ları
+[x] Unit test: EventsService
 ```
 
 ---
