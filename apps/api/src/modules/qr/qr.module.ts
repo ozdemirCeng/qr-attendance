@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AuthModule } from '../auth/auth.module';
 import { EventsModule } from '../events/events.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { QrController } from './controllers/qr.controller';
@@ -8,7 +9,7 @@ import { QrService } from './services/qr.service';
 import { QrTokenService } from './services/qr-token.service';
 
 @Module({
-  imports: [EventsModule, SessionsModule],
+  imports: [AuthModule, EventsModule, SessionsModule],
   controllers: [QrController],
   providers: [QrService, QrTokenService, QrNonceStoreService],
   exports: [QrTokenService],

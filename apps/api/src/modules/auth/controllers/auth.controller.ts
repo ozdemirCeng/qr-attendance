@@ -24,7 +24,7 @@ export class AuthController {
   @Audit({
     action: 'admin.login',
     entityType: 'auth',
-    entityIdBody: 'email',
+    entityIdBody: 'identifier',
   })
   @Post('login')
   async login(

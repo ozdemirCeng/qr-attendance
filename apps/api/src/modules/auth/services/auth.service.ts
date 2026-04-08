@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import { RequestUser } from '../../../common/types/request-user.type';
 import { LoginDto } from '../dto/login.dto';
@@ -22,23 +23,86 @@ type NeonAuthProxyResult<T> = {
   setCookieHeaders: string[];
 };
 
+type LocalSessionPayload = {
+  kind: 'local-demo';
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'editor';
+  exp: number;
+};
+
 @Injectable()
 export class AuthService {
   private readonly neonAuthBaseUrl: string;
+  private readonly localSessionSecret: string;
+  private readonly demoAdminEmail: string;
+  private readonly demoAdminUsername: string;
+  private readonly demoAdminPassword: string;
+  private readonly demoAdminName: string;
+  private readonly localSessionTtlSeconds = 60 * 60 * 24;
 
   constructor(private readonly configService: ConfigService) {
     this.neonAuthBaseUrl = this.configService.get<string>(
       'NEON_AUTH_BASE_URL',
       '',
     );
+    this.localSessionSecret = this.configService
+      .get<string>('QR_SECRET', '')
+      .trim();
+    this.demoAdminEmail = this.configService
+      .get<string>('DEMO_ADMIN_EMAIL', 'demo.admin@qrattendance.local')
+      .trim()
+      .toLowerCase();
+    const configuredDemoUsername = this.configService
+      .get<string>('DEMO_ADMIN_USERNAME', '')
+      .trim()
+      .toLowerCase();
+    const fallbackDemoUsername =
+      this.demoAdminEmail.split('@')[0]?.trim().toLowerCase() || 'demoadmin';
+    this.demoAdminUsername = configuredDemoUsername || fallbackDemoUsername;
+    this.demoAdminPassword = this.configService
+      .get<string>('DEMO_ADMIN_PASSWORD', 'DemoAdmin123!')
+      .trim();
+    this.demoAdminName = this.configService
+      .get<string>('DEMO_ADMIN_NAME', 'Demo Admin')
+      .trim();
   }
 
   async login(payload: LoginDto, cookieHeader?: string) {
+    const normalizedIdentifier = this.resolveIdentifier(payload);
+
+    if (this.isLocalDemoCredential(normalizedIdentifier, payload.password)) {
+      const token = this.createLocalSessionToken({
+        kind: 'local-demo',
+        id: 'demo-admin',
+        email: this.demoAdminEmail,
+        name: this.demoAdminName,
+        role: 'admin',
+        exp: Date.now() + this.localSessionTtlSeconds * 1000,
+      });
+
+      return {
+        success: true,
+        setCookieHeaders: [this.createSessionCookieHeader(token)],
+      };
+    }
+
+    if (!this.neonAuthBaseUrl) {
+      throw new UnauthorizedException('Giris bilgileri gecersiz.');
+    }
+
+    const normalizedEmail = this.resolveEmailForNeon(normalizedIdentifier);
+
+    if (!normalizedEmail) {
+      throw new UnauthorizedException('Giris bilgileri gecersiz.');
+    }
+
     const result = await this.callNeonAuth<unknown>('/sign-in/email', {
       method: 'POST',
       cookieHeader,
       body: {
-        email: payload.email.trim().toLowerCase(),
+        email: normalizedEmail,
         password: payload.password,
       },
     });
@@ -50,6 +114,22 @@ export class AuthService {
   }
 
   async logout(cookieHeader?: string) {
+    const localSession = this.resolveLocalSessionFromCookie(cookieHeader);
+
+    if (localSession) {
+      return {
+        success: true,
+        setCookieHeaders: [this.createClearSessionCookieHeader()],
+      };
+    }
+
+    if (!this.neonAuthBaseUrl) {
+      return {
+        success: true,
+        setCookieHeaders: [this.createClearSessionCookieHeader()],
+      };
+    }
+
     const result = await this.callNeonAuth<unknown>('/sign-out', {
       method: 'POST',
       cookieHeader,
@@ -63,6 +143,20 @@ export class AuthService {
 
   async resolveUserFromSession(cookieHeader?: string): Promise<RequestUser> {
     if (!cookieHeader) {
+      throw new UnauthorizedException('Oturum bulunamadi.');
+    }
+
+    const localSession = this.resolveLocalSessionFromCookie(cookieHeader);
+    if (localSession) {
+      return {
+        id: localSession.id,
+        email: localSession.email,
+        name: localSession.name,
+        role: localSession.role,
+      };
+    }
+
+    if (!this.neonAuthBaseUrl) {
       throw new UnauthorizedException('Oturum bulunamadi.');
     }
 
@@ -94,6 +188,159 @@ export class AuthService {
 
   getSessionCookieName() {
     return this.configService.get<string>('AUTH_COOKIE_NAME', 'session');
+  }
+
+  private resolveIdentifier(payload: LoginDto) {
+    if (typeof payload.identifier === 'string' && payload.identifier.trim()) {
+      return payload.identifier.trim().toLowerCase();
+    }
+
+    if (typeof payload.email === 'string' && payload.email.trim()) {
+      return payload.email.trim().toLowerCase();
+    }
+
+    return '';
+  }
+
+  private resolveEmailForNeon(identifier: string) {
+    if (!identifier) {
+      return null;
+    }
+
+    if (identifier.includes('@')) {
+      return identifier;
+    }
+
+    if (identifier === this.demoAdminUsername) {
+      return this.demoAdminEmail;
+    }
+
+    return null;
+  }
+
+  private isLocalDemoCredential(identifier: string, password: string) {
+    const normalizedPassword = password.trim();
+
+    if (normalizedPassword !== this.demoAdminPassword) {
+      return false;
+    }
+
+    return (
+      identifier === this.demoAdminEmail ||
+      identifier === this.demoAdminUsername
+    );
+  }
+
+  private createSessionCookieHeader(token: string) {
+    const cookieName = this.getSessionCookieName();
+    const secure =
+      this.configService.get<string>('NODE_ENV', 'development') === 'production'
+        ? '; Secure'
+        : '';
+
+    return `${cookieName}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${this.localSessionTtlSeconds}${secure}`;
+  }
+
+  private createClearSessionCookieHeader() {
+    const cookieName = this.getSessionCookieName();
+    const secure =
+      this.configService.get<string>('NODE_ENV', 'development') === 'production'
+        ? '; Secure'
+        : '';
+
+    return `${cookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+  }
+
+  private createLocalSessionToken(payload: LocalSessionPayload) {
+    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
+      'base64url',
+    );
+    const signature = this.signValue(encodedPayload);
+
+    return `${encodedPayload}.${signature}`;
+  }
+
+  private resolveLocalSessionFromCookie(cookieHeader?: string) {
+    if (!cookieHeader) {
+      return null;
+    }
+
+    const token = this.getCookieValue(
+      cookieHeader,
+      this.getSessionCookieName(),
+    );
+    if (!token || !token.includes('.')) {
+      return null;
+    }
+
+    const [encodedPayload, providedSignature] = token.split('.', 2);
+    if (!encodedPayload || !providedSignature) {
+      return null;
+    }
+
+    const expectedSignature = this.signValue(encodedPayload);
+    const providedBuffer = Buffer.from(providedSignature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+
+    if (providedBuffer.length !== expectedBuffer.length) {
+      return null;
+    }
+
+    if (!timingSafeEqual(providedBuffer, expectedBuffer)) {
+      return null;
+    }
+
+    try {
+      const decoded = Buffer.from(encodedPayload, 'base64url').toString('utf8');
+      const payload = JSON.parse(decoded) as LocalSessionPayload;
+
+      if (
+        payload.kind !== 'local-demo' ||
+        typeof payload.id !== 'string' ||
+        typeof payload.email !== 'string' ||
+        typeof payload.name !== 'string' ||
+        (payload.role !== 'admin' && payload.role !== 'editor') ||
+        typeof payload.exp !== 'number'
+      ) {
+        return null;
+      }
+
+      if (payload.exp <= Date.now()) {
+        return null;
+      }
+
+      return payload;
+    } catch {
+      return null;
+    }
+  }
+
+  private getCookieValue(cookieHeader: string, cookieName: string) {
+    const cookies = cookieHeader.split(';');
+
+    for (const cookie of cookies) {
+      const [rawKey, ...rawValueParts] = cookie.trim().split('=');
+
+      if (rawKey !== cookieName) {
+        continue;
+      }
+
+      const rawValue = rawValueParts.join('=');
+
+      try {
+        return decodeURIComponent(rawValue);
+      } catch {
+        return rawValue;
+      }
+    }
+
+    return null;
+  }
+
+  private signValue(value: string) {
+    return createHmac('sha256', this.localSessionSecret)
+      .update(value)
+      .digest('base64url');
   }
 
   private async callNeonAuth<T>(

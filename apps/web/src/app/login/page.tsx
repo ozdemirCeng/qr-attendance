@@ -9,7 +9,7 @@ import { ApiError } from "@/lib/api";
 import { useAuth } from "@/providers/auth-provider";
 
 const loginSchema = z.object({
-  email: z.string().email("Gecerli bir e-posta adresi girin"),
+  identifier: z.string().trim().min(2, "E-posta veya kullanici adi girin"),
   password: z.string().min(6, "Parola en az 6 karakter olmali"),
 });
 
@@ -19,11 +19,12 @@ export default function LoginPage() {
   const { signIn, user, isLoading } = useAuth();
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const nextPath = "/dashboard";
 
   const form = useForm<LoginFormValues>({
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
     },
   });
@@ -42,10 +43,10 @@ export default function LoginPage() {
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
 
-      if (fieldErrors.email?.[0]) {
-        form.setError("email", {
+      if (fieldErrors.identifier?.[0]) {
+        form.setError("identifier", {
           type: "manual",
-          message: fieldErrors.email[0],
+          message: fieldErrors.identifier[0],
         });
       }
       if (fieldErrors.password?.[0]) {
@@ -77,22 +78,23 @@ export default function LoginPage() {
         <header className="mb-6 space-y-2">
           <h1 className="text-2xl font-semibold text-zinc-900">Admin Girisi</h1>
           <p className="text-sm text-zinc-600">QR yoklama paneline erismek icin giris yapin.</p>
+          <p className="text-xs text-zinc-500">E-posta veya kullanici adi ile giris yapabilirsiniz.</p>
         </header>
 
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium text-zinc-700">
-              E-posta
+            <label htmlFor="identifier" className="text-sm font-medium text-zinc-700">
+              E-posta / Kullanici Adi
             </label>
             <input
-              id="email"
-              type="email"
-              autoComplete="email"
+              id="identifier"
+              type="text"
+              autoComplete="username"
               className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-zinc-500"
-              {...form.register("email")}
+              {...form.register("identifier")}
             />
-            {form.formState.errors.email ? (
-              <p className="text-xs text-rose-600">{form.formState.errors.email.message}</p>
+            {form.formState.errors.identifier ? (
+              <p className="text-xs text-rose-600">{form.formState.errors.identifier.message}</p>
             ) : null}
           </div>
 
@@ -100,13 +102,24 @@ export default function LoginPage() {
             <label htmlFor="password" className="text-sm font-medium text-zinc-700">
               Parola
             </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-zinc-500"
-              {...form.register("password")}
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                className="w-full rounded-xl border border-zinc-300 px-3 py-2 pr-20 text-sm outline-none transition focus:border-zinc-500"
+                {...form.register("password")}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPassword((current) => !current);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100"
+              >
+                {showPassword ? "Gizle" : "Goster"}
+              </button>
+            </div>
             {form.formState.errors.password ? (
               <p className="text-xs text-rose-600">{form.formState.errors.password.message}</p>
             ) : null}

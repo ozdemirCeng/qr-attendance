@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AuthModule } from '../auth/auth.module';
 import { EventsModule } from '../events/events.module';
 import { ParticipantsModule } from '../participants/participants.module';
 import { QrModule } from '../qr/qr.module';
@@ -11,7 +12,13 @@ import { AttendanceRecordsRepository } from './repositories/attendance-records.r
 import { AttendanceService } from './services/attendance.service';
 
 @Module({
-  imports: [QrModule, SessionsModule, EventsModule, ParticipantsModule],
+  imports: [
+    AuthModule,
+    QrModule,
+    SessionsModule,
+    EventsModule,
+    ParticipantsModule,
+  ],
   controllers: [AttendanceController, AttendanceEventsController],
   providers: [
     AttendanceService,
