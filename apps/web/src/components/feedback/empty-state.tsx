@@ -18,11 +18,13 @@ export function EmptyState({
   onCtaClick,
 }: EmptyStateProps) {
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-6 text-center shadow-sm">
+    <article className="kp-card p-6 text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600">
         {iconLabel}
       </div>
-      <h4 className="mt-3 text-base font-semibold text-zinc-900">{title}</h4>
+      <h4 className="mt-3 text-base font-bold text-zinc-900" data-display="true">
+        {title}
+      </h4>
       <p className="mt-1 text-sm text-zinc-600">{message}</p>
 
       {ctaLabel ? (
@@ -30,7 +32,7 @@ export function EmptyState({
           {ctaHref ? (
             <Link
               href={ctaHref}
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+              className="kp-btn-primary px-4 py-2 text-sm font-semibold"
             >
               {ctaLabel}
             </Link>
@@ -38,7 +40,7 @@ export function EmptyState({
             <button
               type="button"
               onClick={onCtaClick}
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+              className="kp-btn-primary px-4 py-2 text-sm font-semibold"
             >
               {ctaLabel}
             </button>

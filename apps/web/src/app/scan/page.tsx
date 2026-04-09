@@ -88,14 +88,19 @@ export default function ScanLandingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-10 text-zinc-900 sm:px-6">
-      <section className="mx-auto max-w-2xl rounded-3xl bg-white p-8 shadow-sm">
-        <h1 className="text-3xl font-semibold">QR Tara</h1>
+    <main className="min-h-screen px-4 py-10 text-zinc-900 sm:px-6">
+      <section className="kp-card mx-auto max-w-2xl rounded-3xl p-8">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-600">
+          Public Scanner
+        </p>
+        <h1 className="mt-2 text-4xl font-extrabold tracking-tight" data-display="true">
+          QR Tara
+        </h1>
         <p className="mt-3 text-sm text-zinc-600">
           Kamera ve konum izinlerini vererek hizli check-in islemini baslatabilirsin.
         </p>
 
-        <div className="mt-6 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+        <div className="kp-soft-panel mt-6 space-y-3 rounded-2xl p-4 text-sm text-zinc-700">
           <p>Kamera izni: QR kodu okumak icin zorunludur.</p>
           <p>Konum izni: Etkinlik alaninda oldugunun dogrulanmasi icin kullanilir.</p>
         </div>
@@ -111,7 +116,7 @@ export default function ScanLandingPage() {
               setEventId(event.target.value);
             }}
             placeholder="ornek: 0fd1f8c0-..."
-            className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+            className="kp-input w-full px-3 py-2 text-sm"
           />
           {errorMessage ? <p className="text-xs text-rose-600">{errorMessage}</p> : null}
           {permissionMessage ? <p className="text-xs text-emerald-700">{permissionMessage}</p> : null}
@@ -124,7 +129,7 @@ export default function ScanLandingPage() {
               void requestPermissions();
             }}
             disabled={isRequestingPermissions}
-            className="rounded-xl border border-zinc-300 px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 disabled:opacity-60"
+            className="kp-btn-secondary px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
           >
             {isRequestingPermissions ? "Izinler kontrol ediliyor..." : "Izinleri Simdi Iste"}
           </button>
@@ -135,7 +140,7 @@ export default function ScanLandingPage() {
               void onStart();
             }}
             disabled={isRequestingPermissions}
-            className="rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+            className="kp-btn-primary px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
           >
             Taramaya Basla
           </button>

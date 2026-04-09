@@ -73,10 +73,15 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-100 px-4 py-8">
-      <section className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center px-4 py-8">
+      <section className="kp-card w-full max-w-md p-8">
         <header className="mb-6 space-y-2">
-          <h1 className="text-2xl font-semibold text-zinc-900">Admin Girisi</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-600">
+            Secure Access
+          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900" data-display="true">
+            Admin Girisi
+          </h1>
           <p className="text-sm text-zinc-600">QR yoklama paneline erismek icin giris yapin.</p>
           <p className="text-xs text-zinc-500">E-posta veya kullanici adi ile giris yapabilirsiniz.</p>
         </header>
@@ -90,7 +95,7 @@ export default function LoginPage() {
               id="identifier"
               type="text"
               autoComplete="username"
-              className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-zinc-500"
+              className="kp-input w-full px-3 py-2 text-sm transition"
               {...form.register("identifier")}
             />
             {form.formState.errors.identifier ? (
@@ -107,7 +112,7 @@ export default function LoginPage() {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 pr-20 text-sm outline-none transition focus:border-zinc-500"
+                className="kp-input w-full px-3 py-2 pr-20 text-sm transition"
                 {...form.register("password")}
               />
               <button
@@ -130,7 +135,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={form.formState.isSubmitting}
-            className="w-full rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="kp-btn-primary w-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
           >
             {form.formState.isSubmitting ? "Giris yapiliyor..." : "Giris Yap"}
           </button>
