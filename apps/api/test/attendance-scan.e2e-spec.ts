@@ -83,6 +83,30 @@ describe('Attendance scan (e2e)', () => {
     });
   });
 
+  it('rejects walk-in scan when name exists but no contact info is provided', async () => {
+    const seeded = seedActiveContext();
+    const token = qrTokenService.generateToken(seeded.session.id, 60);
+
+    const response = await request(app.getHttpServer())
+      .post('/attendance/scan')
+      .send({
+        token,
+        name: 'Walk In Kullanici',
+        lat: seeded.event.latitude,
+        lng: seeded.event.longitude,
+        locationAccuracy: 20,
+      })
+      .expect(400);
+
+    expect(response.body).toMatchObject({
+      success: false,
+      code: 'REGISTRATION_REQUIRED',
+      message: 'Kayit bulunamadi. Katilimci bilgisi gerekli.',
+      statusCode: 400,
+      path: '/attendance/scan',
+    });
+  });
+
   it('returns conflict when same participant scans same session again', async () => {
     const seeded = seedActiveContext();
 
