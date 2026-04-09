@@ -23,6 +23,8 @@ type ExportStatusResponse = {
   };
 };
 
+type HttpAgent = ReturnType<typeof request.agent>;
+
 describe('Exports flow (e2e)', () => {
   let app: INestApplication<App>;
   let eventsRepository: EventsRepository;
@@ -163,7 +165,7 @@ function parseExportRequestId(responseText: string) {
 }
 
 async function waitUntilReady(
-  agent: request.SuperAgentTest,
+  agent: HttpAgent,
   exportId: string,
   timeoutMs = 3_000,
 ) {
