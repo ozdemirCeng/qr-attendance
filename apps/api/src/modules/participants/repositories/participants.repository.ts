@@ -116,6 +116,27 @@ export class ParticipantsRepository {
     );
   }
 
+  findByEventAndPhone(
+    eventId: string,
+    phone: string,
+  ): ParticipantEntity | null {
+    const normalizedPhone = this.normalizePhone(phone);
+
+    if (!normalizedPhone) {
+      return null;
+    }
+
+    return (
+      [...this.participants.values()].find((participant) => {
+        if (participant.eventId !== eventId) {
+          return false;
+        }
+
+        return this.normalizePhone(participant.phone) === normalizedPhone;
+      }) ?? null
+    );
+  }
+
   findById(participantId: string): ParticipantEntity | null {
     return this.participants.get(participantId) ?? null;
   }
@@ -176,5 +197,19 @@ export class ParticipantsRepository {
     }
 
     return upserted;
+  }
+
+  private normalizePhone(value: string | null | undefined) {
+    if (!value) {
+      return null;
+    }
+
+    const digits = value.replace(/\D/g, '');
+
+    if (!digits) {
+      return null;
+    }
+
+    return digits.length > 10 ? digits.slice(-10) : digits;
   }
 }

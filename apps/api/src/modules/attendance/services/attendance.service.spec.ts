@@ -343,6 +343,50 @@ describe('AttendanceService', () => {
     );
   });
 
+  it('matches participant by phone and blocks duplicate scan for same session', async () => {
+    const { event, session } = seedActiveEventAndSession(
+      eventsRepository,
+      sessionsRepository,
+    );
+
+    const participant = participantsRepository.create({
+      eventId: event.id,
+      name: 'Sena',
+      email: null,
+      phone: '0555 111 22 33',
+      source: 'manual',
+      externalId: null,
+    });
+
+    const firstToken = qrTokenService.generateToken(session.id, 60);
+    const secondToken = qrTokenService.generateToken(session.id, 60);
+
+    const firstScan = await service.scan(
+      {
+        token: firstToken,
+        phone: '+90 (555) 111-22-33',
+        lat: 40.765,
+        lng: 29.94,
+      },
+      {},
+    );
+
+    expect(firstScan.data.participant.id).toBe(participant.id);
+
+    await expectCode(
+      service.scan(
+        {
+          token: secondToken,
+          phone: '5551112233',
+          lat: 40.765,
+          lng: 29.94,
+        },
+        {},
+      ),
+      'ALREADY_CHECKED_IN',
+    );
+  });
+
   it('supports attendance list pagination and filters', () => {
     const { event, session } = seedActiveEventAndSession(
       eventsRepository,

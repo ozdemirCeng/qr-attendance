@@ -453,6 +453,18 @@ export class AttendanceService {
       }
     }
 
+    if (normalizedPhone) {
+      const existingParticipant =
+        this.participantsRepository.findByEventAndPhone(
+          eventId,
+          normalizedPhone,
+        );
+
+      if (existingParticipant) {
+        return existingParticipant;
+      }
+    }
+
     if (!normalizedName || !hasContactInfo) {
       return null;
     }
