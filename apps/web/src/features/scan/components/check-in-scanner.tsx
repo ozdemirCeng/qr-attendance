@@ -312,7 +312,11 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
 
       const code = error instanceof ApiError ? error.code ?? "HTTP_EXCEPTION" : "UNKNOWN_ERROR";
       stopScanner();
-      router.replace(`/check-in/result?status=error&code=${encodeURIComponent(code)}`);
+      router.replace(
+        `/check-in/result?status=error&code=${encodeURIComponent(code)}&eventId=${encodeURIComponent(
+          eventId,
+        )}`,
+      );
       return;
     } finally {
       processingRef.current = false;
