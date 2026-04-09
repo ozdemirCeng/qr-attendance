@@ -15,7 +15,8 @@
     "quality": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "clean": "turbo clean",
     "db:generate": "pnpm --filter @qr-attendance/db db:generate",
-    "db:migrate": "pnpm --filter @qr-attendance/db db:migrate"
+    "db:migrate": "pnpm --filter @qr-attendance/db db:migrate",
+    "db:seed": "pnpm --filter @qr-attendance/db db:seed"
   },
   "devDependencies": {
     "eslint": "^9.38.0",

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
+import { EmptyState } from "@/components/feedback/empty-state";
 import { listEvents } from "@/lib/events";
 
 import { EventCard } from "./event-card";
@@ -52,7 +53,7 @@ export function DashboardEventsPanel() {
 
       {eventsQuery.isPending ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, index) => (
+          {Array.from({ length: 3 }).map((_, index) => (
             <EventCardSkeleton key={index} />
           ))}
         </div>
@@ -74,9 +75,13 @@ export function DashboardEventsPanel() {
       ) : null}
 
       {!eventsQuery.isPending && !eventsQuery.isError && eventsQuery.data.data.length === 0 ? (
-        <article className="rounded-2xl bg-white p-6 text-sm text-zinc-600 shadow-sm">
-          Henuz etkinlik olusturulmamis. Yeni Etkinlik butonuyla ilk etkinligini ekleyebilirsin.
-        </article>
+        <EmptyState
+          iconLabel="EV"
+          title="Henuz etkinlik olusturmadiniz"
+          message="Ilk etkinligi eklemek icin olustur butonunu kullanin."
+          ctaLabel="Olustur"
+          ctaHref="/events/new"
+        />
       ) : null}
 
       {!eventsQuery.isPending && !eventsQuery.isError && eventsQuery.data.data.length > 0 ? (

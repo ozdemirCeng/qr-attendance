@@ -6,10 +6,13 @@ import cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { initializeSentry } from './common/monitoring/sentry';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  initializeSentry(configService.get<string>('SENTRY_DSN'));
 
   app.use(cookieParser());
 
@@ -44,6 +47,7 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);
+  SwaggerModule.setup('api/docs', app, document);
 
   const port = configService.get<number>('API_PORT', 3001);
   await app.listen(port);

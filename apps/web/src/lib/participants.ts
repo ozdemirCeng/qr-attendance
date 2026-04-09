@@ -1,4 +1,10 @@
-import { ApiError, ApiErrorPayload, apiFetch } from "@/lib/api";
+import {
+  ApiError,
+  ApiErrorPayload,
+  apiFetch,
+  resolveApiErrorCode,
+  resolveApiErrorMessage,
+} from "@/lib/api";
 
 export type ParticipantSource = "csv" | "manual" | "self_registered";
 
@@ -112,7 +118,13 @@ export async function importParticipantsCsv(
     };
 
     xhr.onerror = () => {
-      reject(new ApiError("Network request failed", 0));
+      reject(
+        new ApiError(
+          resolveApiErrorMessage({ code: "NETWORK_ERROR", statusCode: 0 }),
+          0,
+          "NETWORK_ERROR",
+        ),
+      );
     };
 
     xhr.onreadystatechange = () => {
@@ -129,7 +141,13 @@ export async function importParticipantsCsv(
       }
 
       const errorPayload = payload as ApiErrorPayload;
-      reject(new ApiError(errorPayload.message ?? "Request failed", xhr.status, errorPayload.code));
+      const code = resolveApiErrorCode(xhr.status, errorPayload.code);
+      const message = resolveApiErrorMessage({
+        code,
+        statusCode: xhr.status,
+        fallbackMessage: errorPayload.message,
+      });
+      reject(new ApiError(message, xhr.status, code));
     };
 
     xhr.send(formData);

@@ -16,3 +16,5 @@ pnpm --filter @qr-attendance/web typecheck
 - Next.js App Router kullanilir.
 - Veri cekme icin TanStack Query kullanilir.
 - API baglantisi NEXT_PUBLIC_API_URL degiskeni ile yonetilir.
+- Dev scripti `next dev --webpack` olarak calisir (Turbopack HMR chunk hatalarina karsi).
+- Yerel gelistirmede NEXT_PUBLIC_API_URL degerini `http://localhost:3001` kullanin.

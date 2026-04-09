@@ -1,19 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
+import { EmptyState } from "@/components/feedback/empty-state";
 import { ApiError } from "@/lib/api";
 import {
+  AttendanceRecordItem,
+  listAttendance,
+  manualUpsertAttendance,
+} from "@/lib/attendance";
+import {
   CsvImportResponse,
+  ParticipantItem,
   ParticipantSource,
   createParticipantManual,
   importParticipantsCsv,
   listParticipants,
   removeParticipant,
 } from "@/lib/participants";
+import { listSessions } from "@/lib/sessions";
 
 const manualParticipantSchema = z.object({
   name: z.string().trim().min(2, "Ad en az 2 karakter olmali"),
@@ -30,6 +38,15 @@ type ManualParticipantFormValues = {
 type ParticipantsTabPanelProps = {
   eventId: string;
   onToast: (input: { tone: "success" | "error"; message: string }) => void;
+};
+
+type AttendanceStatusMap = Record<string, AttendanceRecordItem>;
+
+type AttendanceActionDialogState = {
+  participantId: string;
+  participantName: string;
+  nextIsValid: boolean;
+  reason: string;
 };
 
 const sourceLabel: Record<ParticipantSource, string> = {
@@ -56,11 +73,17 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [attendanceSessionSelection, setAttendanceSessionSelection] = useState("auto");
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAttendanceUpdating, setIsAttendanceUpdating] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [attendanceActionDialog, setAttendanceActionDialog] =
+    useState<AttendanceActionDialogState | null>(null);
   const [importResult, setImportResult] = useState<CsvImportResponse["data"] | null>(null);
 
   const manualForm = useForm<ManualParticipantFormValues>({
@@ -80,7 +103,90 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
     queryFn: () => listParticipants(eventId, page, 20, search),
   });
 
+  const sessionsQuery = useQuery({
+    queryKey: ["sessions", eventId],
+    queryFn: () => listSessions(eventId),
+  });
+
+  const resolvedAttendanceSessionId = useMemo(() => {
+    const sessions = sessionsQuery.data?.data ?? [];
+
+    if (sessions.length === 0) {
+      return null;
+    }
+
+    if (attendanceSessionSelection !== "auto") {
+      return attendanceSessionSelection;
+    }
+
+    const now = Date.now();
+    const activeSession = sessions.find((session) => {
+      const startsAt = new Date(session.startsAt).getTime();
+      const endsAt = new Date(session.endsAt).getTime();
+
+      return now >= startsAt && now <= endsAt;
+    });
+
+    if (activeSession) {
+      return activeSession.id;
+    }
+
+    return sessions[sessions.length - 1]?.id ?? null;
+  }, [sessionsQuery.data?.data, attendanceSessionSelection]);
+
+  const attendanceStatusQuery = useQuery({
+    queryKey: [
+      "participant-attendance-status",
+      eventId,
+      resolvedAttendanceSessionId,
+      search,
+    ],
+    enabled: Boolean(resolvedAttendanceSessionId),
+    queryFn: async () => {
+      if (!resolvedAttendanceSessionId) {
+        return {} as AttendanceStatusMap;
+      }
+
+      const statusByParticipant: AttendanceStatusMap = {};
+      let currentPage = 1;
+      let totalPages = 1;
+
+      while (currentPage <= totalPages) {
+        const response = await listAttendance(eventId, {
+          page: currentPage,
+          limit: 100,
+          search,
+          sessionId: resolvedAttendanceSessionId,
+        });
+
+        totalPages = response.pagination.totalPages;
+
+        for (const record of response.data) {
+          if (!record.participantId) {
+            continue;
+          }
+
+          const current = statusByParticipant[record.participantId];
+
+          if (!current || current.scannedAt < record.scannedAt) {
+            statusByParticipant[record.participantId] = record;
+          }
+        }
+
+        currentPage += 1;
+      }
+
+      return statusByParticipant;
+    },
+  });
+
+  useEffect(() => {
+    setSelectedParticipantIds([]);
+  }, [page, search, resolvedAttendanceSessionId]);
+
   const pagination = participantsQuery.data?.pagination;
+  const participants = participantsQuery.data?.data ?? [];
+  const selectedCount = selectedParticipantIds.length;
 
   const participantCountLabel = useMemo(() => {
     if (!pagination) {
@@ -89,6 +195,72 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
 
     return `${pagination.total} kayit`;
   }, [pagination]);
+
+  const canManageAttendance = Boolean(resolvedAttendanceSessionId);
+
+  const selectedSessionName = useMemo(() => {
+    if (!resolvedAttendanceSessionId) {
+      return "Oturum yok";
+    }
+
+    return (
+      sessionsQuery.data?.data.find((session) => session.id === resolvedAttendanceSessionId)
+        ?.name ?? "Oturum"
+    );
+  }, [sessionsQuery.data?.data, resolvedAttendanceSessionId]);
+
+  const refreshAllRelatedQueries = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["participants", eventId] }),
+      queryClient.invalidateQueries({
+        queryKey: ["participant-attendance-status", eventId],
+      }),
+      queryClient.invalidateQueries({ queryKey: ["attendance-list", eventId] }),
+      queryClient.invalidateQueries({ queryKey: ["attendance-stats", eventId] }),
+    ]);
+  }, [queryClient, eventId]);
+
+  const upsertAttendanceForParticipant = useCallback(
+    async (
+      participantId: string,
+      isValid: boolean,
+      reason?: string,
+    ): Promise<boolean> => {
+      if (!resolvedAttendanceSessionId) {
+        onToast({
+          tone: "error",
+          message: "Manuel yoklama icin once bir oturum secmelisiniz.",
+        });
+        return false;
+      }
+
+      setIsAttendanceUpdating(true);
+
+      try {
+        await manualUpsertAttendance(eventId, {
+          participantId,
+          isValid,
+          sessionId: resolvedAttendanceSessionId,
+          reason,
+        });
+
+        onToast({ tone: "success", message: "Yoklama kaydi guncellendi." });
+        await refreshAllRelatedQueries();
+        return true;
+      } catch (error) {
+        if (error instanceof ApiError) {
+          onToast({ tone: "error", message: error.message });
+        } else {
+          onToast({ tone: "error", message: "Yoklama kaydi guncellenemedi." });
+        }
+
+        return false;
+      } finally {
+        setIsAttendanceUpdating(false);
+      }
+    },
+    [eventId, onToast, refreshAllRelatedQueries, resolvedAttendanceSessionId],
+  );
 
   async function onCreateManualParticipant(values: ManualParticipantFormValues) {
     manualForm.clearErrors();
@@ -149,6 +321,104 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
       onToast({ tone: "error", message: "Katilimci silinirken hata olustu." });
     }
   }
+
+  function onToggleParticipantSelection(participantId: string, checked: boolean) {
+    setSelectedParticipantIds((current) => {
+      if (checked) {
+        return current.includes(participantId) ? current : [...current, participantId];
+      }
+
+      return current.filter((id) => id !== participantId);
+    });
+  }
+
+  function onToggleSelectAll(checked: boolean) {
+    if (!checked) {
+      setSelectedParticipantIds([]);
+      return;
+    }
+
+    setSelectedParticipantIds(participants.map((participant) => participant.id));
+  }
+
+  async function onBulkMarkPresent() {
+    if (selectedParticipantIds.length === 0) {
+      onToast({ tone: "error", message: "Toplu islem icin en az bir katilimci secin." });
+      return;
+    }
+
+    if (!resolvedAttendanceSessionId) {
+      onToast({ tone: "error", message: "Toplu islem icin once bir oturum secin." });
+      return;
+    }
+
+    const approved = window.confirm(
+      `${selectedParticipantIds.length} katilimciyi VAR olarak isaretlemek istiyor musunuz?`,
+    );
+
+    if (!approved) {
+      return;
+    }
+
+    setIsBulkUpdating(true);
+
+    try {
+      const results = await Promise.allSettled(
+        selectedParticipantIds.map((participantId) =>
+          manualUpsertAttendance(eventId, {
+            participantId,
+            isValid: true,
+            sessionId: resolvedAttendanceSessionId,
+          }),
+        ),
+      );
+
+      const successCount = results.filter(
+        (result) => result.status === "fulfilled",
+      ).length;
+      const failedCount = results.length - successCount;
+
+      if (successCount > 0) {
+        onToast({
+          tone: "success",
+          message: `${successCount} kayit VAR olarak guncellendi.`,
+        });
+      }
+
+      if (failedCount > 0) {
+        onToast({
+          tone: "error",
+          message: `${failedCount} kayit guncellenemedi.`,
+        });
+      }
+
+      setSelectedParticipantIds([]);
+      await refreshAllRelatedQueries();
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  }
+
+  function openAttendanceActionDialog(
+    participant: ParticipantItem,
+    nextIsValid: boolean,
+    record: AttendanceRecordItem | undefined,
+  ) {
+    if (!nextIsValid && !record) {
+      return;
+    }
+
+    setAttendanceActionDialog({
+      participantId: participant.id,
+      participantName: participant.name,
+      nextIsValid,
+      reason: nextIsValid ? "" : (record?.invalidReason ?? ""),
+    });
+  }
+
+  const allRowsSelected =
+    participants.length > 0 &&
+    participants.every((participant) => selectedParticipantIds.includes(participant.id));
 
   async function onUploadCsv() {
     if (!selectedFile) {
@@ -232,6 +502,47 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
             placeholder="Ad, e-posta veya telefon ile ara"
             className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
           />
+        </div>
+
+        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
+          <div>
+            <label htmlFor="attendanceSessionSelect" className="text-xs font-semibold text-zinc-600">
+              Manuel Yoklama Oturumu
+            </label>
+            <select
+              id="attendanceSessionSelect"
+              value={attendanceSessionSelection}
+              onChange={(event) => {
+                setAttendanceSessionSelection(event.target.value);
+              }}
+              className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+            >
+              <option value="auto">Otomatik (aktif veya en son oturum)</option>
+              {sessionsQuery.data?.data.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {session.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">
+              Secili: {selectedSessionName}
+            </p>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              type="button"
+              disabled={!canManageAttendance || isBulkUpdating || selectedCount === 0}
+              onClick={() => {
+                void onBulkMarkPresent();
+              }}
+              className="w-full rounded-xl border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+            >
+              {isBulkUpdating
+                ? "Toplu islem suruyor..."
+                : `Secilileri Var Isaretle (${selectedCount})`}
+            </button>
+          </div>
         </div>
       </article>
 
@@ -330,10 +641,35 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
         <h3 className="text-lg font-semibold text-zinc-900">Katilimci Listesi</h3>
 
         {participantsQuery.isPending ? (
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div key={index} className="h-10 animate-pulse rounded-lg bg-zinc-100" />
-            ))}
+          <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-200">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2">&nbsp;</th>
+                  <th className="px-3 py-2">Ad</th>
+                  <th className="px-3 py-2">E-posta</th>
+                  <th className="px-3 py-2">Telefon</th>
+                  <th className="px-3 py-2">Kaynak</th>
+                  <th className="px-3 py-2">Var / Yok</th>
+                  <th className="px-3 py-2">Tarih</th>
+                  <th className="px-3 py-2">Islem</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index} className="border-t border-zinc-100">
+                    <td className="px-3 py-2"><div className="h-4 w-4 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-28 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-32 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-24 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-16 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-6 w-16 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-4 w-24 animate-pulse rounded bg-zinc-200" /></td>
+                    <td className="px-3 py-2"><div className="h-6 w-14 animate-pulse rounded bg-zinc-200" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : null}
 
@@ -355,7 +691,15 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
         {!participantsQuery.isPending &&
         !participantsQuery.isError &&
         participantsQuery.data.data.length === 0 ? (
-          <p className="mt-4 text-sm text-zinc-600">Filtreye uygun katilimci bulunamadi.</p>
+          <EmptyState
+            iconLabel="PT"
+            title="Katilimci listesi bos"
+            message="CSV yukleyin veya manuel ekleyin."
+            ctaLabel="Manuel Ekle"
+            onCtaClick={() => {
+              setIsManualModalOpen(true);
+            }}
+          />
         ) : null}
 
         {!participantsQuery.isPending &&
@@ -366,10 +710,22 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
                   <tr>
+                    <th className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={allRowsSelected}
+                        onChange={(event) => {
+                          onToggleSelectAll(event.target.checked);
+                        }}
+                        className="h-4 w-4 rounded border-zinc-300"
+                        aria-label="Tum satirlari sec"
+                      />
+                    </th>
                     <th className="px-3 py-2">Ad</th>
                     <th className="px-3 py-2">E-posta</th>
                     <th className="px-3 py-2">Telefon</th>
                     <th className="px-3 py-2">Kaynak</th>
+                    <th className="px-3 py-2">Var / Yok</th>
                     <th className="px-3 py-2">Tarih</th>
                     <th className="px-3 py-2 text-right">Islem</th>
                   </tr>
@@ -377,10 +733,57 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
                 <tbody>
                   {participantsQuery.data.data.map((participant) => (
                     <tr key={participant.id} className="border-t border-zinc-100">
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedParticipantIds.includes(participant.id)}
+                          onChange={(event) => {
+                            onToggleParticipantSelection(participant.id, event.target.checked);
+                          }}
+                          className="h-4 w-4 rounded border-zinc-300"
+                          aria-label={`${participant.name} sec`}
+                        />
+                      </td>
                       <td className="px-3 py-2 text-zinc-900">{participant.name}</td>
                       <td className="px-3 py-2 text-zinc-700">{participant.email ?? "-"}</td>
                       <td className="px-3 py-2 text-zinc-700">{participant.phone ?? "-"}</td>
                       <td className="px-3 py-2 text-zinc-700">{sourceLabel[participant.source]}</td>
+                      <td className="px-3 py-2 text-zinc-700">
+                        {(() => {
+                          const attendanceRecord = attendanceStatusQuery.data?.[participant.id];
+                          const isPresent = Boolean(attendanceRecord?.isValid);
+
+                          return (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={!canManageAttendance || isAttendanceUpdating || attendanceStatusQuery.isPending}
+                                onClick={() => {
+                                  openAttendanceActionDialog(
+                                    participant,
+                                    !isPresent,
+                                    attendanceRecord,
+                                  );
+                                }}
+                                className={`rounded-lg border px-3 py-1 text-xs font-semibold disabled:opacity-50 ${
+                                  isPresent
+                                    ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                    : "border-zinc-300 text-zinc-700 hover:bg-zinc-100"
+                                }`}
+                              >
+                                {isPresent ? "Var" : "Yok"}
+                              </button>
+                              <span className="text-xs text-zinc-500">
+                                {attendanceRecord
+                                  ? attendanceRecord.isValid
+                                    ? "Kayitli"
+                                    : "Gecersiz"
+                                  : "Kayit Yok"}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td className="px-3 py-2 text-zinc-700">{formatDate(participant.createdAt)}</td>
                       <td className="px-3 py-2 text-right">
                         <button
@@ -504,6 +907,84 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {attendanceActionDialog ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h4 className="text-lg font-semibold text-zinc-900">
+              {attendanceActionDialog.nextIsValid ? "Var Olarak Isaretle" : "Yok Olarak Isaretle"}
+            </h4>
+            <p className="mt-2 text-sm text-zinc-700">
+              {attendanceActionDialog.participantName} icin yoklama durumunu {" "}
+              <strong>{attendanceActionDialog.nextIsValid ? "VAR" : "YOK"}</strong> olarak
+              guncellemek istiyor musunuz?
+            </p>
+
+            {!attendanceActionDialog.nextIsValid ? (
+              <div className="mt-3 space-y-1">
+                <label
+                  htmlFor="attendanceActionReason"
+                  className="text-xs font-semibold text-zinc-600"
+                >
+                  Sebep (opsiyonel)
+                </label>
+                <textarea
+                  id="attendanceActionReason"
+                  value={attendanceActionDialog.reason}
+                  onChange={(event) => {
+                    setAttendanceActionDialog((current) => {
+                      if (!current) {
+                        return null;
+                      }
+
+                      return {
+                        ...current,
+                        reason: event.target.value,
+                      };
+                    });
+                  }}
+                  className="min-h-24 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+                  placeholder="Ornek: Manuel kontrol sonrasi yok"
+                />
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAttendanceActionDialog(null);
+                }}
+                className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+              >
+                Iptal
+              </button>
+              <button
+                type="button"
+                disabled={isAttendanceUpdating}
+                onClick={() => {
+                  if (!attendanceActionDialog) {
+                    return;
+                  }
+
+                  void upsertAttendanceForParticipant(
+                    attendanceActionDialog.participantId,
+                    attendanceActionDialog.nextIsValid,
+                    attendanceActionDialog.nextIsValid
+                      ? undefined
+                      : (attendanceActionDialog.reason.trim() || undefined),
+                  ).finally(() => {
+                    setAttendanceActionDialog(null);
+                  });
+                }}
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+              >
+                {isAttendanceUpdating ? "Guncelleniyor..." : "Onayla"}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

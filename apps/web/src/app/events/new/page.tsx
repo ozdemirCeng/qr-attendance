@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
@@ -38,11 +38,28 @@ type CreateEventFormValues = {
   endsAt: string;
 };
 
+type GeocodeSuggestion = {
+  label: string;
+  locationName: string;
+  latitude: number;
+  longitude: number;
+};
+
+type GeocodeResponse = {
+  success: boolean;
+  data: GeocodeSuggestion[];
+  message?: string;
+};
+
 export default function NewEventPage() {
   const router = useRouter();
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(
     null,
   );
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<GeocodeSuggestion[]>([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [locationSearchError, setLocationSearchError] = useState<string | null>(null);
 
   const form = useForm<CreateEventFormValues>({
     defaultValues: {
@@ -116,6 +133,72 @@ export default function NewEventPage() {
     name: "radiusMeters",
   });
 
+  useEffect(() => {
+    const query = locationQuery.trim();
+
+    if (query.length < 3) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      setIsSearchingLocation(true);
+      setLocationSearchError(null);
+
+      void fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
+        signal: controller.signal,
+        cache: "no-store",
+      })
+        .then(async (response) => {
+          const payload = (await response.json().catch(() => null)) as GeocodeResponse | null;
+
+          if (!response.ok || !payload || !payload.success) {
+            throw new Error(payload?.message ?? "Konum servisi hatasi");
+          }
+
+          setLocationSuggestions(payload.data);
+        })
+        .catch(() => {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setLocationSuggestions([]);
+          setLocationSearchError("Konum aramasi su an kullanilamiyor.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setIsSearchingLocation(false);
+          }
+        });
+    }, 350);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [locationQuery]);
+
+  function applyLocationSuggestion(suggestion: GeocodeSuggestion) {
+    form.setValue("locationName", suggestion.locationName, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.setValue("latitude", suggestion.latitude.toFixed(6), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.setValue("longitude", suggestion.longitude.toFixed(6), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+
+    form.clearErrors(["locationName", "latitude", "longitude"]);
+    setLocationQuery(suggestion.label);
+    setLocationSuggestions([]);
+    setLocationSearchError(null);
+  }
+
   return (
     <AppShell>
       <section className="space-y-4">
@@ -167,6 +250,67 @@ export default function NewEventPage() {
               />
               {form.formState.errors.description ? (
                 <p className="text-xs text-rose-600">{form.formState.errors.description.message}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-zinc-700" htmlFor="locationSearch">
+                Yer Ismiyle Konum Ara
+              </label>
+              <input
+                id="locationSearch"
+                autoComplete="off"
+                value={locationQuery}
+                onChange={(event) => {
+                  const nextQuery = event.target.value;
+                  setLocationQuery(nextQuery);
+
+                  if (nextQuery.trim().length < 3) {
+                    setIsSearchingLocation(false);
+                    setLocationSearchError(null);
+                    setLocationSuggestions([]);
+                  }
+                }}
+                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+                placeholder="Orn: Kocaeli Universitesi"
+              />
+              <p className="text-xs text-zinc-500">
+                En az 3 karakter yazin. Oneriden secince konum adi ve koordinatlar otomatik dolar.
+              </p>
+
+              {isSearchingLocation ? (
+                <p className="text-xs text-zinc-500">Konum araniyor...</p>
+              ) : null}
+
+              {locationSearchError ? (
+                <p className="text-xs text-rose-600">{locationSearchError}</p>
+              ) : null}
+
+              {locationSuggestions.length > 0 ? (
+                <div className="max-h-56 overflow-auto rounded-xl border border-zinc-200">
+                  {locationSuggestions.map((suggestion, index) => (
+                    <button
+                      key={`${suggestion.label}-${index}`}
+                      type="button"
+                      onClick={() => {
+                        applyLocationSuggestion(suggestion);
+                      }}
+                      className="w-full border-b border-zinc-100 px-3 py-2 text-left last:border-b-0 hover:bg-zinc-50"
+                    >
+                      <span className="block text-sm text-zinc-900">{suggestion.label}</span>
+                      <span className="block text-xs text-zinc-500">
+                        {suggestion.latitude.toFixed(5)}, {suggestion.longitude.toFixed(5)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {locationQuery.trim().length >= 3 &&
+              !isSearchingLocation &&
+              !locationSearchError &&
+              locationSuggestions.length === 0 ? (
+                <p className="text-xs text-zinc-500">Bu arama icin sonuc bulunamadi.</p>
               ) : null}
             </div>
 

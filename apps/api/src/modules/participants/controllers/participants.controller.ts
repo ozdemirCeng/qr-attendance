@@ -22,6 +22,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { Audit } from '../../../common/decorators/audit.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
@@ -41,6 +42,11 @@ export class ParticipantsController {
   @ApiOperation({ summary: 'Etkinlige manuel katilimci ekler' })
   @ApiOkResponse({ description: 'Katilimci olusturuldu.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
+  @Audit({
+    action: 'participant.added',
+    entityType: 'participant',
+    entityIdResponsePath: 'data.id',
+  })
   @Post('manual')
   createManual(
     @Param('eventId') eventId: string,
@@ -79,6 +85,11 @@ export class ParticipantsController {
   })
   @ApiOkResponse({ description: 'CSV import sonucu donuldu.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
+  @Audit({
+    action: 'participant.imported',
+    entityType: 'participant',
+    entityIdParam: 'eventId',
+  })
   @Post('import-csv')
   @UseInterceptors(FileInterceptor('file'))
   importCsv(
