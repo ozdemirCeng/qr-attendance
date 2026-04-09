@@ -88,6 +88,16 @@ Vercel preview URL alani:
 
 - `https://<vercel-preview-url>`
 
+Vercel env template dosyalari:
+
+- API project (`apps/api`): `.env.vercel.api.example`
+- Web project (`apps/web`): `.env.vercel.web.example`
+
+Yerel hazir Vercel env dosyalari (gitignore):
+
+- API: `.env.vercel.api`
+- Web: `.env.vercel.web`
+
 ## Demo Akisi Kontrol Listesi
 
 1. Kayitli katilimci happy path:

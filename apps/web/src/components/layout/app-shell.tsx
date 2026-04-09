@@ -33,26 +33,33 @@ export function AppShell({ children }: PropsWithChildren) {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100 px-4 py-8 text-zinc-900 sm:px-6 lg:px-8">
+    <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-6xl space-y-6">
-        <header className="rounded-2xl bg-white p-6 shadow-sm">
+        <header className="kp-card p-6">
           <div className="flex items-center justify-between gap-3 md:hidden">
-            <h1 className="text-xl font-semibold">QR Yoklama Paneli</h1>
+            <h1 className="text-xl font-extrabold tracking-tight" data-display="true">
+              QR Yoklama Paneli
+            </h1>
             <button
               type="button"
               onClick={() => {
                 setIsMobileMenuOpen((current) => !current);
               }}
-              className="min-h-11 rounded-xl border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+              className="kp-btn-secondary min-h-11 px-4 text-sm font-semibold"
               aria-label="Menuyu ac veya kapat"
             >
               {isMobileMenuOpen ? "Kapat" : "Menu"}
             </button>
           </div>
 
-          <div className="mt-3 hidden items-start justify-between gap-4 md:flex md:flex-wrap">
+          <div className="mt-3 hidden items-start justify-between gap-4 md:flex md:flex-wrap md:items-center">
             <div>
-              <h1 className="text-2xl font-semibold">QR Yoklama Paneli</h1>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-600">
+                Management Console
+              </p>
+              <h1 className="mt-2 text-3xl font-extrabold tracking-tight" data-display="true">
+                QR Yoklama Paneli
+              </h1>
               <p className="mt-1 text-sm text-zinc-600">
                 Hos geldin{user?.name ? `, ${user.name}` : ""}. Etkinliklerini buradan
                 yonetebilirsin.
@@ -64,13 +71,13 @@ export function AppShell({ children }: PropsWithChildren) {
                 void handleSignOut();
               }}
               disabled={isSigningOut}
-              className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="kp-btn-secondary px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSigningOut ? "Cikis yapiliyor..." : "Cikis"}
             </button>
           </div>
 
-          <nav className="mt-4 hidden flex-wrap gap-2 md:flex">
+          <nav className="mt-6 hidden flex-wrap gap-2 md:flex">
             {navigationItems.map((item) => {
               const isActive = pathname === item.href;
 
@@ -80,8 +87,8 @@ export function AppShell({ children }: PropsWithChildren) {
                   href={item.href}
                   className={`min-h-11 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                     isActive
-                      ? "bg-zinc-900 text-white"
-                      : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100"
+                      ? "bg-zinc-900 text-white shadow-[0_16px_24px_-18px_rgba(0,88,190,0.5)]"
+                      : "kp-btn-secondary"
                   }`}
                 >
                   {item.label}
@@ -91,7 +98,7 @@ export function AppShell({ children }: PropsWithChildren) {
           </nav>
 
           {isMobileMenuOpen ? (
-            <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-3 md:hidden">
+            <div className="kp-soft-panel mt-4 rounded-2xl p-3 md:hidden">
               <p className="text-xs text-zinc-500">
                 Hos geldin{user?.name ? `, ${user.name}` : ""}
               </p>
@@ -109,7 +116,7 @@ export function AppShell({ children }: PropsWithChildren) {
                       className={`min-h-11 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                         isActive
                           ? "bg-zinc-900 text-white"
-                          : "border border-zinc-300 text-zinc-700 hover:bg-zinc-100"
+                          : "kp-btn-secondary"
                       }`}
                     >
                       {item.label}
@@ -122,7 +129,7 @@ export function AppShell({ children }: PropsWithChildren) {
                     void handleSignOut();
                   }}
                   disabled={isSigningOut}
-                  className="min-h-11 rounded-xl border border-zinc-300 px-4 py-3 text-left text-sm font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="kp-btn-secondary min-h-11 px-4 py-3 text-left text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSigningOut ? "Cikis yapiliyor..." : "Cikis"}
                 </button>

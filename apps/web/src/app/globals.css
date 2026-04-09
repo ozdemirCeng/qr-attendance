@@ -1,19 +1,164 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --kp-background: #f8f9ff;
+  --kp-surface: #f8f9ff;
+  --kp-surface-container-low: #eff4ff;
+  --kp-surface-container-lowest: #ffffff;
+  --kp-surface-container-highest: #d3e4fe;
+  --kp-on-surface: #0b1c30;
+  --kp-on-surface-variant: #424754;
+  --kp-primary: #0058be;
+  --kp-primary-container: #2170e4;
+  --kp-tertiary: #006947;
+  --kp-tertiary-fixed: #6ffbbe;
+  --kp-outline-variant-rgb: 194, 198, 214;
+  --kp-error-rgb: 186, 26, 26;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--kp-background);
+  --color-foreground: var(--kp-on-surface);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-manrope);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), sans-serif;
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 18% -8%, rgba(33, 112, 228, 0.18) 0%, rgba(33, 112, 228, 0) 42%),
+    radial-gradient(circle at 100% 0%, rgba(0, 88, 190, 0.14) 0%, rgba(0, 88, 190, 0) 38%),
+    var(--kp-surface);
+  color: var(--kp-on-surface);
+  font-family: var(--font-inter), sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+[data-display="true"] {
+  font-family: var(--font-manrope), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Shared high-level design primitives */
+.kp-card {
+  border: none;
+  border-radius: 1rem;
+  background: var(--kp-surface-container-lowest);
+  box-shadow: 0 20px 48px -28px rgba(0, 88, 190, 0.2);
+}
+
+.kp-soft-panel {
+  border: none;
+  border-radius: 1rem;
+  background: var(--kp-surface-container-low);
+}
+
+.kp-ghost-border {
+  border: 1px solid rgba(var(--kp-outline-variant-rgb), 0.28);
+}
+
+.kp-input {
+  border: 1px solid rgba(var(--kp-outline-variant-rgb), 0.2);
+  border-radius: 0.75rem;
+  background: var(--kp-surface-container-low);
+}
+
+.kp-input:focus {
+  outline: none;
+  border-color: rgba(0, 88, 190, 0.35);
+  background: var(--kp-surface-container-lowest);
+}
+
+.kp-btn-primary {
+  border: none;
+  border-radius: 0.75rem;
+  color: #ffffff;
+  background-image: linear-gradient(135deg, var(--kp-primary), var(--kp-primary-container));
+  box-shadow: 0 14px 30px -18px rgba(0, 88, 190, 0.55);
+}
+
+.kp-btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+.kp-btn-secondary {
+  border: 1px solid rgba(var(--kp-outline-variant-rgb), 0.32);
+  border-radius: 0.75rem;
+  color: var(--kp-on-surface-variant);
+  background: var(--kp-surface-container-low);
+}
+
+.kp-btn-secondary:hover {
+  background: var(--kp-surface-container-highest);
+}
+
+/* System-wide utility remap to align old classes with new design tokens */
+.bg-zinc-100,
+.bg-zinc-50 {
+  background-color: var(--kp-surface-container-low) !important;
+}
+
+.bg-white {
+  background-color: var(--kp-surface-container-lowest) !important;
+}
+
+.bg-zinc-900 {
+  color: #ffffff;
+  background-image: linear-gradient(135deg, var(--kp-primary), var(--kp-primary-container)) !important;
+  background-color: transparent !important;
+}
+
+.text-zinc-900,
+.text-zinc-800 {
+  color: var(--kp-on-surface) !important;
+}
+
+.text-zinc-700,
+.text-zinc-600,
+.text-zinc-500,
+.text-zinc-400 {
+  color: var(--kp-on-surface-variant) !important;
+}
+
+.border-zinc-300,
+.border-zinc-200,
+.border-zinc-100 {
+  border-color: rgba(var(--kp-outline-variant-rgb), 0.24) !important;
+}
+
+.bg-emerald-50 {
+  background-color: rgba(111, 251, 190, 0.2) !important;
+}
+
+.text-emerald-700 {
+  color: var(--kp-tertiary) !important;
+}
+
+.border-emerald-300 {
+  border-color: rgba(0, 105, 71, 0.32) !important;
+}
+
+.bg-rose-50 {
+  background-color: rgba(var(--kp-error-rgb), 0.11) !important;
+}
+
+.text-rose-700 {
+  color: rgb(var(--kp-error-rgb)) !important;
+}
+
+.border-rose-300,
+.border-rose-200 {
+  border-color: rgba(var(--kp-error-rgb), 0.3) !important;
+}
+
+.hover\:bg-zinc-100:hover,
+.hover\:bg-zinc-50:hover {
+  background-color: var(--kp-surface-container-highest) !important;
+}
+
+.hover\:bg-zinc-800:hover {
+  filter: brightness(1.06);
 }

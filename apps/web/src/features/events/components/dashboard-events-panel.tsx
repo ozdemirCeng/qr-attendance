@@ -37,15 +37,20 @@ export function DashboardEventsPanel() {
   });
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-zinc-900">Etkinlikler</h2>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-600">
+            Editorial Feed
+          </p>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-zinc-900" data-display="true">
+            Etkinlikler
+          </h2>
           <p className="text-sm text-zinc-600">Tum etkinliklerini tek yerden takip et.</p>
         </div>
         <Link
           href="/events/new"
-          className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800"
+          className="kp-btn-primary px-4 py-2 text-sm font-semibold transition"
         >
           Yeni Etkinlik
         </Link>
@@ -60,7 +65,7 @@ export function DashboardEventsPanel() {
       ) : null}
 
       {eventsQuery.isError ? (
-        <article className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <article className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
           Etkinlikler yuklenemedi. Lutfen tekrar deneyin.
           <button
             type="button"

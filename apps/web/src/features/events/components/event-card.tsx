@@ -14,19 +14,19 @@ type EventCardProps = {
 const statusMeta: Record<EventStatus, { label: string; color: string }> = {
   draft: {
     label: "Taslak",
-    color: "bg-amber-100 text-amber-700",
+    color: "bg-amber-50 text-zinc-700",
   },
   active: {
     label: "Aktif",
-    color: "bg-emerald-100 text-emerald-700",
+    color: "bg-emerald-50 text-emerald-700",
   },
   completed: {
     label: "Tamamlandi",
-    color: "bg-sky-100 text-sky-700",
+    color: "bg-zinc-100 text-zinc-700",
   },
   archived: {
     label: "Arsiv",
-    color: "bg-zinc-200 text-zinc-700",
+    color: "bg-zinc-100 text-zinc-700",
   },
 };
 
@@ -41,9 +41,11 @@ export function EventCard({
   const meta = statusMeta[status];
 
   return (
-    <article className="rounded-2xl bg-white p-5 shadow-sm transition hover:shadow-md">
+    <article className="kp-card p-5 transition hover:translate-y-[-2px]">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-base font-semibold leading-6">{title}</h2>
+        <h2 className="text-base font-bold leading-6" data-display="true">
+          {title}
+        </h2>
         <span className={`rounded-full px-2 py-1 text-xs font-medium ${meta.color}`}>
           {meta.label}
         </span>
@@ -57,7 +59,7 @@ export function EventCard({
         </span>
         <Link
           href={`/events/${id}`}
-          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100"
+          className="kp-btn-secondary rounded-lg px-3 py-1.5 text-xs font-semibold transition"
         >
           Detay
         </Link>
