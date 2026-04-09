@@ -49,6 +49,11 @@ pnpm db:seed
 pnpm dev
 ```
 
+Yerel gelistirme notu:
+
+- `NEXT_PUBLIC_API_URL` degerini yerelde `http://localhost:3001` olarak kullanin.
+- `localhost:3000` (veya dev server'in actigi port) uzerinden web arayuzunu acin.
+
 ## Demo Seed
 
 `pnpm db:seed` komutu asagidaki demo verisini idempotent olarak olusturur:
@@ -60,10 +65,11 @@ pnpm dev
 
 Demo kimlik bilgileri `.env.example` dosyasinda sabittir:
 
+- `DEMO_ADMIN_USERNAME`
 - `DEMO_ADMIN_EMAIL`
 - `DEMO_ADMIN_PASSWORD`
 
-Not: Giris akisinda Neon Auth kullanildigi icin ayni hesap Neon Auth tarafinda da tanimli olmalidir.
+Giris akisinda email veya kullanici adi kullanilabilir. Neon Auth erisilemediginde demo hesapla yerel fallback oturum acma desteklenir.
 
 ## API Dokumantasyonu (Swagger)
 
@@ -75,6 +81,8 @@ Not: Giris akisinda Neon Auth kullanildigi icin ayni hesap Neon Auth tarafinda d
 - Web: Vercel (preview + production)
 - API/Worker: Railway
 - Veritabani: Neon
+
+Not: Export akisi API icinde `.xlsx` dosyasi olusturur. Worker/Redis altyapisi olmadan da temel export kullanimi calisir.
 
 Vercel preview URL alani:
 

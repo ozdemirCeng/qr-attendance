@@ -7,7 +7,7 @@ Bu paket QR Attendance projesinin backend servisidir.
 - Auth islemleri
 - Event ve session yonetimi
 - Katilim tarama ve dogrulama
-- Export isteklerinin kuyruga alinmasi
+- Export istekleri icin `.xlsx` dosyasi uretimi
 
 ## Gelistirme Komutlari
 
@@ -21,6 +21,8 @@ pnpm --filter @qr-attendance/api typecheck
 ## Teknik Notlar
 
 - ConfigModule global olarak aktif.
-- Swagger endpoint: /docs
+- Swagger endpoint: /api/docs
+- Geri uyumluluk endpointi: /docs
 - Health endpoint: /health
 - Global validation ve exception filter kullanilir.
+- Export endpointleri API icinde dosya uretir; Redis/worker olmadan da calisir.
