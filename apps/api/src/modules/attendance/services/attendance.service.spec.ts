@@ -280,6 +280,27 @@ describe('AttendanceService', () => {
     );
   });
 
+  it('returns REGISTRATION_REQUIRED when walk-in payload has name but no contact info', async () => {
+    const { session } = seedActiveEventAndSession(
+      eventsRepository,
+      sessionsRepository,
+    );
+    const token = qrTokenService.generateToken(session.id, 60);
+
+    await expectCode(
+      service.scan(
+        {
+          token,
+          name: 'Konuk Kullanici',
+          lat: 40.765,
+          lng: 29.94,
+        },
+        {},
+      ),
+      'REGISTRATION_REQUIRED',
+    );
+  });
+
   it('returns ALREADY_CHECKED_IN for second scan of same participant', async () => {
     const { event, session } = seedActiveEventAndSession(
       eventsRepository,

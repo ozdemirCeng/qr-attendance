@@ -439,6 +439,7 @@ export class AttendanceService {
     const normalizedEmail = this.normalizeEmail(payload.email);
     const normalizedName = this.normalizeNullable(payload.name);
     const normalizedPhone = this.normalizeNullable(payload.phone);
+    const hasContactInfo = Boolean(normalizedEmail || normalizedPhone);
 
     if (normalizedEmail) {
       const existingParticipant =
@@ -452,7 +453,7 @@ export class AttendanceService {
       }
     }
 
-    if (!normalizedName) {
+    if (!normalizedName || !hasContactInfo) {
       return null;
     }
 
