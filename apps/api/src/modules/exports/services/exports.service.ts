@@ -64,7 +64,7 @@ export class ExportsService {
     private readonly participantsRepository: ParticipantsRepository,
   ) {}
 
-  async requestAttendanceExport(eventId: string) {
+  requestAttendanceExport(eventId: string) {
     const event = this.eventsRepository.findById(eventId);
 
     if (!event) {
@@ -85,46 +85,26 @@ export class ExportsService {
 
     this.jobs.set(exportId, {
       exportId,
-      status: 'processing',
-      progress: 20,
+      status: 'pending',
+      progress: 5,
       filePath: null,
       downloadUrl: null,
       errorMessage: null,
     });
 
-    try {
-      const result = await this.generateAttendanceExportFile({
-        exportId,
-        eventId,
-        eventName: event.name,
-        requestedAt: new Date().toISOString(),
-        rows,
-      });
-
-      this.jobs.set(exportId, {
-        exportId,
-        status: 'ready',
-        progress: 100,
-        filePath: result.filePath,
-        downloadUrl: result.downloadUrl,
-        errorMessage: null,
-      });
-    } catch {
-      this.jobs.set(exportId, {
-        exportId,
-        status: 'failed',
-        progress: 100,
-        filePath: null,
-        downloadUrl: null,
-        errorMessage: 'Export dosyasi olusturulamadi.',
-      });
-    }
+    void this.processExportJob(exportId, {
+      exportId,
+      eventId,
+      eventName: event.name,
+      requestedAt: new Date().toISOString(),
+      rows,
+    });
 
     return {
       success: true,
       data: {
         exportId,
-        message: 'Export istegi alindi.',
+        message: 'Hazirlaniyor...',
       },
     };
   }
@@ -166,6 +146,50 @@ export class ExportsService {
     }
 
     return job;
+  }
+
+  private async processExportJob(exportId: string, payload: ExportJobPayload) {
+    this.updateJob(exportId, {
+      status: 'processing',
+      progress: 25,
+      errorMessage: null,
+    });
+
+    try {
+      const result = await this.generateAttendanceExportFile(payload);
+
+      this.updateJob(exportId, {
+        status: 'ready',
+        progress: 100,
+        filePath: result.filePath,
+        downloadUrl: result.downloadUrl,
+        errorMessage: null,
+      });
+    } catch {
+      this.updateJob(exportId, {
+        status: 'failed',
+        progress: 100,
+        filePath: null,
+        downloadUrl: null,
+        errorMessage: 'Export dosyasi olusturulamadi.',
+      });
+    }
+  }
+
+  private updateJob(
+    exportId: string,
+    patch: Partial<Omit<ExportJobRecord, 'exportId'>>,
+  ) {
+    const current = this.jobs.get(exportId);
+
+    if (!current) {
+      return;
+    }
+
+    this.jobs.set(exportId, {
+      ...current,
+      ...patch,
+    });
   }
 
   private async generateAttendanceExportFile(

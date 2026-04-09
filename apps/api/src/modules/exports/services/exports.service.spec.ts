@@ -112,11 +112,17 @@ describe('ExportsService', () => {
       deviceFingerprint: null,
     });
 
-    const requested = await service.requestAttendanceExport(event.id);
+    const requested = service.requestAttendanceExport(event.id);
     expect(requested.success).toBe(true);
+    expect(requested.data.message).toBe('Hazirlaniyor...');
 
     const exportId = requested.data.exportId;
-    const status = service.getStatus(exportId);
+    const initialStatus = service.getStatus(exportId);
+
+    expect(initialStatus.success).toBe(true);
+    expect(['pending', 'processing']).toContain(initialStatus.data.status);
+
+    const status = await waitForStatus(exportId, 'ready');
 
     expect(status.success).toBe(true);
     expect(status.data.status).toBe('ready');
@@ -146,10 +152,10 @@ describe('ExportsService', () => {
     expect(byName.get('Misafir Kisi')?.['Kayit Turu']).toBe('Walk-in');
   });
 
-  it('throws not found for missing event id', async () => {
-    await expect(
-      service.requestAttendanceExport('missing-event'),
-    ).rejects.toThrow(NotFoundException);
+  it('throws not found for missing event id', () => {
+    expect(() => service.requestAttendanceExport('missing-event')).toThrow(
+      NotFoundException,
+    );
   });
 
   it('marks export as failed when file generation errors and blocks download', async () => {
@@ -166,9 +172,9 @@ describe('ExportsService', () => {
       )
       .mockRejectedValueOnce(new Error('generation failed'));
 
-    const requested = await service.requestAttendanceExport(event.id);
+    const requested = service.requestAttendanceExport(event.id);
     const exportId = requested.data.exportId;
-    const status = service.getStatus(exportId);
+    const status = await waitForStatus(exportId, 'failed');
 
     expect(status.data.status).toBe('failed');
     expect(status.data.errorMessage).toBe('Export dosyasi olusturulamadi.');
@@ -198,5 +204,27 @@ describe('ExportsService', () => {
       endsAt: '2026-04-20T12:00:00.000Z',
       status: 'active',
     });
+  }
+
+  async function waitForStatus(
+    exportId: string,
+    expectedStatus: 'ready' | 'failed',
+    timeoutMs = 2_000,
+  ) {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt <= timeoutMs) {
+      const status = service.getStatus(exportId);
+
+      if (status.data.status === expectedStatus) {
+        return status;
+      }
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 20);
+      });
+    }
+
+    throw new Error(`Export status did not become ${expectedStatus} in time.`);
   }
 });
