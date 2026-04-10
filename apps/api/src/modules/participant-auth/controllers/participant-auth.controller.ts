@@ -87,7 +87,23 @@ export class ParticipantAuthController {
       name: session.name,
       email: session.email,
       phone: session.phone,
+      avatarDataUrl: session.avatarDataUrl,
     };
+  }
+
+  @ApiOperation({ summary: 'Katilimci panel verisini getirir' })
+  @ApiOkResponse({ description: 'Panel verisi donuldu.' })
+  @Get('dashboard')
+  dashboard(@Req() req: Request) {
+    const session = this.participantAuthService.resolveSessionFromCookie(
+      req.headers.cookie,
+    );
+
+    if (!session) {
+      throw new UnauthorizedException('Oturum bulunamadi.');
+    }
+
+    return this.participantAuthService.getDashboard(session.id);
   }
 
   @ApiOperation({ summary: 'Katilimci profilini gunceller' })

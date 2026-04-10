@@ -26,6 +26,12 @@ export class UpdateParticipantProfileDto {
   @MaxLength(32)
   @IsOptional()
   phone?: string;
+
+  @ApiPropertyOptional({ maxLength: 600000 })
+  @IsString()
+  @MaxLength(600000)
+  @IsOptional()
+  avatarDataUrl?: string;
 }
 
 export class ChangePasswordDto {

@@ -3,6 +3,7 @@ export type ParticipantUserEntity = {
   name: string;
   email: string;
   phone: string | null;
+  avatarDataUrl: string | null;
   passwordHash: string;
   createdAt: string;
 };

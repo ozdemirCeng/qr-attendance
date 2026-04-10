@@ -5,6 +5,7 @@ export type ParticipantUser = {
   name: string;
   email: string;
   phone: string | null;
+  avatarDataUrl: string | null;
 };
 
 export type ParticipantAuthResponse = {
@@ -52,6 +53,7 @@ export type UpdateProfilePayload = {
   name?: string;
   email?: string;
   phone?: string;
+  avatarDataUrl?: string | null;
 };
 
 export async function participantUpdateProfile(payload: UpdateProfilePayload) {
@@ -71,6 +73,37 @@ export async function participantChangePassword(payload: ChangePasswordPayload) 
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export type ParticipantDashboardEvent = {
+  id: string;
+  name: string;
+  locationName: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  registeredAt: string | null;
+  attendedAt: string | null;
+  isRegistered: boolean;
+  isAttended: boolean;
+};
+
+export type ParticipantDashboardResponse = {
+  success: true;
+  data: {
+    profile: ParticipantUser;
+    summary: {
+      registeredEvents: number;
+      attendedEvents: number;
+      upcomingEvents: number;
+      completedEvents: number;
+    };
+    events: ParticipantDashboardEvent[];
+  };
+};
+
+export async function participantGetDashboard() {
+  return apiFetch<ParticipantDashboardResponse>("/participant-auth/dashboard");
 }
 
 export { type ApiError };

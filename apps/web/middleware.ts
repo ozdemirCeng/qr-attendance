@@ -32,39 +32,59 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAdminProtectedPath =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/events");
-  const isParticipantProtectedPath = pathname.startsWith("/profile");
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/events") ||
+    pathname.startsWith("/audit");
+  const isParticipantProtectedPath =
+    pathname.startsWith("/profile") || pathname.startsWith("/user");
+  const isSharedProtectedPath =
+    pathname.startsWith("/scan") || pathname.startsWith("/check-in");
 
-  if (!isAdminProtectedPath && !isParticipantProtectedPath) {
+  if (
+    !isAdminProtectedPath &&
+    !isParticipantProtectedPath &&
+    !isSharedProtectedPath
+  ) {
     return NextResponse.next();
   }
 
-  const requiredCookieName = isAdminProtectedPath
-    ? AUTH_COOKIE_NAME
-    : PARTICIPANT_COOKIE_NAME;
-  const loginRole = isAdminProtectedPath ? "admin" : "participant";
-  let hasSessionCookie = false;
+  let hasAdminSessionCookie = false;
+  let hasParticipantSessionCookie = false;
 
   try {
-    hasSessionCookie = Boolean(request.cookies.get(requiredCookieName)?.value);
+    hasAdminSessionCookie = Boolean(request.cookies.get(AUTH_COOKIE_NAME)?.value);
+    hasParticipantSessionCookie = Boolean(
+      request.cookies.get(PARTICIPANT_COOKIE_NAME)?.value,
+    );
   } catch {
-    hasSessionCookie = Boolean(
-      request.cookies.get(
-        isAdminProtectedPath ? "session" : "participant_session",
-      )?.value,
+    hasAdminSessionCookie = Boolean(request.cookies.get("session")?.value);
+    hasParticipantSessionCookie = Boolean(
+      request.cookies.get("participant_session")?.value,
     );
   }
 
-  if (hasSessionCookie) {
+  if (
+    (isAdminProtectedPath && hasAdminSessionCookie) ||
+    (isParticipantProtectedPath && hasParticipantSessionCookie) ||
+    (isSharedProtectedPath &&
+      (hasAdminSessionCookie || hasParticipantSessionCookie))
+  ) {
     return NextResponse.next();
   }
 
   const loginUrl = new URL("/login", request.url);
-  loginUrl.searchParams.set("role", loginRole);
   loginUrl.searchParams.set("next", pathname);
   return NextResponse.redirect(loginUrl);
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/events/:path*", "/profile/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/events/:path*",
+    "/audit/:path*",
+    "/profile/:path*",
+    "/user/:path*",
+    "/scan/:path*",
+    "/check-in/:path*",
+  ],
 };

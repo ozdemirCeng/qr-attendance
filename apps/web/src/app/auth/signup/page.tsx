@@ -78,7 +78,7 @@ export default function ParticipantSignupPage() {
         phone: parsed.data.phone || undefined,
         password: parsed.data.password,
       });
-      router.push("/profile");
+      router.push("/user/dashboard");
     } catch (error) {
       if (error instanceof ApiError) {
         setFormError(error.message);
@@ -281,7 +281,7 @@ export default function ParticipantSignupPage() {
         <p className="mt-5 text-center text-sm" style={{ color: "var(--text-secondary)" }}>
           Zaten hesabin var mi?{" "}
           <Link
-            href="/login?role=participant"
+            href="/login"
             className="font-semibold"
             style={{ color: "var(--primary)" }}
           >
@@ -294,13 +294,13 @@ export default function ParticipantSignupPage() {
           style={{ background: "var(--surface-soft)" }}
         >
           <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Yonetici misiniz?{" "}
+            Yonetici veya uye fark etmeksizin tek giris ekrani kullanilir.{" "}
             <Link
-              href="/login?role=admin"
+              href="/login"
               className="font-semibold"
               style={{ color: "var(--primary)" }}
             >
-              Yonetici girisine gec
+              Giris ekranina don
             </Link>
           </p>
         </div>

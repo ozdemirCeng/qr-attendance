@@ -2,16 +2,7 @@ import Link from "next/link";
 
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-type ForgotPasswordPageProps = {
-  searchParams: {
-    role?: string;
-  };
-};
-
-export default function ForgotPasswordPage({
-  searchParams,
-}: ForgotPasswordPageProps) {
-  const role = searchParams.role === "admin" ? "admin" : "participant";
+export default function ForgotPasswordPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
@@ -34,8 +25,8 @@ export default function ForgotPasswordPage({
           Sifre yardimi
         </h1>
         <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Bu projede otomatik e-posta sifre sifirlama akisi yok. Guvenlik icin
-          sifre islemleri rol bazinda manuel yonetilir.
+          Bu projede otomatik e-posta sifre sifirlama akisi yok. Tek giris
+          modeli kullanilir; admin ve uye hesaplari ayni ekrandan oturum acar.
         </p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -44,17 +35,14 @@ export default function ForgotPasswordPage({
               className="text-sm font-semibold"
               style={{ color: "var(--text-primary)" }}
             >
-              Katilimci Hesabi
+              Uye Hesabi
             </p>
             <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Daha once giris yaptiysan <Link href="/profile" className="font-semibold" style={{ color: "var(--primary)" }}>profil</Link> ekranindan sifreni degistirebilirsin. Oturumun yoksa etkinlik yoneticisi ile iletisime gecmen gerekir.
+              Oturumun aciksa <Link href="/user/profile" className="font-semibold" style={{ color: "var(--primary)" }}>profil</Link> ekranindan sifreni degistirebilirsin. Oturumun yoksa etkinlik yoneticisi ile iletisime gecmen gerekir.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link
-                href="/login?role=participant"
-                className="btn-primary text-sm"
-              >
-                Katilimci Girisi
+              <Link href="/login" className="btn-primary text-sm">
+                Giris Ekrani
               </Link>
               <Link href="/auth/signup" className="btn-secondary text-sm">
                 Yeni Hesap Ac
@@ -71,11 +59,12 @@ export default function ForgotPasswordPage({
             </p>
             <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
               Yonetici sifreleri sistem yoneticisi tarafindan yonetilir. Yerel
-              demo kurulumu kullaniyorsan demo kimligi ile giris yapabilirsin.
+              demo kurulumu kullaniyorsan ayni giris ekranindan demo admin
+              kimligi ile oturum acabilirsin.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/login?role=admin" className="btn-primary text-sm">
-                Yonetici Girisi
+              <Link href="/login" className="btn-primary text-sm">
+                Tek Giris Ekrani
               </Link>
               <Link href="/scan" className="btn-secondary text-sm">
                 QR Tara
@@ -89,13 +78,9 @@ export default function ForgotPasswordPage({
           style={{ background: "var(--surface-soft)" }}
         >
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Su an secili rol:{" "}
-            <span
-              className="font-semibold"
-              style={{ color: "var(--text-primary)" }}
-            >
-              {role === "admin" ? "Yonetici" : "Katilimci"}
-            </span>
+            Uye hesaplari profil ekranindan kendi bilgilerini ve parolalarini
+            gunceller. Admin hesaplari ise tek giris uzerinden admin paneline
+            yonlendirilir.
           </p>
         </div>
       </section>

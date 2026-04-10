@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -141,6 +142,39 @@ export class AuthService {
     };
   }
 
+  async updateProfile(
+    cookieHeader: string | undefined,
+    payload: { name?: string; email?: string },
+  ) {
+    const localSession = this.resolveLocalSessionFromCookie(cookieHeader);
+
+    if (!localSession) {
+      throw new BadRequestException(
+        'Bu admin hesabi icin profil duzenleme desteklenmiyor.',
+      );
+    }
+
+    const nextName = payload.name?.trim() || localSession.name;
+    const nextEmail = payload.email?.trim().toLowerCase() || localSession.email;
+    const token = this.createLocalSessionToken({
+      ...localSession,
+      name: nextName,
+      email: nextEmail,
+      exp: Date.now() + this.localSessionTtlSeconds * 1000,
+    });
+
+    return {
+      success: true,
+      data: {
+        id: localSession.id,
+        role: localSession.role,
+        name: nextName,
+        email: nextEmail,
+      },
+      setCookieHeaders: [this.createSessionCookieHeader(token)],
+    };
+  }
+
   async resolveUserFromSession(cookieHeader?: string): Promise<RequestUser> {
     if (!cookieHeader) {
       throw new UnauthorizedException('Oturum bulunamadi.');
@@ -188,6 +222,10 @@ export class AuthService {
 
   getSessionCookieName() {
     return this.configService.get<string>('AUTH_COOKIE_NAME', 'session');
+  }
+
+  createLogoutHeaders() {
+    return [this.createClearSessionCookieHeader()];
   }
 
   private resolveIdentifier(payload: LoginDto) {

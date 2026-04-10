@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ApiError } from "@/lib/api";
+import { getActiveSession, login, type PortalRole } from "@/lib/auth";
 import { useAuth } from "@/providers/auth-provider";
 import { useParticipantAuth } from "@/providers/participant-auth-provider";
 
@@ -16,44 +17,32 @@ const loginSchema = z.object({
   password: z.string().min(6, "Parola en az 6 karakter olmali"),
 });
 
-type LoginMode = "participant" | "admin";
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-function resolveInitialMode(
-  rawRole: string | null,
-  rawNext: string | null,
-): LoginMode {
-  if (rawRole === "admin") {
-    return "admin";
-  }
-
-  if (rawNext?.startsWith("/dashboard") || rawNext?.startsWith("/events")) {
-    return "admin";
-  }
-
-  return "participant";
+function resolveDefaultDashboard(role: PortalRole) {
+  return role === "member" ? "/user/dashboard" : "/dashboard";
 }
 
-function resolveSafeNextPath(rawPath: string | null, mode: LoginMode) {
-  const fallback = mode === "admin" ? "/dashboard" : "/profile";
+function resolveSafeNextPath(rawPath: string | null, role: PortalRole) {
+  const fallback = resolveDefaultDashboard(role);
 
   if (!rawPath || !rawPath.startsWith("/") || rawPath.startsWith("//")) {
     return fallback;
   }
 
-  if (
-    mode === "participant" &&
-    (rawPath.startsWith("/dashboard") || rawPath.startsWith("/events"))
-  ) {
+  const isAdminPath =
+    rawPath.startsWith("/dashboard") || rawPath.startsWith("/events");
+  const isMemberPath =
+    rawPath.startsWith("/user") ||
+    rawPath.startsWith("/profile") ||
+    rawPath.startsWith("/scan") ||
+    rawPath.startsWith("/check-in");
+
+  if (role === "member" && isAdminPath) {
     return fallback;
   }
 
-  if (
-    mode === "admin" &&
-    (rawPath.startsWith("/profile") ||
-      rawPath.startsWith("/scan") ||
-      rawPath.startsWith("/check-in"))
-  ) {
+  if (role !== "member" && isMemberPath) {
     return fallback;
   }
 
@@ -63,17 +52,9 @@ function resolveSafeNextPath(rawPath: string | null, mode: LoginMode) {
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const roleParam = searchParams.get("role");
   const nextParam = searchParams.get("next");
-  const { signIn, user, isLoading } = useAuth();
-  const {
-    participantSignIn,
-    participantUser,
-    isParticipantLoading,
-  } = useParticipantAuth();
-  const [mode, setMode] = useState<LoginMode>(() =>
-    resolveInitialMode(roleParam, nextParam),
-  );
+  const { user, isLoading } = useAuth();
+  const { participantUser, isParticipantLoading } = useParticipantAuth();
   const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -81,50 +62,25 @@ export default function LoginPage() {
     defaultValues: { identifier: "", password: "" },
   });
 
-  const nextPath = useMemo(
-    () => resolveSafeNextPath(nextParam, mode),
-    [mode, nextParam],
-  );
+  const existingRole = useMemo<PortalRole | null>(() => {
+    if (user) {
+      return user.role;
+    }
+
+    if (participantUser) {
+      return "member";
+    }
+
+    return null;
+  }, [participantUser, user]);
 
   useEffect(() => {
-    const roleFromQuery = resolveInitialMode(roleParam, nextParam);
-    setMode(roleFromQuery);
-  }, [nextParam, roleParam]);
-
-  useEffect(() => {
-    if (isLoading || isParticipantLoading) {
+    if (isLoading || isParticipantLoading || !existingRole) {
       return;
     }
 
-    if (mode === "admin" && user) {
-      router.replace(nextPath);
-      return;
-    }
-
-    if (mode === "participant" && participantUser) {
-      router.replace(nextPath);
-      return;
-    }
-
-    if (!roleParam && user && !participantUser) {
-      router.replace(resolveSafeNextPath(nextParam, "admin"));
-      return;
-    }
-
-    if (!roleParam && participantUser && !user) {
-      router.replace(resolveSafeNextPath(nextParam, "participant"));
-    }
-  }, [
-    isLoading,
-    isParticipantLoading,
-    mode,
-    nextParam,
-    nextPath,
-    participantUser,
-    roleParam,
-    router,
-    user,
-  ]);
+    router.replace(resolveSafeNextPath(nextParam, existingRole));
+  }, [existingRole, isLoading, isParticipantLoading, nextParam, router]);
 
   async function onSubmit(values: LoginFormValues) {
     setFormError(null);
@@ -153,28 +109,13 @@ export default function LoginPage() {
     }
 
     try {
-      if (mode === "admin") {
-        await signIn({
-          identifier: parsed.data.identifier,
-          password: parsed.data.password,
-        });
-      } else {
-        const normalizedEmail = parsed.data.identifier.trim().toLowerCase();
+      await login({
+        identifier: parsed.data.identifier,
+        password: parsed.data.password,
+      });
 
-        if (!normalizedEmail.includes("@")) {
-          form.setError("identifier", {
-            type: "manual",
-            message: "Katilimci girisi icin gecerli bir e-posta girin.",
-          });
-          return;
-        }
-
-        await participantSignIn({
-          email: normalizedEmail,
-          password: parsed.data.password,
-        });
-      }
-
+      const session = await getActiveSession();
+      const nextPath = resolveSafeNextPath(nextParam, session.data.role);
       router.replace(nextPath);
       router.refresh();
     } catch (error) {
@@ -194,7 +135,7 @@ export default function LoginPage() {
       </div>
 
       <div className="glass-elevated w-full max-w-5xl animate-scale-in overflow-hidden rounded-[2rem]">
-        <div className="grid lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
           <section className="relative overflow-hidden p-8 md:p-10">
             <div
               className="absolute inset-0 opacity-80"
@@ -203,6 +144,7 @@ export default function LoginPage() {
                   "radial-gradient(circle at top left, rgba(0,113,227,0.18), transparent 42%), radial-gradient(circle at bottom right, rgba(34,197,94,0.16), transparent 36%)",
               }}
             />
+
             <div className="relative">
               <div
                 className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -233,24 +175,23 @@ export default function LoginPage() {
                 className="text-[11px] font-semibold uppercase tracking-[0.2em]"
                 style={{ color: "var(--primary)" }}
               >
-                QR Yoklama
+                Tek Giris
               </p>
               <h1
                 className="mt-3 text-4xl font-extrabold leading-tight"
                 style={{ color: "var(--text-primary)" }}
                 data-display="true"
               >
-                Tek giris ekrani.
+                Ayni ekrandan gir.
                 <br />
-                Rolune gore devam et.
+                Rolune gore panele gec.
               </h1>
               <p
                 className="mt-4 max-w-xl text-sm"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Katilimciysan tarama ekranina, yoneticiysen kontrol paneline
-                yonlendirileceksin. Check-in akisinda konum ve selfie
-                dogrulamasi zorunludur.
+                Admin bilgileriyle girersen admin paneline, uye hesabiyla
+                girersen kullanici dashboardina yonlendirilirsin.
               </p>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -265,12 +206,12 @@ export default function LoginPage() {
                     className="mt-1 text-xs"
                     style={{ color: "var(--text-tertiary)" }}
                   >
-                    Giris yapmadan tarama ekranina gec.
+                    Oturum varsa dogrudan tarama akisina gec.
                   </p>
                 </Link>
 
                 <Link
-                  href={`/forgot-password?role=${mode}`}
+                  href="/forgot-password"
                   className="glass rounded-2xl p-4 text-left"
                 >
                   <p
@@ -283,7 +224,7 @@ export default function LoginPage() {
                     className="mt-1 text-xs"
                     style={{ color: "var(--text-tertiary)" }}
                   >
-                    Hesabina uygun sifre yardimina git.
+                    Hesap yardimi ve sifre akisina git.
                   </p>
                 </Link>
 
@@ -295,102 +236,53 @@ export default function LoginPage() {
                     className="text-sm font-semibold"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    Kayit Ol
+                    Uye Ol
                   </p>
                   <p
                     className="mt-1 text-xs"
                     style={{ color: "var(--text-tertiary)" }}
                   >
-                    Katilimci hesabi olustur.
+                    Yeni kullanici hesabi olustur.
                   </p>
                 </Link>
               </div>
 
-              {mode === "admin" ? (
-                <div
-                  className="mt-8 rounded-2xl p-4"
-                  style={{ background: "var(--surface-soft)" }}
+              <div
+                className="mt-8 rounded-2xl p-4"
+                style={{ background: "var(--surface-soft)" }}
+              >
+                <p
+                  className="text-[11px] font-semibold uppercase tracking-[0.14em]"
+                  style={{ color: "var(--text-secondary)" }}
                 >
-                  <p
-                    className="text-[11px] font-semibold uppercase tracking-[0.14em]"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Demo Admin
-                  </p>
-                  <p
-                    className="mt-2 font-mono text-xs"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    Kullanici:{" "}
-                    <span style={{ color: "var(--text-primary)" }}>
-                      demo.admin
-                    </span>
-                  </p>
-                  <p
-                    className="mt-1 font-mono text-xs"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    Sifre:{" "}
-                    <span style={{ color: "var(--text-primary)" }}>
-                      DemoAdmin123!
-                    </span>
-                  </p>
-                </div>
-              ) : null}
+                  Sistem Mantigi
+                </p>
+                <p
+                  className="mt-2 text-sm"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  Tek form kullanilir. Sistemde admin olarak tanimli hesaba
+                  girersen admin paneli acilir. Normal uye hesabi ile girersen
+                  kullanici dashboardi acilir.
+                </p>
+              </div>
             </div>
           </section>
 
           <section className="border-t border-white/10 p-8 md:p-10 lg:border-l lg:border-t-0">
-            <div className="flex gap-2 rounded-2xl bg-[var(--surface-soft)] p-1">
-              {(
-                [
-                  {
-                    id: "participant",
-                    label: "Katilimci",
-                  },
-                  {
-                    id: "admin",
-                    label: "Yonetici",
-                  },
-                ] as const
-              ).map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setMode(item.id);
-                    setFormError(null);
-                  }}
-                  className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition"
-                  style={{
-                    background:
-                      mode === item.id ? "var(--surface)" : "transparent",
-                    color:
-                      mode === item.id
-                        ? "var(--text-primary)"
-                        : "var(--text-secondary)",
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-6">
+            <div>
               <h2
                 className="text-2xl font-bold"
                 style={{ color: "var(--text-primary)" }}
                 data-display="true"
               >
-                {mode === "admin" ? "Yonetici Girisi" : "Katilimci Girisi"}
+                Giris Yap
               </h2>
               <p
                 className="mt-2 text-sm"
                 style={{ color: "var(--text-secondary)" }}
               >
-                {mode === "admin"
-                  ? "Dashboard ve etkinlik yonetimi icin giris yapin."
-                  : "Profil ekranina girin, oradan tarama veya hesap islemlerine devam edin."}
+                Email veya kullanici bilgin ile tek formdan oturum ac.
               </p>
             </div>
 
@@ -406,18 +298,14 @@ export default function LoginPage() {
                   className="text-xs font-semibold uppercase tracking-wide"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  {mode === "admin" ? "Email / Kullanici" : "E-posta"}
+                  Email / Kullanici
                 </label>
                 <input
                   id="identifier"
-                  type={mode === "participant" ? "email" : "text"}
+                  type="text"
                   autoComplete="username"
                   className="glass-input w-full"
-                  placeholder={
-                    mode === "admin"
-                      ? "demo.admin veya admin@example.com"
-                      : "ayse@example.com"
-                  }
+                  placeholder="demo.admin veya ayse@example.com"
                   {...form.register("identifier")}
                 />
                 {form.formState.errors.identifier ? (
@@ -474,47 +362,29 @@ export default function LoginPage() {
               >
                 {form.formState.isSubmitting
                   ? "Giris yapiliyor..."
-                  : mode === "admin"
-                    ? "Yonetici Girisi"
-                    : "Katilimci Girisi"}
+                  : "Devam Et"}
               </button>
             </form>
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
               <Link
-                href={`/forgot-password?role=${mode}`}
+                href="/forgot-password"
                 className="font-semibold"
                 style={{ color: "var(--primary)" }}
               >
                 Sifremi Unuttum
               </Link>
 
-              {mode === "participant" ? (
-                <p style={{ color: "var(--text-secondary)" }}>
-                  Hesabin yok mu?{" "}
-                  <Link
-                    href="/auth/signup"
-                    className="font-semibold"
-                    style={{ color: "var(--primary)" }}
-                  >
-                    Kayit Ol
-                  </Link>
-                </p>
-              ) : (
-                <p style={{ color: "var(--text-secondary)" }}>
-                  Katilimci misin?{" "}
-                  <button
-                    type="button"
-                    className="font-semibold"
-                    style={{ color: "var(--primary)" }}
-                    onClick={() => {
-                      setMode("participant");
-                    }}
-                  >
-                    Katilimci girisine gec
-                  </button>
-                </p>
-              )}
+              <p style={{ color: "var(--text-secondary)" }}>
+                Hesabin yok mu?{" "}
+                <Link
+                  href="/auth/signup"
+                  className="font-semibold"
+                  style={{ color: "var(--primary)" }}
+                >
+                  Uye Ol
+                </Link>
+              </p>
             </div>
           </section>
         </div>

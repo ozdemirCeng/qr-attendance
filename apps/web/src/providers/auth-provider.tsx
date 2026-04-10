@@ -53,9 +53,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         error.statusCode === 401 &&
         (pathname.startsWith("/dashboard") || pathname.startsWith("/events"))
       ) {
-        router.replace(
-          `/login?role=admin&next=${encodeURIComponent(pathname)}`,
-        );
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
       }
     } finally {
       setIsLoading(false);

@@ -2,20 +2,66 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { getActiveSession, type PortalRole } from "@/lib/auth";
+import { ApiError } from "@/lib/api";
+import { useAuth } from "@/providers/auth-provider";
 import { useParticipantAuth } from "@/providers/participant-auth-provider";
 
 export default function ScanLandingPage() {
   const router = useRouter();
+  const { user, isLoading } = useAuth();
   const { participantUser, isParticipantLoading, participantSignOut } =
     useParticipantAuth();
+  const [activeRole, setActiveRole] = useState<PortalRole | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [permissionMessage, setPermissionMessage] = useState<string | null>(
     null,
   );
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setActiveRole(user.role);
+      return;
+    }
+
+    if (participantUser) {
+      setActiveRole("member");
+      return;
+    }
+
+    if (isLoading || isParticipantLoading) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function resolveSession() {
+      try {
+        const session = await getActiveSession();
+        if (isMounted) {
+          setActiveRole(session.data.role);
+        }
+      } catch (error) {
+        if (
+          isMounted &&
+          error instanceof ApiError &&
+          error.statusCode === 401
+        ) {
+          router.replace("/login?next=/scan");
+        }
+      }
+    }
+
+    void resolveSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoading, isParticipantLoading, participantUser, router, user]);
 
   async function requestPermissions() {
     if (!window.isSecureContext) {
@@ -126,7 +172,7 @@ export default function ScanLandingPage() {
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <Link href="/profile" className="btn-secondary text-xs">
+                  <Link href="/user/profile" className="btn-secondary text-xs">
                     Profil
                   </Link>
                   <button
@@ -147,11 +193,11 @@ export default function ScanLandingPage() {
                   className="text-sm"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Hesabinla giris yap, QR sonrasi kimlik adimi otomatik
-                  kolaylassin.
+                  QR tarama icin aktif oturum gerekir. Admin veya uye olarak
+                  giris yaptiktan sonra dogrulama adimlarina gecebilirsin.
                 </p>
                 <div className="flex gap-2 shrink-0">
-                  <Link href="/login?role=participant" className="btn-secondary text-xs">
+                  <Link href="/login?next=/scan" className="btn-secondary text-xs">
                     Giris
                   </Link>
                   <Link href="/auth/signup" className="btn-primary text-xs">
@@ -239,11 +285,24 @@ export default function ScanLandingPage() {
                 doldurulacak.
               </p>
             </div>
+          ) : activeRole && activeRole !== "member" ? (
+            <div
+              className="mt-4 rounded-xl p-3 text-center"
+              style={{ background: "var(--surface-soft)" }}
+            >
+              <p
+                className="text-xs font-medium"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Admin oturumu aktif. Tarama yapabilirsin ancak profil alanlari
+                uye hesabindaki kadar otomatik dolmayacak.
+              </p>
+            </div>
           ) : (
             <div className="mt-6 text-center">
               <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                Katilimci hesabi ile giris yapmak zorunlu degildir ancak daha
-                hizli ilerlersiniz.
+                Tarama ekrani da tek giris modeli ile korunur. Oturum yoksa
+                devam etmeden once giris yapman gerekir.
               </p>
             </div>
           )}

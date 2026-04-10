@@ -9,9 +9,7 @@ type LegacyParticipantLoginPageProps = {
 export default function LegacyParticipantLoginPage({
   searchParams,
 }: LegacyParticipantLoginPageProps) {
-  const params = new URLSearchParams({
-    role: "participant",
-  });
+  const params = new URLSearchParams();
 
   if (
     typeof searchParams.next === "string" &&

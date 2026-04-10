@@ -127,7 +127,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
     try {
       await signOut();
-      router.replace("/login?role=admin");
+      router.replace("/login");
       router.refresh();
     } finally {
       setIsSigningOut(false);

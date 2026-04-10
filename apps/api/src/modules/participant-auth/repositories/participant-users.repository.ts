@@ -11,6 +11,7 @@ type CreateInput = {
   name: string;
   email: string;
   phone: string | null;
+  avatarDataUrl?: string | null;
   passwordHash: string;
 };
 
@@ -22,13 +23,21 @@ export class ParticipantUsersRepository {
     const sql = getSql();
     const rows = (await sql.query(
       `
-        INSERT INTO participant_users (name, email, phone, phone_normalized, password_hash)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO participant_users (
+          name,
+          email,
+          phone,
+          phone_normalized,
+          avatar_data_url,
+          password_hash
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING
           id,
           name,
           email,
           phone,
+          avatar_data_url AS "avatarDataUrl",
           password_hash AS "passwordHash",
           created_at AS "createdAt"
       `,
@@ -37,6 +46,7 @@ export class ParticipantUsersRepository {
         input.email.toLowerCase(),
         input.phone,
         this.normalizePhone(input.phone),
+        input.avatarDataUrl ?? null,
         input.passwordHash,
       ],
     )) as UserRow[];
@@ -53,6 +63,7 @@ export class ParticipantUsersRepository {
       `
         SELECT
           id, name, email, phone,
+          avatar_data_url AS "avatarDataUrl",
           password_hash AS "passwordHash",
           created_at AS "createdAt"
         FROM participant_users
@@ -73,6 +84,7 @@ export class ParticipantUsersRepository {
       `
         SELECT
           id, name, email, phone,
+          avatar_data_url AS "avatarDataUrl",
           password_hash AS "passwordHash",
           created_at AS "createdAt"
         FROM participant_users
@@ -87,7 +99,12 @@ export class ParticipantUsersRepository {
 
   async update(
     id: string,
-    patch: { name?: string; email?: string; phone?: string | null },
+    patch: {
+      name?: string;
+      email?: string;
+      phone?: string | null;
+      avatarDataUrl?: string | null;
+    },
   ): Promise<ParticipantUserEntity | null> {
     if (!isUuidLike(id)) return null;
 
@@ -113,6 +130,11 @@ export class ParticipantUsersRepository {
       params.push(this.normalizePhone(patch.phone));
       paramIndex++;
     }
+    if (patch.avatarDataUrl !== undefined) {
+      sets.push(`avatar_data_url = $${paramIndex}`);
+      params.push(patch.avatarDataUrl);
+      paramIndex++;
+    }
 
     if (sets.length === 0) return this.findById(id);
 
@@ -124,6 +146,7 @@ export class ParticipantUsersRepository {
         WHERE id = $1
         RETURNING
           id, name, email, phone,
+          avatar_data_url AS "avatarDataUrl",
           password_hash AS "passwordHash",
           created_at AS "createdAt"
       `,
