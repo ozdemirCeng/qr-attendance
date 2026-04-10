@@ -123,18 +123,11 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   >(null);
 
   const locationRef = useRef<ScanLocation | null>(null);
-  const permissionBootstrappedRef = useRef(false);
   const permissionRequestRef = useRef<Promise<ScanLocation | null> | null>(
     null,
   );
 
-  // Request required permissions once on page load.
   useEffect(() => {
-    if (!permissionBootstrappedRef.current) {
-      permissionBootstrappedRef.current = true;
-      void ensurePermissions();
-    }
-
     return () => {
       stopScanner();
     };
@@ -147,40 +140,17 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
     const extracted = extractTokenFromQrContent(initialToken);
     if (!extracted) return;
 
-    async function processUrlToken(token: string) {
-      const currentLocation = await ensurePermissions();
-
-      if (!currentLocation) {
-        setState("error");
-        setErrorMessage(
-          "Kamera ve konum izinleri gerekli. İzinleri verip tekrar deneyin.",
-        );
-        return;
+    setDetectedToken(extracted);
+    setIdentityInput((current) => {
+      if (current.trim()) {
+        return current;
       }
 
-      // If participant is logged in, auto-submit with empty photo
-      if (participantUser) {
-        setDetectedToken(token);
-        setIdentityInput(participantUser.email);
-        setState("idle");
-        void submitWithIdentity(token, participantUser.email, "");
-        return;
-      }
-
-      // Otherwise show identity step
-      setDetectedToken(token);
-      setIdentityInput("");
-      setErrorMessage(
-        currentLocation
-          ? null
-          : "Konum bilgisi alınamadı. 'Konumu Yenile' butonunu deneyin.",
-      );
-      setState("idle");
-    }
-
-    void processUrlToken(extracted);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialToken]);
+      return participantUser?.email?.trim() || participantUser?.phone?.trim() || "";
+    });
+    setErrorMessage(null);
+    setState("idle");
+  }, [initialToken, participantUser?.email, participantUser?.phone]);
 
   function stopScanner() {
     if (animationFrameRef.current) {
@@ -494,12 +464,8 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
     token: string,
     identity: string,
     currentPhoto: string,
+    currentLocation: ScanLocation,
   ) {
-    if (!location) {
-      setErrorMessage("Konum olmadan yoklama tamamlanamaz.");
-      return;
-    }
-
     setIdentitySubmitting(true);
     setErrorMessage(null);
 
@@ -508,9 +474,9 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
     try {
       const response = await scanAttendance({
         token,
-        lat: location.lat,
-        lng: location.lng,
-        locationAccuracy: location.accuracy,
+        lat: currentLocation.lat,
+        lng: currentLocation.lng,
+        locationAccuracy: currentLocation.accuracy,
         email: isEmail ? identity : undefined,
         phone: !isEmail ? identity : undefined,
         verificationPhotoDataUrl: currentPhoto,
@@ -531,9 +497,9 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
       if (code === "REGISTRATION_REQUIRED") {
         saveScanContext({
           token,
-          lat: location.lat,
-          lng: location.lng,
-          locationAccuracy: location.accuracy,
+          lat: currentLocation.lat,
+          lng: currentLocation.lng,
+          locationAccuracy: currentLocation.accuracy,
           verificationPhotoDataUrl: currentPhoto,
           savedAt: new Date().toISOString(),
         });
@@ -580,8 +546,10 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
       return;
     }
 
-    if (!location) {
-      setErrorMessage("Konum olmadan devam edemezsiniz.");
+    const resolvedLocation = location ?? (await ensurePermissions());
+
+    if (!resolvedLocation) {
+      setErrorMessage("Konum izni olmadan devam edemezsiniz.");
       return;
     }
 
@@ -594,6 +562,7 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
       detectedToken,
       trimmedIdentity,
       verificationPhotoDataUrl,
+      resolvedLocation,
     );
   }
 

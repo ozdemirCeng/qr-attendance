@@ -67,8 +67,8 @@ export default function ScanLandingPage() {
       return false;
     }
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor.");
+    if (!navigator.geolocation) {
+      setErrorMessage("Bu cihazda konum servisi desteklenmiyor.");
       return false;
     }
 
@@ -77,25 +77,24 @@ export default function ScanLandingPage() {
     setPermissionMessage(null);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: {
-            ideal: "environment",
-          },
-        },
-        audio: false,
-      });
+      if (navigator.permissions) {
+        try {
+          const permissionStatus = await navigator.permissions.query({
+            name: "geolocation",
+          });
 
-      for (const track of stream.getTracks()) {
-        track.stop();
+          if (permissionStatus.state === "denied") {
+            setErrorMessage(
+              "Konum izni engellendi. Tarayıcı ayarlarından konum iznini açıp tekrar deneyin.",
+            );
+            return false;
+          }
+        } catch {
+          // Permissions API not supported on some browsers.
+        }
       }
 
       const locationGranted = await new Promise<boolean>((resolve) => {
-        if (!navigator.geolocation) {
-          resolve(false);
-          return;
-        }
-
         navigator.geolocation.getCurrentPosition(
           () => resolve(true),
           () => resolve(false),
@@ -110,6 +109,24 @@ export default function ScanLandingPage() {
       if (!locationGranted) {
         setErrorMessage("Konum izni olmadan yoklama tamamlanamaz.");
         return false;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor.");
+        return false;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: {
+            ideal: "environment",
+          },
+        },
+        audio: false,
+      });
+
+      for (const track of stream.getTracks()) {
+        track.stop();
       }
 
       setPermissionMessage(

@@ -80,19 +80,42 @@ export class QrTokenService {
   }
 
   async resolveTokenFromInput(rawInput: string) {
-    const normalized = rawInput.trim();
+    const normalized = this.normalizeInputValue(rawInput);
 
     if (!normalized) {
       return null;
     }
 
-    if (this.decodeToken(normalized)) {
-      return normalized;
+    const candidates = this.expandTokenCandidates(normalized);
+
+    for (const candidate of candidates) {
+      if (this.decodeToken(candidate)) {
+        return candidate;
+      }
     }
 
-    const mappedToken = await this.qrNonceStore.getTokenForCode(normalized);
+    for (const candidate of candidates) {
+      if (!this.isPotentialVerificationCode(candidate)) {
+        continue;
+      }
 
-    return mappedToken ?? normalized;
+      const mappedToken = await this.qrNonceStore.getTokenForCode(candidate);
+
+      if (!mappedToken) {
+        continue;
+      }
+
+      const mappedNormalized = this.normalizeInputValue(mappedToken);
+      if (!mappedNormalized) {
+        continue;
+      }
+
+      if (this.decodeToken(mappedNormalized)) {
+        return mappedNormalized;
+      }
+    }
+
+    return candidates[0] ?? null;
   }
 
   async verifyToken(
@@ -164,31 +187,150 @@ export class QrTokenService {
   }
 
   private decodeToken(rawToken: string): QrTokenPayload | null {
-    try {
-      const decoded = Buffer.from(rawToken, 'base64url').toString('utf-8');
-      const parsed = JSON.parse(decoded) as Partial<QrTokenPayload>;
+    const parsed = this.parseTokenPayload(rawToken);
 
-      if (
-        parsed.v !== QR_TOKEN_VERSION ||
-        typeof parsed.sid !== 'string' ||
-        typeof parsed.tw !== 'number' ||
-        !Number.isFinite(parsed.tw) ||
-        typeof parsed.nonce !== 'string' ||
-        typeof parsed.sig !== 'string'
-      ) {
-        return null;
+    if (!parsed) {
+      return null;
+    }
+
+    if (
+      parsed.v !== QR_TOKEN_VERSION ||
+      typeof parsed.sid !== 'string' ||
+      typeof parsed.tw !== 'number' ||
+      !Number.isFinite(parsed.tw) ||
+      typeof parsed.nonce !== 'string' ||
+      typeof parsed.sig !== 'string'
+    ) {
+      return null;
+    }
+
+    return {
+      v: parsed.v,
+      sid: parsed.sid,
+      tw: parsed.tw,
+      nonce: parsed.nonce,
+      sig: parsed.sig,
+    };
+  }
+
+  private parseTokenPayload(rawToken: string): Partial<QrTokenPayload> | null {
+    const candidates = [rawToken, this.normalizeBase64Url(rawToken)];
+
+    for (const candidate of candidates) {
+      try {
+        const decoded = Buffer.from(candidate, 'base64url').toString('utf-8');
+        const parsed = JSON.parse(decoded) as Partial<QrTokenPayload>;
+        return parsed;
+      } catch {
+        // Try next candidate.
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeBase64Url(value: string) {
+    return value.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  private expandTokenCandidates(input: string) {
+    const queue: string[] = [input];
+    const results: string[] = [];
+    const seen = new Set<string>();
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+
+      if (!current || seen.has(current)) {
+        continue;
       }
 
-      return {
-        v: parsed.v,
-        sid: parsed.sid,
-        tw: parsed.tw,
-        nonce: parsed.nonce,
-        sig: parsed.sig,
-      };
+      seen.add(current);
+      results.push(current);
+
+      const fromUrl = this.extractTokenFromUrl(current);
+      if (fromUrl && !seen.has(fromUrl)) {
+        queue.push(fromUrl);
+      }
+
+      const decodedComponent = this.tryDecodeURIComponent(current);
+      if (
+        decodedComponent &&
+        decodedComponent !== current &&
+        !seen.has(decodedComponent)
+      ) {
+        queue.push(decodedComponent);
+      }
+
+      const unquoted = this.stripWrappingQuotes(current);
+      if (unquoted && unquoted !== current && !seen.has(unquoted)) {
+        queue.push(unquoted);
+      }
+    }
+
+    return results;
+  }
+
+  private extractTokenFromUrl(value: string) {
+    const fromAbsolute = this.extractTokenFromAbsoluteUrl(value);
+    if (fromAbsolute) {
+      return fromAbsolute;
+    }
+
+    const regexMatch = value.match(/(?:[?&]token=)([^&#]+)/i);
+    if (!regexMatch?.[1]) {
+      return null;
+    }
+
+    return this.normalizeInputValue(regexMatch[1]);
+  }
+
+  private extractTokenFromAbsoluteUrl(value: string) {
+    try {
+      const parsedUrl = new URL(value);
+      const tokenParam = parsedUrl.searchParams.get('token');
+
+      return this.normalizeInputValue(tokenParam ?? undefined);
     } catch {
       return null;
     }
+  }
+
+  private tryDecodeURIComponent(value: string) {
+    try {
+      return this.normalizeInputValue(decodeURIComponent(value));
+    } catch {
+      return null;
+    }
+  }
+
+  private stripWrappingQuotes(value: string) {
+    if (value.length < 2) {
+      return value;
+    }
+
+    const startsWithSingle = value.startsWith('\'');
+    const endsWithSingle = value.endsWith('\'');
+    const startsWithDouble = value.startsWith('"');
+    const endsWithDouble = value.endsWith('"');
+
+    if ((startsWithSingle && endsWithSingle) || (startsWithDouble && endsWithDouble)) {
+      return value.slice(1, -1).trim();
+    }
+
+    return value;
+  }
+
+  private isPotentialVerificationCode(value: string) {
+    const compact = value.replace(/[^a-zA-Z0-9]/g, '');
+
+    return compact.length >= 6 && compact.length <= 16;
+  }
+
+  private normalizeInputValue(value: string | null | undefined) {
+    const trimmed = value?.trim();
+
+    return trimmed ? trimmed : null;
   }
 
   private signPayload(payload: {

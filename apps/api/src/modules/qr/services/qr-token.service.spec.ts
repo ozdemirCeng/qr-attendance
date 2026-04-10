@@ -8,6 +8,8 @@ describe('QrTokenService', () => {
   let nonceStore: {
     isUsed: jest.Mock<Promise<boolean>, [string, string]>;
     markUsed: jest.Mock<Promise<void>, [string, string, number]>;
+    getTokenForCode: jest.Mock<Promise<string | null>, [string]>;
+    setTokenForCode: jest.Mock<Promise<void>, [string, string, number]>;
   };
 
   const nowMs = Date.parse('2026-04-08T10:00:00.000Z');
@@ -18,6 +20,12 @@ describe('QrTokenService', () => {
         .fn<Promise<boolean>, [string, string]>()
         .mockResolvedValue(false),
       markUsed: jest
+        .fn<Promise<void>, [string, string, number]>()
+        .mockResolvedValue(undefined),
+      getTokenForCode: jest
+        .fn<Promise<string | null>, [string]>()
+        .mockResolvedValue(null),
+      setTokenForCode: jest
         .fn<Promise<void>, [string, string, number]>()
         .mockResolvedValue(undefined),
     };
@@ -107,6 +115,35 @@ describe('QrTokenService', () => {
     if (verification.valid) {
       expect(verification.sessionId).toBe('session-skew');
     }
+  });
+
+  it('resolves token from full check-in URL input', async () => {
+    const token = service.generateToken('session-url', 60, nowMs);
+    const url = `https://example.com/check-in/event-1?token=${encodeURIComponent(token)}`;
+
+    const resolved = await service.resolveTokenFromInput(url);
+
+    expect(resolved).toBe(token);
+  });
+
+  it('resolves token from encoded URL input', async () => {
+    const token = service.generateToken('session-encoded-url', 60, nowMs);
+    const innerUrl = `https://example.com/check-in/event-1?token=${encodeURIComponent(token)}`;
+    const encodedUrl = encodeURIComponent(innerUrl);
+
+    const resolved = await service.resolveTokenFromInput(encodedUrl);
+
+    expect(resolved).toBe(token);
+  });
+
+  it('resolves mapped short verification code', async () => {
+    const token = service.generateToken('session-code', 60, nowMs);
+    nonceStore.getTokenForCode.mockResolvedValue(token);
+
+    const resolved = await service.resolveTokenFromInput('ABCD-EFGH');
+
+    expect(nonceStore.getTokenForCode).toHaveBeenCalledWith('ABCD-EFGH');
+    expect(resolved).toBe(token);
   });
 });
 
