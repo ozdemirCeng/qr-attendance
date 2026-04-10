@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -62,10 +62,20 @@ function getCurrentDateTimeLocal() {
   return localDate.toISOString().slice(0, 16);
 }
 
+function toDateTimeLocal(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return getCurrentDateTimeLocal();
+  }
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+}
+
 export default function EventDetailPage() {
   const params = useParams<{ id: string }>();
   const eventId = params.id;
   const initialDateTime = getCurrentDateTimeLocal();
+  const sessionDefaultsAppliedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<EventTab>("general");
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(
     null,
@@ -90,6 +100,24 @@ export default function EventDetailPage() {
     queryFn: () => listSessions(eventId),
     enabled: activeTab === "sessions",
   });
+
+  useEffect(() => {
+    if (sessionDefaultsAppliedRef.current) {
+      return;
+    }
+
+    const event = eventQuery.data?.data;
+    if (!event) {
+      return;
+    }
+
+    sessionForm.reset({
+      name: "",
+      startsAt: toDateTimeLocal(event.startsAt),
+      endsAt: toDateTimeLocal(event.endsAt),
+    });
+    sessionDefaultsAppliedRef.current = true;
+  }, [eventQuery.data, sessionForm]);
 
   async function onCreateSession(values: SessionFormValues) {
     setToast(null);

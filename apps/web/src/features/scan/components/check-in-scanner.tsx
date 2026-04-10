@@ -7,11 +7,12 @@ import { useEffect, useRef, useState } from "react";
 
 import { scanAttendance } from "@/lib/attendance";
 import { ApiError } from "@/lib/api";
+import { useParticipantAuth } from "@/providers/participant-auth-provider";
 
 import { clearScanContext, saveScanContext } from "../lib/scan-context";
 
 type CheckInScannerProps = {
-  eventId: string;
+  eventId?: string;
 };
 
 type ScanLocation = {
@@ -42,6 +43,7 @@ declare global {
 
 export function CheckInScanner({ eventId }: CheckInScannerProps) {
   const router = useRouter();
+  const resolvedEventId = eventId?.trim();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null);
@@ -66,6 +68,9 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
   const [detectedToken, setDetectedToken] = useState<string | null>(null);
   const [identityInput, setIdentityInput] = useState("");
   const [identitySubmitting, setIdentitySubmitting] = useState(false);
+
+  // Participant auth - auto-identify logged-in participant
+  const { participantUser } = useParticipantAuth();
 
   useEffect(() => {
     return () => {
@@ -299,8 +304,19 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
       setIsPulseVisible(false);
     }, 500);
 
-    // Stop scanner and show identity verification step
     stopScanner();
+
+    // If participant is logged in, auto-submit with their identity
+    if (participantUser) {
+      setDetectedToken(normalizedToken);
+      setIdentityInput(participantUser.email);
+      setState("processing");
+      processingRef.current = false;
+      await submitWithIdentity(normalizedToken, participantUser.email);
+      return;
+    }
+
+    // Otherwise show identity verification step
     setDetectedToken(normalizedToken);
     setIdentityInput("");
     setErrorMessage(null);
@@ -308,50 +324,41 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     processingRef.current = false;
   }
 
-  async function onIdentitySubmit() {
-    if (!detectedToken || identitySubmitting) return;
-
-    const trimmedIdentity = identityInput.trim();
-    if (!trimmedIdentity) {
-      setErrorMessage("E-posta veya telefon numaranızı girin.");
-      return;
-    }
-
+  async function submitWithIdentity(token: string, identity: string) {
     setIdentitySubmitting(true);
     setErrorMessage(null);
 
-    const isEmail = trimmedIdentity.includes("@");
+    const isEmail = identity.includes("@");
 
     try {
       const response = await scanAttendance({
-        token: detectedToken,
+        token,
         lat: location?.lat,
         lng: location?.lng,
         locationAccuracy: location?.accuracy,
-        email: isEmail ? trimmedIdentity : undefined,
-        phone: !isEmail ? trimmedIdentity : undefined,
+        email: isEmail ? identity : undefined,
+        phone: !isEmail ? identity : undefined,
       });
 
       router.replace(
         `/check-in/result?status=success&name=${encodeURIComponent(
           response.data.participant.name,
         )}&event=${encodeURIComponent(response.data.event.name)}&eventId=${encodeURIComponent(
-          eventId,
+          response.data.event.id,
         )}`,
       );
       return;
     } catch (error) {
       if (error instanceof ApiError && error.code === "REGISTRATION_REQUIRED") {
         saveScanContext({
-          eventId,
-          token: detectedToken,
+          token,
           lat: location?.lat,
           lng: location?.lng,
           locationAccuracy: location?.accuracy,
           savedAt: new Date().toISOString(),
         });
 
-        router.push(`/check-in/${eventId}/guest-form`);
+        router.push("/check-in/guest-form");
         return;
       }
 
@@ -366,15 +373,28 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
       ) {
         clearScanContext();
       }
+      const eventIdParam = resolvedEventId
+        ? `&eventId=${encodeURIComponent(resolvedEventId)}`
+        : "";
       router.replace(
-        `/check-in/result?status=error&code=${encodeURIComponent(code)}&eventId=${encodeURIComponent(
-          eventId,
-        )}`,
+        `/check-in/result?status=error&code=${encodeURIComponent(code)}${eventIdParam}`,
       );
       return;
     } finally {
       setIdentitySubmitting(false);
     }
+  }
+
+  async function onIdentitySubmit() {
+    if (!detectedToken || identitySubmitting) return;
+
+    const trimmedIdentity = identityInput.trim();
+    if (!trimmedIdentity) {
+      setErrorMessage("E-posta veya telefon numaranızı girin.");
+      return;
+    }
+
+    await submitWithIdentity(detectedToken, trimmedIdentity);
   }
 
   function onCancelIdentity() {
@@ -391,7 +411,11 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
             <h1 className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }} data-display="true">QR Giriş</h1>
             <Link href="/scan" className="btn-secondary min-h-11 text-sm">Geri Dön</Link>
           </div>
-          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>Etkinlik: {eventId}</p>
+          {resolvedEventId ? (
+            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>Etkinlik: {resolvedEventId}</p>
+          ) : (
+            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>Etkinlik bilgisi QR kodunun içinde yer alır.</p>
+          )}
           {location ? (
             <p className="mt-1 text-xs" style={{ color: "var(--success)" }}>📍 Konum hazır: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}</p>
           ) : (
@@ -433,11 +457,17 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
 
             <div className="mt-4 rounded-xl p-3" style={{ background: "var(--surface-soft)" }}>
               <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                Kayıtlı değil misiniz?{" "}
-                <Link href={`/register/${eventId}`} className="font-semibold" style={{ color: "var(--primary)" }}>
-                  Önce kayıt olun
-                </Link>{" "}
-                veya doğrudan bilgilerinizi girerek devam edin.
+                {resolvedEventId ? (
+                  <>
+                    Kayıtlı değil misiniz?{" "}
+                    <Link href={`/register/${resolvedEventId}`} className="font-semibold" style={{ color: "var(--primary)" }}>
+                      Önce kayıt olun
+                    </Link>{" "}
+                    veya doğrudan bilgilerinizi girerek devam edin.
+                  </>
+                ) : (
+                  <>Kayıtlı değil misiniz? Yönetici tarafından paylaşılan kayıt linkini kullanın.</>
+                )}
               </p>
             </div>
           </article>
@@ -496,10 +526,16 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
             {/* ─── Quick Links ─── */}
             <div className="rounded-xl p-3 text-center" style={{ background: "var(--surface-soft)" }}>
               <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                Henüz kayıtlı değil misiniz?{" "}
-                <Link href={`/register/${eventId}`} className="font-semibold" style={{ color: "var(--primary)" }}>
-                  Önce kayıt olun →
-                </Link>
+                {resolvedEventId ? (
+                  <>
+                    Henüz kayıtlı değil misiniz?{" "}
+                    <Link href={`/register/${resolvedEventId}`} className="font-semibold" style={{ color: "var(--primary)" }}>
+                      Önce kayıt olun →
+                    </Link>
+                  </>
+                ) : (
+                  <>Ön kayıt için yönetici tarafından paylaşılan linki kullanın.</>
+                )}
               </p>
             </div>
           </>

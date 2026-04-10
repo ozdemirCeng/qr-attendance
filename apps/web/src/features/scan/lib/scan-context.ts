@@ -1,5 +1,4 @@
 export type StoredScanContext = {
-  eventId: string;
   token: string;
   lat?: number;
   lng?: number;
@@ -30,10 +29,7 @@ export function loadScanContext(): StoredScanContext | null {
 
   try {
     const parsed = JSON.parse(raw) as Partial<StoredScanContext>;
-    if (
-      typeof parsed.eventId !== "string" ||
-      typeof parsed.token !== "string"
-    ) {
+    if (typeof parsed.token !== "string") {
       clearScanContext();
       return null;
     }
@@ -53,7 +49,6 @@ export function loadScanContext(): StoredScanContext | null {
     }
 
     return {
-      eventId: parsed.eventId,
       token: parsed.token,
       lat: typeof parsed.lat === "number" ? parsed.lat : undefined,
       lng: typeof parsed.lng === "number" ? parsed.lng : undefined,

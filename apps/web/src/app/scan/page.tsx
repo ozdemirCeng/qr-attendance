@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useParticipantAuth } from "@/providers/participant-auth-provider";
 
 export default function ScanLandingPage() {
   const router = useRouter();
-  const [eventId, setEventId] = useState("");
+  const { participantUser, isParticipantLoading, participantSignOut } = useParticipantAuth();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
@@ -32,11 +33,9 @@ export default function ScanLandingPage() {
   }
 
   async function onStart() {
-    const normalizedEventId = eventId.trim();
-    if (!normalizedEventId) { setErrorMessage("Devam etmek için bir etkinlik ID girin."); return; }
     const hasPermissions = await requestPermissions();
     if (!hasPermissions) { return; }
-    router.push(`/check-in/${normalizedEventId}`);
+    router.push("/check-in");
   }
 
   return (
@@ -44,6 +43,29 @@ export default function ScanLandingPage() {
       <div className="absolute right-5 top-5"><ThemeToggle /></div>
 
       <section className="mx-auto w-full max-w-lg">
+        {/* Participant Auth Bar */}
+        {!isParticipantLoading && (
+          <div className="mb-4 animate-fade-in">
+            {participantUser ? (
+              <div className="glass rounded-2xl px-5 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>👤 {participantUser.name}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--text-tertiary)" }}>{participantUser.email}</p>
+                </div>
+                <button type="button" onClick={() => { void participantSignOut(); }} className="btn-secondary shrink-0 text-xs">Çıkış</button>
+              </div>
+            ) : (
+              <div className="glass rounded-2xl px-5 py-3 flex items-center justify-between gap-3">
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Hesabınla giriş yap, QR&apos;da otomatik tanın.</p>
+                <div className="flex gap-2 shrink-0">
+                  <Link href="/auth/login" className="btn-secondary text-xs">Giriş</Link>
+                  <Link href="/auth/signup" className="btn-primary text-xs">Kayıt Ol</Link>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <article className="glass-elevated animate-slide-up rounded-3xl p-8">
           <div className="mb-6 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "linear-gradient(135deg, var(--primary-gradient-from), var(--primary-gradient-to))", boxShadow: "var(--shadow-glow)" }}>
@@ -54,27 +76,13 @@ export default function ScanLandingPage() {
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }} data-display="true">QR Yoklama</h1>
             <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-              QR kodunu tarayarak etkinliğe giriş yap
+              {participantUser
+                ? `${participantUser.name}, QR tarayarak otomatik giriş yapabilirsin.`
+                : "QR kodunu tarayarak etkinliğe giriş yap"}
             </p>
           </div>
 
-          {/* Event ID Input */}
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor="scanEventId" className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
-                Etkinlik Kodu
-              </label>
-              <input
-                id="scanEventId"
-                type="text"
-                value={eventId}
-                onChange={(e) => { setEventId(e.target.value); setErrorMessage(null); }}
-                placeholder="Etkinlik ID'sini girin"
-                className="glass-input w-full py-3 text-base"
-                onKeyDown={(e) => { if (e.key === "Enter") { void onStart(); } }}
-              />
-            </div>
-
             {errorMessage ? <p className="text-sm" style={{ color: "var(--error)" }}>{errorMessage}</p> : null}
             {permissionMessage ? <p className="text-sm" style={{ color: "var(--success)" }}>{permissionMessage}</p> : null}
 
@@ -88,11 +96,19 @@ export default function ScanLandingPage() {
             </button>
           </div>
 
-          <div className="mt-6 space-y-2 text-center">
-            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-              Etkinlik ID, yönetici tarafından paylaşılır veya QR kodunun içinde bulunur.
-            </p>
-          </div>
+          {participantUser ? (
+            <div className="mt-4 rounded-xl p-3 text-center" style={{ background: "var(--success-soft)" }}>
+              <p className="text-xs font-medium" style={{ color: "var(--success)" }}>
+                ✓ Giriş yapıldı — QR taradığında otomatik tanınacaksın
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 text-center">
+              <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                Etkinlik bilgisi QR kodunun içinde yer alır.
+              </p>
+            </div>
+          )}
         </article>
 
         {/* Info Cards */}
@@ -104,10 +120,9 @@ export default function ScanLandingPage() {
             </p>
           </div>
           <div className="glass rounded-2xl p-4">
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>📋 Ön Kayıt</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>📋 Hesap Oluştur</p>
             <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
-              Etkinlik ID ile{" "}
-              <Link href={eventId.trim() ? `/register/${eventId.trim()}` : "#"} className="font-semibold" style={{ color: "var(--primary)" }}>önceden kayıt olun</Link>.
+              <Link href="/auth/signup" className="font-semibold" style={{ color: "var(--primary)" }}>Hesap oluşturun</Link>, her etkinlikte otomatik tanının.
             </p>
           </div>
         </div>

@@ -43,16 +43,17 @@ const errorMetaMap: Record<string, ErrorMeta> = {
 };
 
 function resolveAction(isSuccess: boolean, code: string, eventId: string | null): ResultAction {
+  const scanHref = eventId ? `/check-in/${eventId}` : "/check-in";
   if (isSuccess) {
-    return { primaryLabel: "Yeni Tarama", primaryHref: eventId ? `/check-in/${eventId}` : "/scan", secondaryLabel: "Ana Ekran", secondaryHref: "/scan" };
+    return { primaryLabel: "Yeni Tarama", primaryHref: scanHref, secondaryLabel: "Ana Ekran", secondaryHref: "/scan" };
   }
   if (code === "NO_LOCATION_DATA" || code === "LOCATION_OUT_OF_RANGE") {
-    return { primaryLabel: "Aynı Etkinliğe Dön", primaryHref: eventId ? `/check-in/${eventId}` : "/scan", secondaryLabel: "Tarama Listesi", secondaryHref: "/scan" };
+    return { primaryLabel: "Tekrar Dene", primaryHref: scanHref, secondaryLabel: "Tarama Listesi", secondaryHref: "/scan" };
   }
   if (code === "ALREADY_CHECKED_IN") {
-    return { primaryLabel: "Farklı Kod Tara", primaryHref: "/scan", secondaryLabel: "Ana Ekran", secondaryHref: "/scan" };
+    return { primaryLabel: "Farklı Kod Tara", primaryHref: "/check-in", secondaryLabel: "Ana Ekran", secondaryHref: "/scan" };
   }
-  return { primaryLabel: "Tekrar Dene", primaryHref: eventId ? `/check-in/${eventId}` : "/scan", secondaryLabel: "Ana Ekran", secondaryHref: "/scan" };
+  return { primaryLabel: "Tekrar Dene", primaryHref: scanHref, secondaryLabel: "Ana Ekran", secondaryHref: "/scan" };
 }
 
 export default function CheckInResultPage({ searchParams }: ResultPageProps) {

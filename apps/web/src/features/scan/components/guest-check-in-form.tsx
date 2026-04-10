@@ -23,21 +23,20 @@ const guestSchema = z
   });
 
 type GuestFormValues = { name: string; email: string; phone: string };
-type GuestCheckInFormProps = { eventId: string };
 
-export function GuestCheckInForm({ eventId }: GuestCheckInFormProps) {
+export function GuestCheckInForm() {
   const router = useRouter();
   const [scanContext] = useState(() => loadScanContext());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<GuestFormValues>({ defaultValues: { name: "", email: "", phone: "" } });
 
-  const missingContext = !scanContext || scanContext.eventId !== eventId;
+  const missingContext = !scanContext;
 
   async function onSubmit(values: GuestFormValues) {
     form.clearErrors();
     setErrorMessage(null);
-    if (!scanContext || scanContext.eventId !== eventId) { setErrorMessage("Geçerli tarama verisi bulunamadı."); return; }
+    if (!scanContext) { setErrorMessage("Geçerli tarama verisi bulunamadı."); return; }
     const parsed = guestSchema.safeParse(values);
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
@@ -52,11 +51,11 @@ export function GuestCheckInForm({ eventId }: GuestCheckInFormProps) {
         name: parsed.data.name, email: parsed.data.email || undefined, phone: parsed.data.phone || undefined,
       });
       clearScanContext();
-      router.replace(`/check-in/result?status=success&name=${encodeURIComponent(response.data.participant.name)}&event=${encodeURIComponent(response.data.event.name)}&eventId=${encodeURIComponent(eventId)}`);
+      router.replace(`/check-in/result?status=success&name=${encodeURIComponent(response.data.participant.name)}&event=${encodeURIComponent(response.data.event.name)}&eventId=${encodeURIComponent(response.data.event.id)}`);
     } catch (error) {
       const code = error instanceof ApiError ? (error.code ?? "HTTP_EXCEPTION") : "UNKNOWN_ERROR";
       if (code === "EXPIRED_TOKEN" || code === "REPLAY_ATTACK" || code === "SESSION_INACTIVE") { clearScanContext(); }
-      router.replace(`/check-in/result?status=error&code=${encodeURIComponent(code)}&eventId=${encodeURIComponent(eventId)}`);
+      router.replace(`/check-in/result?status=error&code=${encodeURIComponent(code)}`);
     }
   }
 
@@ -65,7 +64,7 @@ export function GuestCheckInForm({ eventId }: GuestCheckInFormProps) {
       <article className="rounded-2xl p-4 text-sm" style={{ background: "var(--warning-soft)", color: "var(--warning)" }}>
         Geçerli bir QR token bulunamadı. Lütfen yeniden tarama ekranına dönün.
         <div className="mt-3">
-          <Link href={`/check-in/${eventId}`} className="btn-secondary px-3 py-1.5 text-xs">Taramaya Dön</Link>
+          <Link href="/check-in" className="btn-secondary px-3 py-1.5 text-xs">Taramaya Dön</Link>
         </div>
       </article>
     );
@@ -94,7 +93,7 @@ export function GuestCheckInForm({ eventId }: GuestCheckInFormProps) {
       {errorMessage ? <p className="text-sm" style={{ color: "var(--error)" }}>{errorMessage}</p> : null}
 
       <div className="flex justify-end gap-2 pt-2">
-        <Link href={`/check-in/${eventId}`} className="btn-secondary min-h-11 text-sm">Geri Dön</Link>
+        <Link href="/check-in" className="btn-secondary min-h-11 text-sm">Geri Dön</Link>
         <button type="submit" disabled={form.formState.isSubmitting} className="btn-primary min-h-11 text-sm">
           {form.formState.isSubmitting ? "Gönderiliyor..." : "Katılımı Onayla"}
         </button>

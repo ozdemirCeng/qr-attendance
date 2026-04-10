@@ -1,13 +1,17 @@
 # QR Attendance
 
-QR kod tabanli yoklama ve katilim takibi icin gelistirilen tam yigin monorepo proje.
+QR kod tabanli yoklama ve katilim takibi icin gelistirilmis tam yigin (full-stack) monorepo proje.
 
 ## Proje Ozeti
 
-Uygulama iki ana akis uzerine kurulur:
+Uygulama iki ana akis uzerine kuruludur:
 
-- Admin paneli: Etkinlik olusturma, katilimci yonetimi, QR uretimi, katilim raporlari ve audit kayitlari
-- Katilimci akisi: Mobil cihaz ile QR okutma, konum kontrolu ve katilim kaydi
+- Admin paneli: Etkinlik olusturma, oturum yonetimi, katilimci yonetimi, QR uretimi, katilim raporlari, audit kayitlari
+- Katilimci akisi: Mobil cihazla QR okutma, konum kontrolu, kimlik dogrulama, katilim kaydi
+
+Onemli not:
+
+- Check-in akisinda kullanici etkinlik secmek zorunda degildir. Etkinlik/oturum bilgisi QR icerisindeki imzali token'dan cozulur.
 
 ## Mimari
 
@@ -16,99 +20,224 @@ Uygulama iki ana akis uzerine kurulur:
 - API: NestJS (`apps/api`)
 - Worker: NestJS + BullMQ (`apps/worker`)
 - Veritabani: Neon Postgres + Drizzle ORM (`packages/db`)
-- Ortak tipler: `packages/shared`
+- Ortak tipler ve yardimci kodlar: `packages/shared`
+
+## Kullanilan Yontemler
+
+- QR dogrulama: Imzali token + sure penceresi (rotation window)
+- Replay korumasi: Nonce tek kullanim dogrulamasi (Redis veya fallback in-memory)
+- Kisa kod destegi: Uzun token yerine insan dostu kisa dogrulama kodu ile scan
+- Konum dogrulamasi: Etkinlik merkezi + yaricap (meter) kontrolu
+- Kimlik akisi: Kayitli katilimci ve walk-in (misafir formu) akislari
+- API hata standardizasyonu: Merkezi exception filter ile tutarli hata kodlari
+- Same-origin proxy: Web tarafinda `/api/backend/*` ile backend proxy
+
+## Teknoloji ve Kutuphaneler
+
+Web (`apps/web`):
+
+- Next.js 16, React 19
+- @tanstack/react-query
+- @tanstack/react-table
+- react-hook-form
+- zod
+- @zxing/library
+- qrcode.react
+
+API (`apps/api`):
+
+- NestJS 11
+- class-validator + class-transformer
+- @nestjs/swagger
+- @nestjs/throttler
+- @neondatabase/serverless
+- ioredis
+- bullmq
+- xlsx
+- @sentry/node
+
+Worker (`apps/worker`):
+
+- NestJS 11
+- bullmq
+- ioredis
+- xlsx
+
+DB (`packages/db`):
+
+- drizzle-orm
+- drizzle-kit
+- @neondatabase/serverless
 
 ## Klasor Yapisi
 
 ```text
 qr-attendance/
-	apps/
-		api/
-		web/
-		worker/
-	packages/
-		config/
-		db/
-		shared/
-		ui/
+  apps/
+	 api/
+	 web/
+	 worker/
+  packages/
+	 config/
+	 db/
+	 shared/
+	 ui/
 ```
 
-## Kurulum
+## Gereksinimler
 
-1. Node.js 20.x kullanin.
-2. Ortam degiskenlerini hazirlayin.
-3. Bagimliliklari yukleyin.
-4. Veritabani migration ve demo seed adimlarini calistirin.
-5. Uygulamayi gelistirme modunda baslatin.
+- Node.js 20.x
+- pnpm 10.x
+- Neon Postgres baglantisi (`DATABASE_URL`)
+- (Opsiyonel) Redis (`REDIS_URL`) - queue/nonce icin
+
+## Kurulum ve Calistirma
+
+### 1) Ortam degiskenleri
+
+Repo kokunde `.env` dosyasi olusturun:
 
 ```bash
-nvm use
+cp .env.example .env
+```
+
+Asgari zorunlu alanlar:
+
+- `DATABASE_URL`
+- `QR_SECRET`
+
+Yaygin alanlar:
+
+- `API_PORT` (varsayilan 3001)
+- `CORS_ORIGIN`
+- `NEXT_PUBLIC_API_URL` veya `API_INTERNAL_URL`
+- `AUTH_COOKIE_NAME` (web ve api ayni olmali)
+
+Opsiyonel alanlar:
+
+- `REDIS_URL`
+- `SENTRY_DSN`
+- `NEON_AUTH_BASE_URL`
+
+### 2) Bagimliliklar
+
+```bash
 pnpm install
+```
+
+### 3) Veritabani migration + seed
+
+```bash
 pnpm db:migrate
 pnpm db:seed
+```
+
+### 4) Gelistirme modunda calistirma
+
+Tum monorepo:
+
+```bash
 pnpm dev
 ```
 
-Yerel gelistirme notu:
+Sadece API + Web (worker olmadan, yerelde daha stabil):
 
-- Web uygulamasi backend'e same-origin proxy ile erisir. Bu nedenle `API_INTERNAL_URL` veya `NEXT_PUBLIC_API_URL` degerlerinden en az birini yerelde `http://localhost:3001` olarak ayarlayin.
-- `localhost:3000` (veya dev server'in actigi port) uzerinden web arayuzunu acin.
+```bash
+pnpm --filter @qr-attendance/api dev
+$env:NEXT_PUBLIC_API_URL='http://localhost:3001'; pnpm --filter @qr-attendance/web dev
+```
 
-## Demo Seed
+Arayuz:
 
-`pnpm db:seed` komutu asagidaki demo verisini idempotent olarak olusturur:
+- Web: `http://localhost:3000`
+- API: `http://localhost:3001`
+- Swagger: `http://localhost:3001/api/docs` (geri uyumluluk: `/docs`)
+
+## NPM/PNPM Script Ozetleri
+
+Repo koku:
+
+- `pnpm dev`
+- `pnpm build`
+- `pnpm lint`
+- `pnpm test`
+- `pnpm typecheck`
+- `pnpm quality`
+- `pnpm db:migrate`
+- `pnpm db:seed`
+
+Paket bazli:
+
+- API: `pnpm --filter @qr-attendance/api dev`
+- Web: `pnpm --filter @qr-attendance/web dev`
+- Worker: `pnpm --filter @qr-attendance/worker dev`
+
+## Demo Seed ve Giris
+
+`pnpm db:seed` idempotent olarak olusturur:
 
 - 1 demo admin
 - 1 demo etkinlik
 - 1 demo oturum
 - 20 demo katilimci
 
-Demo kimlik bilgileri `.env.example` dosyasinda sabittir:
+Demo kimlik bilgileri:
 
 - `DEMO_ADMIN_USERNAME`
 - `DEMO_ADMIN_EMAIL`
 - `DEMO_ADMIN_PASSWORD`
 
-Giris akisinda email veya kullanici adi kullanilabilir. Neon Auth erisilemediginde demo hesapla yerel fallback oturum acma desteklenir.
+Giris akisinda email veya kullanici adi kullanilabilir. Neon Auth yoksa demo fallback session acma devrededir.
 
-## API Dokumantasyonu (Swagger)
-
-- `http://localhost:3001/api/docs`
-- Geri uyumluluk icin: `http://localhost:3001/docs`
-
-## Deploy
+## Deploy Notlari
 
 - Web: Vercel (preview + production)
 - API/Worker: Railway
 - Veritabani: Neon
 
-Not: Export akisi API icinde `.xlsx` dosyasi olusturur. Worker/Redis altyapisi olmadan da temel export kullanimi calisir.
-
-Vercel preview URL alani:
-
-- `https://<vercel-preview-url>`
-
 Vercel env template dosyalari:
 
-- API project (`apps/api`): `.env.vercel.api.example`
-- Web project (`apps/web`): `.env.vercel.web.example`
+- API: `.env.vercel.api.example`
+- Web: `.env.vercel.web.example`
 
-Web projesinde onerilen ayar:
-
-- `API_INTERNAL_URL`: server-side proxy hedefi
-- `NEXT_PUBLIC_API_URL`: istemci tarafinda expose edilmesi gereken durumlar icin geriye uyumluluk
-
-Yerel hazir Vercel env dosyalari (gitignore):
+Yerelde Vercel import icin hazir dosyalar (gitignore):
 
 - API: `.env.vercel.api`
 - Web: `.env.vercel.web`
 
+Web tarafinda onerilen env:
+
+- `API_INTERNAL_URL`
+- `NEXT_PUBLIC_API_URL`
+- `AUTH_COOKIE_NAME`
+
 ## Demo Akisi Kontrol Listesi
 
-1. Kayitli katilimci happy path:
-   QR okut, konum izni ver, katilim kaydinin olustugunu `Katilim` sekmesinde dogrula.
-2. Walk-in katilimci happy path:
-   Kayitsiz kullanici ile QR okut, formu doldur, katilim kaydinin olustugunu dogrula.
+1. Kayitli katilimci senaryosu:
+	QR okut -> kimlik dogrula -> `Katilim` sekmesinde kaydi gor.
+2. Walk-in senaryosu:
+	QR okut -> `REGISTRATION_REQUIRED` durumunda misafir formunu doldur -> katilim kaydini gor.
+
+## Sık Karsilasilan Sorunlar
+
+### 1) `ERR_CONTENT_DECODING_FAILED`
+
+- Web proxy response basliklariyla ilgili olabilir.
+- Web deployunu cache temizleyerek tekrar alin.
+
+### 2) Session olusturmada `400 Bad Request`
+
+- Oturum zamani etkinlik zaman araligi disinda olabilir.
+- Baslangic/bitis tarihlerini etkinlik penceresi icine alin.
+
+### 3) `EADDRINUSE: 3001`
+
+- API portu baska process tarafindan kullaniliyor.
+- Portu bosaltip yeniden baslatin veya `API_PORT` degistirin.
+
+### 4) CI job baslamiyor (billing lock)
+
+- Koddan bagimsizdir. Platform (GitHub/Vercel) billing problemi cozulmeden job baslamaz.
 
 ## Kalite Komutlari
 

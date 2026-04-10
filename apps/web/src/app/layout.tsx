@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/providers/auth-provider";
+import { ParticipantAuthProvider } from "@/providers/participant-auth-provider";
 import { QueryProvider } from "@/providers/query-provider";
 
 const inter = Inter({
@@ -49,7 +50,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <ParticipantAuthProvider>{children}</ParticipantAuthProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

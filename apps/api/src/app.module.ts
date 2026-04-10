@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { EventsModule } from './modules/events/events.module';
 import { ExportsModule } from './modules/exports/exports.module';
 import { HealthModule } from './modules/health/health.module';
+import { ParticipantAuthModule } from './modules/participant-auth/participant-auth.module';
 import { ParticipantsModule } from './modules/participants/participants.module';
 import { QrModule } from './modules/qr/qr.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
@@ -34,6 +35,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
     EventsModule,
     SessionsModule,
     ParticipantsModule,
+    ParticipantAuthModule,
     ExportsModule,
     QrModule,
     AttendanceModule,
