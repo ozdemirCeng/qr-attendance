@@ -31,6 +31,8 @@ describe('AttendanceService', () => {
         nonceMemory.add(`${sessionId}:${nonce}`);
         return Promise.resolve();
       },
+      getTokenForCode: () => Promise.resolve(null),
+      setTokenForCode: () => Promise.resolve(),
     } as unknown as QrNonceStoreService;
 
     const configService = {
@@ -82,6 +84,7 @@ describe('AttendanceService', () => {
       lat: event.latitude,
       lng: event.longitude,
       locationAccuracy: 15,
+      verificationPhotoDataUrl: createVerificationPhoto(),
     });
 
     expect(result.success).toBe(true);
@@ -126,6 +129,7 @@ describe('AttendanceService', () => {
         lat: event.latitude,
         lng: event.longitude,
         locationAccuracy: 20,
+        verificationPhotoDataUrl: createVerificationPhoto(),
       },
       {},
     );
@@ -159,6 +163,7 @@ describe('AttendanceService', () => {
       lat: event.latitude,
       lng: event.longitude,
       locationAccuracy: 20,
+      verificationPhotoDataUrl: createVerificationPhoto(),
     });
 
     await expectCode(
@@ -168,6 +173,7 @@ describe('AttendanceService', () => {
         lat: event.latitude,
         lng: event.longitude,
         locationAccuracy: 20,
+        verificationPhotoDataUrl: createVerificationPhoto(),
       }),
       'ALREADY_CHECKED_IN',
     );
@@ -190,6 +196,7 @@ describe('AttendanceService', () => {
       lat: event.latitude,
       lng: event.longitude,
       locationAccuracy: 20,
+      verificationPhotoDataUrl: createVerificationPhoto(),
     });
 
     const listed = await service.listByEvent(event.id, {
@@ -227,6 +234,7 @@ describe('AttendanceService', () => {
       lat: event.latitude,
       lng: event.longitude,
       locationAccuracy: 20,
+      verificationPhotoDataUrl: createVerificationPhoto(),
     });
 
     const updated = await service.updateManualStatus(
@@ -308,4 +316,8 @@ async function expectCode(promise: Promise<unknown>, expectedCode: string) {
     >;
     expect(payload.code).toBe(expectedCode);
   }
+}
+
+function createVerificationPhoto() {
+  return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn1Ao8AAAAASUVORK5CYII=';
 }

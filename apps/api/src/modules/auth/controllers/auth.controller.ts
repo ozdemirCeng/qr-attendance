@@ -56,24 +56,25 @@ export class AuthController {
         payload.email?.trim().toLowerCase() ??
         '';
 
-      if (!identifier.includes('@')) {
+      try {
+        const participantSession = await this.participantAuthService.login({
+          identifier,
+          email: identifier.includes('@') ? identifier : undefined,
+          password: payload.password,
+        });
+        const headers = [
+          ...this.authService.createLogoutHeaders(),
+          ...participantSession.setCookieHeaders,
+        ];
+
+        if (headers.length > 0) {
+          res.setHeader('set-cookie', headers);
+        }
+
+        return { success: true };
+      } catch {
         throw adminError;
       }
-
-      const participantSession = await this.participantAuthService.login({
-        email: identifier,
-        password: payload.password,
-      });
-      const headers = [
-        ...this.authService.createLogoutHeaders(),
-        ...participantSession.setCookieHeaders,
-      ];
-
-      if (headers.length > 0) {
-        res.setHeader('set-cookie', headers);
-      }
-
-      return { success: true };
     }
   }
 
@@ -121,18 +122,16 @@ export class AuthController {
         throw new UnauthorizedException('Oturum bulunamadi.');
       }
 
+      const participantUser = await this.participantAuthService.getMe(
+        participantSession.id,
+      );
+
       return {
         success: true,
         data: {
           role: 'member',
           dashboardPath: '/user/dashboard',
-          user: {
-            id: participantSession.id,
-            name: participantSession.name,
-            email: participantSession.email,
-            phone: participantSession.phone,
-            avatarDataUrl: participantSession.avatarDataUrl,
-          },
+          user: participantUser,
         },
       };
     }

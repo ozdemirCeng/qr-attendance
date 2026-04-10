@@ -78,6 +78,8 @@ describe('ExportsService', () => {
       isValid: true,
       invalidReason: null,
       qrNonce: null,
+      verificationPhotoDataUrl: null,
+      verificationPhotoCapturedAt: null,
       ipAddress: '127.0.0.1',
       deviceFingerprint: 'jest-device',
     });

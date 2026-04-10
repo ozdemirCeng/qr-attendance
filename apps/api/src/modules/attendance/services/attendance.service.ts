@@ -127,6 +127,15 @@ export class AttendanceService {
         );
       }
 
+      const participant = await this.resolveParticipant(event.id, payload);
+
+      if (!participant) {
+        throw this.scanError(
+          'REGISTRATION_REQUIRED',
+          'Kayit bulunamadi. Katilimci bilgisi gerekli.',
+        );
+      }
+
       const verificationPhotoDataUrl = this.normalizeVerificationPhoto(
         payload.verificationPhotoDataUrl,
       );
@@ -135,15 +144,6 @@ export class AttendanceService {
         throw this.scanError(
           'PHOTO_REQUIRED',
           'Profil dogrulama fotografi zorunludur.',
-        );
-      }
-
-      const participant = await this.resolveParticipant(event.id, payload);
-
-      if (!participant) {
-        throw this.scanError(
-          'REGISTRATION_REQUIRED',
-          'Kayit bulunamadi. Katilimci bilgisi gerekli.',
         );
       }
 

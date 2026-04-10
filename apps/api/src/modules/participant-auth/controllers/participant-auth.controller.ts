@@ -73,7 +73,7 @@ export class ParticipantAuthController {
   @ApiOperation({ summary: 'Katilimci oturumunu getirir' })
   @ApiOkResponse({ description: 'Oturum bilgisi donuldu.' })
   @Get('me')
-  me(@Req() req: Request) {
+  async me(@Req() req: Request) {
     const session = this.participantAuthService.resolveSessionFromCookie(
       req.headers.cookie,
     );
@@ -82,13 +82,7 @@ export class ParticipantAuthController {
       throw new UnauthorizedException('Oturum bulunamadi.');
     }
 
-    return {
-      id: session.id,
-      name: session.name,
-      email: session.email,
-      phone: session.phone,
-      avatarDataUrl: session.avatarDataUrl,
-    };
+    return this.participantAuthService.getMe(session.id);
   }
 
   @ApiOperation({ summary: 'Katilimci panel verisini getirir' })

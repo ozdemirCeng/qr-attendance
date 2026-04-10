@@ -146,6 +146,8 @@ describe('Exports flow (e2e)', () => {
       isValid: true,
       invalidReason: null,
       qrNonce: null,
+      verificationPhotoDataUrl: null,
+      verificationPhotoCapturedAt: null,
       ipAddress: '127.0.0.1',
       deviceFingerprint: 'e2e-device',
     });

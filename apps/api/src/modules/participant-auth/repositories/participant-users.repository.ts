@@ -19,36 +19,66 @@ type UserRow = ParticipantUserEntity;
 
 @Injectable()
 export class ParticipantUsersRepository {
+  private avatarColumnSupport: Promise<boolean> | null = null;
+
   async create(input: CreateInput): Promise<ParticipantUserEntity> {
+    const supportsAvatarDataUrl = await this.hasAvatarDataUrlColumn();
     const sql = getSql();
     const rows = (await sql.query(
-      `
-        INSERT INTO participant_users (
-          name,
-          email,
-          phone,
-          phone_normalized,
-          avatar_data_url,
-          password_hash
-        )
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING
-          id,
-          name,
-          email,
-          phone,
-          avatar_data_url AS "avatarDataUrl",
-          password_hash AS "passwordHash",
-          created_at AS "createdAt"
-      `,
-      [
-        input.name,
-        input.email.toLowerCase(),
-        input.phone,
-        this.normalizePhone(input.phone),
-        input.avatarDataUrl ?? null,
-        input.passwordHash,
-      ],
+      supportsAvatarDataUrl
+        ? `
+            INSERT INTO participant_users (
+              name,
+              email,
+              phone,
+              phone_normalized,
+              avatar_data_url,
+              password_hash
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING
+              id,
+              name,
+              email,
+              phone,
+              avatar_data_url AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+          `
+        : `
+            INSERT INTO participant_users (
+              name,
+              email,
+              phone,
+              phone_normalized,
+              password_hash
+            )
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING
+              id,
+              name,
+              email,
+              phone,
+              NULL::text AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+          `,
+      supportsAvatarDataUrl
+        ? [
+            input.name,
+            input.email.toLowerCase(),
+            input.phone,
+            this.normalizePhone(input.phone),
+            input.avatarDataUrl ?? null,
+            input.passwordHash,
+          ]
+        : [
+            input.name,
+            input.email.toLowerCase(),
+            input.phone,
+            this.normalizePhone(input.phone),
+            input.passwordHash,
+          ],
     )) as UserRow[];
 
     return this.mapRow(rows[0]);
@@ -58,39 +88,116 @@ export class ParticipantUsersRepository {
     const normalized = email.trim().toLowerCase();
     if (!normalized) return null;
 
+    const supportsAvatarDataUrl = await this.hasAvatarDataUrlColumn();
     const sql = getSql();
     const rows = (await sql.query(
-      `
-        SELECT
-          id, name, email, phone,
-          avatar_data_url AS "avatarDataUrl",
-          password_hash AS "passwordHash",
-          created_at AS "createdAt"
-        FROM participant_users
-        WHERE LOWER(email) = $1
-        LIMIT 1
-      `,
+      supportsAvatarDataUrl
+        ? `
+            SELECT
+              id, name, email, phone,
+              avatar_data_url AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+            FROM participant_users
+            WHERE LOWER(email) = $1
+            LIMIT 1
+          `
+        : `
+            SELECT
+              id, name, email, phone,
+              NULL::text AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+            FROM participant_users
+            WHERE LOWER(email) = $1
+            LIMIT 1
+          `,
       [normalized],
     )) as UserRow[];
 
     return rows[0] ? this.mapRow(rows[0]) : null;
   }
 
+  async findByPhone(phone: string): Promise<ParticipantUserEntity | null> {
+    const normalizedPhone = this.normalizePhone(phone);
+
+    if (!normalizedPhone) {
+      return null;
+    }
+
+    const supportsAvatarDataUrl = await this.hasAvatarDataUrlColumn();
+    const sql = getSql();
+    const rows = (await sql.query(
+      supportsAvatarDataUrl
+        ? `
+            SELECT
+              id, name, email, phone,
+              avatar_data_url AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+            FROM participant_users
+            WHERE phone_normalized = $1
+            LIMIT 1
+          `
+        : `
+            SELECT
+              id, name, email, phone,
+              NULL::text AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+            FROM participant_users
+            WHERE phone_normalized = $1
+            LIMIT 1
+          `,
+      [normalizedPhone],
+    )) as UserRow[];
+
+    return rows[0] ? this.mapRow(rows[0]) : null;
+  }
+
+  async findByIdentity(
+    identity: string,
+  ): Promise<ParticipantUserEntity | null> {
+    const normalizedIdentity = identity.trim();
+
+    if (!normalizedIdentity) {
+      return null;
+    }
+
+    if (normalizedIdentity.includes('@')) {
+      return this.findByEmail(normalizedIdentity);
+    }
+
+    return this.findByPhone(normalizedIdentity);
+  }
+
   async findById(id: string): Promise<ParticipantUserEntity | null> {
     if (!isUuidLike(id)) return null;
 
+    const supportsAvatarDataUrl = await this.hasAvatarDataUrlColumn();
     const sql = getSql();
     const rows = (await sql.query(
-      `
-        SELECT
-          id, name, email, phone,
-          avatar_data_url AS "avatarDataUrl",
-          password_hash AS "passwordHash",
-          created_at AS "createdAt"
-        FROM participant_users
-        WHERE id = $1
-        LIMIT 1
-      `,
+      supportsAvatarDataUrl
+        ? `
+            SELECT
+              id, name, email, phone,
+              avatar_data_url AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+            FROM participant_users
+            WHERE id = $1
+            LIMIT 1
+          `
+        : `
+            SELECT
+              id, name, email, phone,
+              NULL::text AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+            FROM participant_users
+            WHERE id = $1
+            LIMIT 1
+          `,
       [id],
     )) as UserRow[];
 
@@ -108,6 +215,7 @@ export class ParticipantUsersRepository {
   ): Promise<ParticipantUserEntity | null> {
     if (!isUuidLike(id)) return null;
 
+    const supportsAvatarDataUrl = await this.hasAvatarDataUrlColumn();
     const sets: string[] = [];
     const params: unknown[] = [id];
     let paramIndex = 2;
@@ -130,7 +238,7 @@ export class ParticipantUsersRepository {
       params.push(this.normalizePhone(patch.phone));
       paramIndex++;
     }
-    if (patch.avatarDataUrl !== undefined) {
+    if (supportsAvatarDataUrl && patch.avatarDataUrl !== undefined) {
       sets.push(`avatar_data_url = $${paramIndex}`);
       params.push(patch.avatarDataUrl);
       paramIndex++;
@@ -140,16 +248,27 @@ export class ParticipantUsersRepository {
 
     const sql = getSql();
     const rows = (await sql.query(
-      `
-        UPDATE participant_users
-        SET ${sets.join(', ')}
-        WHERE id = $1
-        RETURNING
-          id, name, email, phone,
-          avatar_data_url AS "avatarDataUrl",
-          password_hash AS "passwordHash",
-          created_at AS "createdAt"
-      `,
+      supportsAvatarDataUrl
+        ? `
+            UPDATE participant_users
+            SET ${sets.join(', ')}
+            WHERE id = $1
+            RETURNING
+              id, name, email, phone,
+              avatar_data_url AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+          `
+        : `
+            UPDATE participant_users
+            SET ${sets.join(', ')}
+            WHERE id = $1
+            RETURNING
+              id, name, email, phone,
+              NULL::text AS "avatarDataUrl",
+              password_hash AS "passwordHash",
+              created_at AS "createdAt"
+          `,
       params,
     )) as UserRow[];
 
@@ -183,5 +302,29 @@ export class ParticipantUsersRepository {
     const digits = value.replace(/\D/g, '');
     if (!digits) return null;
     return digits.length > 10 ? digits.slice(-10) : digits;
+  }
+
+  private async hasAvatarDataUrlColumn() {
+    if (!this.avatarColumnSupport) {
+      this.avatarColumnSupport = this.detectAvatarDataUrlColumn();
+    }
+
+    return this.avatarColumnSupport;
+  }
+
+  private async detectAvatarDataUrlColumn() {
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name = 'participant_users'
+            AND column_name = 'avatar_data_url'
+        ) AS "exists"
+      `,
+    )) as Array<{ exists: boolean }>;
+
+    return rows[0]?.exists ?? false;
   }
 }

@@ -13,20 +13,31 @@ import { RolesGuard } from '../../../common/guards/roles.guard';
 import { QrService } from '../services/qr.service';
 
 @ApiTags('QR')
-@ApiCookieAuth('session')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'editor')
 @Controller('events/:eventId/qr')
 export class QrController {
   constructor(private readonly qrService: QrService) {}
 
-  @ApiOperation({ summary: 'Aktif oturum icin guncel QR tokeni getirir' })
+  @ApiOperation({ summary: 'Aktif oturum icin guncel QR tokeni getirir (admin)' })
+  @ApiCookieAuth('session')
   @ApiOkResponse({ description: 'QR token basariyla donuldu.' })
   @ApiNotFoundResponse({
     description: 'Etkinlik veya aktif oturum bulunamadi.',
   })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'editor')
   @Get('current')
   async current(@Param('eventId') eventId: string) {
     return this.qrService.getCurrentToken(eventId);
   }
+
+  @ApiOperation({ summary: 'Aktif oturum icin guncel QR tokeni getirir (public)' })
+  @ApiOkResponse({ description: 'QR token basariyla donuldu.' })
+  @ApiNotFoundResponse({
+    description: 'Etkinlik veya aktif oturum bulunamadi.',
+  })
+  @Get('public')
+  async publicToken(@Param('eventId') eventId: string) {
+    return this.qrService.getCurrentToken(eventId);
+  }
 }
+

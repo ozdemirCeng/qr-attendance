@@ -30,7 +30,6 @@ type ParticipantSessionPayload = {
   email: string;
   name: string;
   phone: string | null;
-  avatarDataUrl: string | null;
   exp: number;
 };
 
@@ -98,11 +97,11 @@ export class ParticipantAuthService {
   }
 
   async login(payload: ParticipantLoginDto) {
-    const normalizedEmail = payload.email.trim().toLowerCase();
-    const user = await this.usersRepository.findByEmail(normalizedEmail);
+    const identifier = this.resolveLoginIdentifier(payload);
+    const user = await this.usersRepository.findByIdentity(identifier);
 
     if (!user) {
-      throw new UnauthorizedException('E-posta veya sifre hatali.');
+      throw new UnauthorizedException('Giris bilgileri gecersiz.');
     }
 
     const isValid = await this.verifyPassword(
@@ -111,7 +110,7 @@ export class ParticipantAuthService {
     );
 
     if (!isValid) {
-      throw new UnauthorizedException('E-posta veya sifre hatali.');
+      throw new UnauthorizedException('Giris bilgileri gecersiz.');
     }
 
     return this.createAuthResult(user);
@@ -154,6 +153,22 @@ export class ParticipantAuthService {
     }
 
     return this.createAuthResult(updated);
+  }
+
+  async getMe(userId: string) {
+    const user = await this.usersRepository.findById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('Kullanici bulunamadi.');
+    }
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      avatarDataUrl: user.avatarDataUrl,
+    };
   }
 
   async changePassword(userId: string, payload: ChangePasswordDto) {
@@ -295,7 +310,6 @@ export class ParticipantAuthService {
       return {
         ...payload,
         phone: payload.phone ?? null,
-        avatarDataUrl: payload.avatarDataUrl ?? null,
       };
     } catch {
       return null;
@@ -326,7 +340,6 @@ export class ParticipantAuthService {
       email: user.email,
       name: user.name,
       phone: user.phone,
-      avatarDataUrl: user.avatarDataUrl,
       exp: Date.now() + this.sessionTtlSeconds * 1000,
     });
 
@@ -420,7 +433,7 @@ export class ParticipantAuthService {
         where e.deleted_at is null
           and (
             lower(coalesce(p.email, '')) = $1
-            or ($2 is not null and p.phone_normalized = $2)
+            or ($2::text is not null and p.phone_normalized = $2::text)
           )
         order by e.id, p.created_at desc
       `,
@@ -468,11 +481,11 @@ export class ParticipantAuthService {
           and (
             lower(coalesce(ar.email, '')) = $1
             or (
-              $2 is not null
+              $2::text is not null
               and right(
                 regexp_replace(coalesce(ar.phone, ''), '\D', '', 'g'),
                 10
-              ) = $2
+              ) = $2::text
             )
           )
         group by e.id, e.name, e.location_name, e.starts_at, e.ends_at, e.status
@@ -539,6 +552,18 @@ export class ParticipantAuthService {
     }
 
     return digits.length > 10 ? digits.slice(-10) : digits;
+  }
+
+  private resolveLoginIdentifier(payload: ParticipantLoginDto) {
+    if (typeof payload.identifier === 'string' && payload.identifier.trim()) {
+      return payload.identifier.trim().toLowerCase();
+    }
+
+    if (typeof payload.email === 'string' && payload.email.trim()) {
+      return payload.email.trim().toLowerCase();
+    }
+
+    return '';
   }
 
   private isSecure() {

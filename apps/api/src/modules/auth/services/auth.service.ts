@@ -202,7 +202,11 @@ export class AuthService {
       },
     );
 
-    const neonUser = result.data.user;
+    const responseData = result.data;
+    const neonUser =
+      responseData && typeof responseData === 'object'
+        ? (responseData as NeonAuthSessionResponse).user
+        : undefined;
 
     if (
       !neonUser ||
@@ -440,13 +444,21 @@ export class AuthService {
     }
 
     const setCookieHeaders = this.extractSetCookieHeaders(response);
-    const payload = (await response.json().catch(() => ({}))) as {
-      message?: string;
-    };
+    const payload: unknown = await response.json().catch(() => ({}));
+    const payloadObject =
+      payload && typeof payload === 'object'
+        ? (payload as { message?: unknown })
+        : null;
 
     if (!response.ok) {
+      const message =
+        typeof payloadObject?.message === 'string' &&
+        payloadObject.message.trim()
+          ? payloadObject.message
+          : 'Kimlik dogrulama hatasi.';
+
       throw new UnauthorizedException(
-        payload.message ?? 'Kimlik dogrulama hatasi.',
+        message,
       );
     }
 
