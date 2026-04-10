@@ -146,6 +146,36 @@ describe('AttendanceService', () => {
     );
   });
 
+  it('accepts short verification code without token-store mapping', async () => {
+    const { event, session } = await seedActiveEventAndSession();
+    const participant = await participantsRepository.create({
+      eventId: event.id,
+      name: 'Kisa Kod Kullanici',
+      email: 'kisa-kod@example.com',
+      phone: null,
+      source: 'manual',
+      externalId: null,
+    });
+
+    const verificationCode = qrTokenService.generateSessionVerificationCode(
+      session.id,
+      60,
+    );
+
+    const result = await service.scan({
+      token: verificationCode,
+      email: participant.email ?? undefined,
+      lat: event.latitude,
+      lng: event.longitude,
+      locationAccuracy: 15,
+      verificationPhotoDataUrl: createVerificationPhoto(),
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.action).toBe('CHECKED_IN');
+    expect(result.data.session.id).toBe(session.id);
+  });
+
   it('rejects duplicate check-in for the same participant and session', async () => {
     const { event, session } = await seedActiveEventAndSession();
     await participantsRepository.create({

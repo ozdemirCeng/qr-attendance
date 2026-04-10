@@ -31,7 +31,10 @@ export class QrService {
       activeSession.id,
       rotationSeconds,
     );
-    const verificationCode = this.qrTokenService.generateVerificationCode(token);
+    const verificationCode = this.qrTokenService.generateSessionVerificationCode(
+      activeSession.id,
+      rotationSeconds,
+    );
     await this.qrTokenService.registerVerificationCode(
       verificationCode,
       token,

@@ -117,6 +117,43 @@ describe('QrTokenService', () => {
     }
   });
 
+  it('generates deterministic session verification code', () => {
+    const first = service.generateSessionVerificationCode('session-a', 60, nowMs);
+    const second = service.generateSessionVerificationCode(
+      'session-a',
+      60,
+      nowMs + 10_000,
+    );
+
+    expect(first).toBe(second);
+    expect(first).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+  });
+
+  it('matches session verification code with one-window skew tolerance', () => {
+    const verificationCode = service.generateSessionVerificationCode(
+      'session-match',
+      60,
+      nowMs,
+    );
+
+    expect(
+      service.matchesSessionVerificationCode(
+        verificationCode,
+        'session-match',
+        60,
+        nowMs + 61_000,
+      ),
+    ).toBe(true);
+    expect(
+      service.matchesSessionVerificationCode(
+        verificationCode,
+        'session-other',
+        60,
+        nowMs,
+      ),
+    ).toBe(false);
+  });
+
   it('resolves token from full check-in URL input', async () => {
     const token = service.generateToken('session-url', 60, nowMs);
     const url = `https://example.com/check-in/event-1?token=${encodeURIComponent(token)}`;

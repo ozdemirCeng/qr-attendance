@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { scanAttendance } from "@/lib/attendance";
 import { useParticipantAuth } from "@/providers/participant-auth-provider";
 
+import { requestDeviceLocation } from "../lib/device-permissions";
 import { clearScanContext, saveScanContext } from "../lib/scan-context";
 import { VerificationSelfieCapture } from "./verification-selfie-capture";
 
@@ -94,40 +95,6 @@ function extractTokenFromQrContent(raw: string): string {
   return trimmed;
 }
 
-function isLikelyInAppBrowser() {
-  if (typeof navigator === "undefined") {
-    return false;
-  }
-
-  const ua = navigator.userAgent || "";
-
-  return /FBAN|FBAV|Instagram|Line|Twitter|TikTok|wv|WebView/i.test(ua);
-}
-
-function resolveLocationErrorMessage(error: GeolocationPositionError) {
-  if (!window.isSecureContext) {
-    return "Bu bağlantı güvenli değil. Mobilde konum izni için HTTPS kullanın.";
-  }
-
-  if (error.code === 1) {
-    if (isLikelyInAppBrowser()) {
-      return "Uygulama içi tarayıcı konum iznini engelleyebilir. Linki Safari/Chrome'da açıp tekrar deneyin.";
-    }
-
-    return "Konum izni reddedildi. Telefon ayarlarında tarayıcı için konum iznini açıp tekrar deneyin.";
-  }
-
-  if (error.code === 2) {
-    return "Konum alınamadı. GPS ve konum servislerinin açık olduğundan emin olun.";
-  }
-
-  if (error.code === 3) {
-    return "Konum alma işlemi zaman aşımına uğradı. Açık alanda tekrar deneyin.";
-  }
-
-  return "Konum bilgisi alınamadı. Lütfen tekrar deneyin.";
-}
-
 export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   const router = useRouter();
   const { participantUser } = useParticipantAuth();
@@ -165,7 +132,6 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
     return () => {
       stopScanner();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-process token from URL (QR display flow)
@@ -280,52 +246,25 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   }
 
   async function captureLocation(): Promise<ScanLocation | null> {
-    if (!window.isSecureContext) {
-      setLocationNotice(
-        "Bu bağlantı güvenli değil. Mobilde konum izni için HTTPS bağlantısını kullanın.",
-      );
-      return null;
-    }
-
-    if (!navigator.geolocation) {
-      setLocationNotice("Bu cihazda konum servisi desteklenmiyor.");
-      return null;
-    }
-
     setLocationLoading(true);
-    setLocationNotice("Konum alınıyor...");
+    setLocationNotice("Konum izni isteniyor...");
 
-    return new Promise<ScanLocation | null>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const nextLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-          };
+    try {
+      const result = await requestDeviceLocation();
 
-          setLocation(nextLocation);
-          locationRef.current = nextLocation;
-          setLocationNotice(null);
-          setLocationLoading(false);
-          resolve(nextLocation);
-        },
-        (positionError) => {
-          const message = resolveLocationErrorMessage(positionError);
+      if (!result.ok) {
+        setLocationNotice(result.message);
+        setErrorMessage(result.message);
+        return null;
+      }
 
-          setLocationNotice(message);
-          setErrorMessage(message);
-
-          setLocationLoading(false);
-          resolve(null);
-        },
-        {
-          timeout: 15_000,
-          maximumAge: 60_000,
-          enableHighAccuracy: true,
-        },
-      );
-    });
+      setLocation(result.location);
+      locationRef.current = result.location;
+      setLocationNotice(null);
+      return result.location;
+    } finally {
+      setLocationLoading(false);
+    }
   }
 
   async function startScanner() {

@@ -55,8 +55,62 @@ export class QrTokenService {
   }
 
   generateVerificationCode(token: string) {
+    return this.generateVerificationCodeFromSeed(`token:${token}`);
+  }
+
+  generateSessionVerificationCode(
+    sessionId: string,
+    rotationSeconds: number,
+    nowMs = Date.now(),
+  ) {
+    const safeRotation = this.normalizeRotation(rotationSeconds);
+    const currentWindow = this.resolveTimeWindow(nowMs, safeRotation);
+
+    return this.generateSessionVerificationCodeForWindow(sessionId, currentWindow);
+  }
+
+  matchesSessionVerificationCode(
+    verificationCode: string,
+    sessionId: string,
+    rotationSeconds: number,
+    nowMs = Date.now(),
+  ) {
+    const normalizedInput = this.normalizeVerificationCode(verificationCode);
+
+    if (!normalizedInput) {
+      return false;
+    }
+
+    const safeRotation = this.normalizeRotation(rotationSeconds);
+    const currentWindow = this.resolveTimeWindow(nowMs, safeRotation);
+
+    for (const offset of [0, -1, 1]) {
+      const candidate = this.generateSessionVerificationCodeForWindow(
+        sessionId,
+        currentWindow + offset,
+      );
+      const normalizedCandidate = this.normalizeVerificationCode(candidate);
+
+      if (normalizedCandidate && normalizedCandidate === normalizedInput) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private generateSessionVerificationCodeForWindow(
+    sessionId: string,
+    timeWindow: number,
+  ) {
+    return this.generateVerificationCodeFromSeed(
+      `session:${sessionId}:${timeWindow}`,
+    );
+  }
+
+  private generateVerificationCodeFromSeed(seed: string) {
     const digest = createHmac('sha256', this.secret)
-      .update(`code:${token}`)
+      .update(`code:${seed}`)
       .digest('base64url')
       .replace(/[^a-zA-Z0-9]/g, '')
       .toUpperCase();
@@ -69,6 +123,16 @@ export class QrTokenService {
         .toUpperCase();
 
     return `${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
+  }
+
+  private normalizeVerificationCode(value: string | null | undefined) {
+    const compact = value?.trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+    if (!compact || compact.length !== QrTokenService.VERIFICATION_CODE_LENGTH) {
+      return null;
+    }
+
+    return compact;
   }
 
   async registerVerificationCode(

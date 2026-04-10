@@ -7,20 +7,14 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { UserShell } from "@/components/layout/user-shell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { getActiveSession, type PortalRole } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
+import { getActiveSession, type PortalRole } from "@/lib/auth";
+import {
+  getLocationHelpText,
+  requestDeviceLocation,
+} from "@/features/scan/lib/device-permissions";
 import { useAuth } from "@/providers/auth-provider";
 import { useParticipantAuth } from "@/providers/participant-auth-provider";
-
-function isLikelyInAppBrowser() {
-  if (typeof navigator === "undefined") {
-    return false;
-  }
-
-  const ua = navigator.userAgent || "";
-
-  return /FBAN|FBAV|Instagram|Line|Twitter|TikTok|wv|WebView/i.test(ua);
-}
 
 export default function ScanLandingPage() {
   const router = useRouter();
@@ -69,63 +63,22 @@ export default function ScanLandingPage() {
     return () => {
       isMounted = false;
     };
-  }, [isLoading, isParticipantLoading, participantUser, router, user]);
+  }, [isLoading, isParticipantLoading, participantUser, user]);
 
-  async function requestPermissions() {
+  async function requestCameraPermission() {
     if (!window.isSecureContext) {
-      setErrorMessage("Kamera ve konum için HTTPS veya localhost gerekir.");
+      setErrorMessage(
+        "Kamera ve konum izni için site HTTPS üzerinden açılmalıdır.",
+      );
       return false;
     }
 
-    if (!navigator.geolocation) {
-      setErrorMessage("Bu cihazda konum servisi desteklenmiyor.");
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor.");
       return false;
     }
-
-    setIsRequestingPermissions(true);
-    setErrorMessage(null);
-    setPermissionMessage(null);
 
     try {
-      const locationResult = await new Promise<
-        { ok: true } | { ok: false; code?: number }
-      >((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          () => resolve({ ok: true }),
-          (error) => resolve({ ok: false, code: error.code }),
-          {
-            timeout: 10_000,
-            maximumAge: 30_000,
-            enableHighAccuracy: true,
-          },
-        );
-      });
-
-      if (!locationResult.ok) {
-        if (locationResult.code === 1) {
-          if (isLikelyInAppBrowser()) {
-            setErrorMessage(
-              "Uygulama içi tarayıcı konum iznini engelleyebilir. Linki Safari/Chrome'da açıp tekrar deneyin.",
-            );
-          } else {
-            setErrorMessage(
-              "Konum izni verilmedi veya engellendi. Tarayıcı ayarlarından bu site için konumu açın ve tekrar deneyin.",
-            );
-          }
-        } else if (locationResult.code === 3) {
-          setErrorMessage("Konum alınamadı (zaman aşımı). Lütfen tekrar deneyin.");
-        } else {
-          setErrorMessage("Konum izni olmadan yoklama tamamlanamaz.");
-        }
-
-        return false;
-      }
-
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor.");
-        return false;
-      }
-
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: {
@@ -139,29 +92,44 @@ export default function ScanLandingPage() {
         track.stop();
       }
 
-      setPermissionMessage(
-        "İzinler hazır. Tarama adımında konum ve selfie doğrulaması kullanılacak.",
-      );
       return true;
     } catch {
-      setErrorMessage("Kamera izni verilmedi. İzin verip tekrar deneyin.");
+      setErrorMessage(
+        `Kamera izni verilmedi. Tarayıcı ayarlarından kamera iznini açın. ${getLocationHelpText()}`,
+      );
       return false;
+    }
+  }
+
+  async function onStart() {
+    setIsRequestingPermissions(true);
+    setErrorMessage(null);
+    setPermissionMessage(null);
+
+    try {
+      const locationResult = await requestDeviceLocation();
+
+      if (!locationResult.ok) {
+        setErrorMessage(locationResult.message);
+        return;
+      }
+
+      const hasCameraPermission = await requestCameraPermission();
+
+      if (!hasCameraPermission) {
+        return;
+      }
+
+      setPermissionMessage("Konum ve kamera hazır. Tarama açılıyor.");
+      router.push("/check-in");
     } finally {
       setIsRequestingPermissions(false);
     }
   }
 
-  async function onStart() {
-    const hasPermissions = await requestPermissions();
-
-    if (!hasPermissions) {
-      return;
-    }
-
-    router.push("/check-in");
-  }
-
-  const resolvedRole: PortalRole | null = participantUser ? "member" : user?.role ?? activeRole;
+  const resolvedRole: PortalRole | null = participantUser
+    ? "member"
+    : user?.role ?? activeRole;
 
   const pageContent = (
     <section className="mx-auto w-full max-w-3xl space-y-4">
@@ -201,7 +169,7 @@ export default function ScanLandingPage() {
         ) : resolvedRole && resolvedRole !== "member" ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Admin oturumu aktif. Tarama adımına doğrudan devam edebilirsiniz.
+              Admin oturumu aktif. Tarama adımına devam edebilirsiniz.
             </p>
             <Link href="/dashboard" className="btn-secondary text-xs">
               Panele Dön
@@ -255,8 +223,12 @@ export default function ScanLandingPage() {
           >
             QR Yoklama
           </h1>
-          <p className="mt-2 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
-            Kamera, konum ve selfie doğrulaması ile yoklamayı güvenli şekilde tamamlayın.
+          <p
+            className="mt-2 text-sm leading-6"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Butona bastığında önce iPhone konum izni, sonra kamera izni
+            istenir. Konum izni gelmiyorsa site HTTPS üzerinden açılmalıdır.
           </p>
         </div>
 
@@ -296,35 +268,53 @@ export default function ScanLandingPage() {
             className="btn-primary w-full py-3 text-base"
           >
             {isRequestingPermissions
-              ? "İzinler kontrol ediliyor..."
-              : "Taramayı Başlat"}
+              ? "İzinler isteniyor..."
+              : "Konum ve Kamerayı Aç"}
           </button>
         </div>
       </article>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="glass rounded-2xl p-4">
-          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            QR Tara
+          <p
+            className="text-sm font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            1. Konum
           </p>
-          <p className="mt-1 text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
-            Etkinlik kodunu kameradan okutun.
-          </p>
-        </div>
-        <div className="glass rounded-2xl p-4">
-          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            Konumu Doğrula
-          </p>
-          <p className="mt-1 text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
-            Etkinlik alanında olduğunuzu kontrol edin.
+          <p
+            className="mt-1 text-xs leading-5"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            Etkinlik alanında olduğunu doğrular.
           </p>
         </div>
         <div className="glass rounded-2xl p-4">
-          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            Selfie Çek
+          <p
+            className="text-sm font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            2. QR
           </p>
-          <p className="mt-1 text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
-            Profil doğrulaması için kısa bir fotoğraf alın.
+          <p
+            className="mt-1 text-xs leading-5"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            Etkinlik kodunu kameradan okutur.
+          </p>
+        </div>
+        <div className="glass rounded-2xl p-4">
+          <p
+            className="text-sm font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            3. Selfie
+          </p>
+          <p
+            className="mt-1 text-xs leading-5"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            Katılımı profil fotoğrafı ile doğrular.
           </p>
         </div>
       </div>

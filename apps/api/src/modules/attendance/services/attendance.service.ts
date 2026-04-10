@@ -52,39 +52,65 @@ export class AttendanceService {
 
   async scan(payload: ScanAttendanceDto, meta: ScanRequestMeta = {}) {
     const scannedAt = new Date().toISOString();
+    const scannedAtMs = Date.parse(scannedAt);
     const rotationSeconds = this.configService.get<number>(
       'QR_ROTATION_SECONDS',
       60,
     );
     const ip = this.normalizeNullable(meta.ip);
     const userAgent = this.normalizeUserAgent(meta.userAgent);
-    const resolvedToken = await this.qrTokenService.resolveTokenFromInput(
+    const normalizedVerificationCode = this.normalizeVerificationCodeInput(
       payload.token,
     );
-
-    if (!resolvedToken) {
-      throw this.scanError('MALFORMED_TOKEN', 'QR token gecersiz.');
-    }
-
-    let sessionIdForAttempt = this.extractSessionIdFromToken(resolvedToken);
+    let sessionIdForAttempt: string | null = null;
+    let resolvedSessionId: string | null = null;
+    let verificationNonce: string | null = null;
 
     try {
-      const verification = await this.qrTokenService.verifyToken(
-        resolvedToken,
-        rotationSeconds,
-      );
-
-      if (!verification.valid) {
-        throw this.scanError(
-          this.mapQrVerificationCode(verification.code),
-          this.messageForQrVerificationCode(verification.code),
+      if (normalizedVerificationCode) {
+        const sessionFromCode = await this.resolveSessionFromVerificationCode(
+          normalizedVerificationCode,
+          rotationSeconds,
+          scannedAtMs,
         );
+
+        if (sessionFromCode) {
+          resolvedSessionId = sessionFromCode.id;
+          sessionIdForAttempt = sessionFromCode.id;
+        }
       }
 
-      sessionIdForAttempt = verification.sessionId;
+      if (!resolvedSessionId) {
+        const resolvedToken = await this.qrTokenService.resolveTokenFromInput(
+          payload.token,
+        );
+
+        if (!resolvedToken) {
+          throw this.scanError('MALFORMED_TOKEN', 'QR token gecersiz.');
+        }
+
+        sessionIdForAttempt = this.extractSessionIdFromToken(resolvedToken);
+
+        const verification = await this.qrTokenService.verifyToken(
+          resolvedToken,
+          rotationSeconds,
+          scannedAtMs,
+        );
+
+        if (!verification.valid) {
+          throw this.scanError(
+            this.mapQrVerificationCode(verification.code),
+            this.messageForQrVerificationCode(verification.code),
+          );
+        }
+
+        resolvedSessionId = verification.sessionId;
+        verificationNonce = verification.nonce;
+        sessionIdForAttempt = verification.sessionId;
+      }
 
       const session = await this.sessionsRepository.findById(
-        verification.sessionId,
+        resolvedSessionId,
       );
       if (!session) {
         throw this.scanError(
@@ -161,14 +187,19 @@ export class AttendanceService {
         );
       }
 
-      const consumed = await this.qrTokenService.consumeNonce(
-        verification.sessionId,
-        verification.nonce,
-        rotationSeconds,
-      );
+      if (verificationNonce) {
+        const consumed = await this.qrTokenService.consumeNonce(
+          session.id,
+          verificationNonce,
+          rotationSeconds,
+        );
 
-      if (!consumed) {
-        throw this.scanError('REPLAY_ATTACK', 'QR token yeniden kullanilamaz.');
+        if (!consumed) {
+          throw this.scanError(
+            'REPLAY_ATTACK',
+            'QR token yeniden kullanilamaz.',
+          );
+        }
       }
 
       let record: AttendanceRecordEntity;
@@ -188,7 +219,7 @@ export class AttendanceService {
           distanceFromVenue: locationCheck.distance,
           isValid: true,
           invalidReason: null,
-          qrNonce: verification.nonce,
+          qrNonce: verificationNonce,
           ipAddress: ip,
           deviceFingerprint: this.normalizeNullable(payload.fingerprint),
           verificationPhotoDataUrl,
@@ -208,7 +239,7 @@ export class AttendanceService {
 
       await this.attendanceAttemptsRepository.create({
         sessionId: session.id,
-        rawSessionRef: verification.sessionId,
+        rawSessionRef: session.id,
         ip,
         userAgent,
         latitude: payload.lat ?? null,
@@ -492,6 +523,40 @@ export class AttendanceService {
     const sessions = await this.sessionsRepository.findByEventId(eventId);
 
     return sessions.at(-1) ?? null;
+  }
+
+  private async resolveSessionFromVerificationCode(
+    verificationCode: string,
+    rotationSeconds: number,
+    nowMs: number,
+  ) {
+    const nowIso = new Date(nowMs).toISOString();
+    const activeSessions = await this.sessionsRepository.findAllActive(nowIso);
+
+    for (const session of activeSessions) {
+      if (
+        this.qrTokenService.matchesSessionVerificationCode(
+          verificationCode,
+          session.id,
+          rotationSeconds,
+          nowMs,
+        )
+      ) {
+        return session;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeVerificationCodeInput(rawInput: string) {
+    const compact = rawInput.trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+    if (compact.length !== 8) {
+      return null;
+    }
+
+    return `${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
   }
 
   private async resolveParticipant(

@@ -99,6 +99,30 @@ export class SessionsRepository {
     return rows[0] ? this.mapRow(rows[0]) : null;
   }
 
+  async findAllActive(nowIso = new Date().toISOString()): Promise<SessionEntity[]> {
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        select
+          id,
+          event_id as "eventId",
+          name,
+          starts_at as "startsAt",
+          ends_at as "endsAt",
+          created_at as "createdAt",
+          deleted_at as "deletedAt"
+        from sessions
+        where deleted_at is null
+          and starts_at <= $1
+          and ends_at >= $1
+        order by starts_at asc
+      `,
+      [nowIso],
+    )) as SessionRow[];
+
+    return rows.map((row) => this.mapRow(row));
+  }
+
   async findByEventAndId(
     eventId: string,
     sessionId: string,
