@@ -36,8 +36,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const shouldCheckAdminSession =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/events") ||
-    pathname.startsWith("/audit") ||
-    pathname.startsWith("/login");
+    pathname.startsWith("/audit");
   const [user, setUser] = useState<AdminSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

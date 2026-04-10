@@ -9,6 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 
 import {
   participantGetMe,
@@ -34,6 +35,12 @@ const ParticipantAuthContext = createContext<
 >(undefined);
 
 export function ParticipantAuthProvider({ children }: PropsWithChildren) {
+  const pathname = usePathname();
+  const shouldCheckParticipantSession =
+    pathname.startsWith("/user") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/scan") ||
+    pathname.startsWith("/check-in");
   const [participantUser, setParticipantUser] =
     useState<ParticipantUser | null>(null);
   const [isParticipantLoading, setIsParticipantLoading] = useState(true);
@@ -52,8 +59,13 @@ export function ParticipantAuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
+    if (!shouldCheckParticipantSession) {
+      setIsParticipantLoading(false);
+      return;
+    }
+
     void refreshParticipantSession();
-  }, [refreshParticipantSession]);
+  }, [refreshParticipantSession, shouldCheckParticipantSession]);
 
   const participantSignIn = useCallback(async (payload: LoginPayload) => {
     const response = await participantLogin(payload);

@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ApiError } from "@/lib/api";
 import { getActiveSession, login, type PortalRole } from "@/lib/auth";
-import { useAuth } from "@/providers/auth-provider";
-import { useParticipantAuth } from "@/providers/participant-auth-provider";
 
 const loginSchema = z.object({
-  identifier: z.string().trim().min(2, "Email veya kullanici bilgisi girin"),
-  password: z.string().min(6, "Parola en az 6 karakter olmali"),
+  identifier: z
+    .string()
+    .trim()
+    .min(2, "E-posta, telefon veya kullanıcı bilgisi girin."),
+  password: z.string().min(6, "Parola en az 6 karakter olmalı."),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -49,12 +50,10 @@ function resolveSafeNextPath(rawPath: string | null, role: PortalRole) {
   return rawPath;
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextParam = searchParams.get("next");
-  const { user, isLoading } = useAuth();
-  const { participantUser, isParticipantLoading } = useParticipantAuth();
   const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -62,25 +61,31 @@ export default function LoginPage() {
     defaultValues: { identifier: "", password: "" },
   });
 
-  const existingRole = useMemo<PortalRole | null>(() => {
-    if (user) {
-      return user.role;
+  async function getActiveSessionWithRetry(maxAttempts = 3) {
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await getActiveSession();
+      } catch (error) {
+        lastError = error;
+
+        if (
+          !(error instanceof ApiError) ||
+          error.statusCode !== 401 ||
+          attempt === maxAttempts
+        ) {
+          throw error;
+        }
+
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, attempt * 150);
+        });
+      }
     }
 
-    if (participantUser) {
-      return "member";
-    }
-
-    return null;
-  }, [participantUser, user]);
-
-  useEffect(() => {
-    if (isLoading || isParticipantLoading || !existingRole) {
-      return;
-    }
-
-    router.replace(resolveSafeNextPath(nextParam, existingRole));
-  }, [existingRole, isLoading, isParticipantLoading, nextParam, router]);
+    throw lastError;
+  }
 
   async function onSubmit(values: LoginFormValues) {
     setFormError(null);
@@ -114,7 +119,7 @@ export default function LoginPage() {
         password: parsed.data.password,
       });
 
-      const session = await getActiveSession();
+      const session = await getActiveSessionWithRetry();
       const nextPath = resolveSafeNextPath(nextParam, session.data.role);
       router.replace(nextPath);
       router.refresh();
@@ -124,24 +129,24 @@ export default function LoginPage() {
         return;
       }
 
-      setFormError("Beklenmeyen bir hata olustu. Lutfen tekrar deneyin.");
+      setFormError("Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.");
     }
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center px-4 py-6 sm:py-10">
       <div className="absolute right-5 top-5">
         <ThemeToggle />
       </div>
 
-      <div className="glass-elevated w-full max-w-5xl animate-scale-in overflow-hidden rounded-[2rem]">
-        <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
-          <section className="relative overflow-hidden p-8 md:p-10">
+      <div className="glass-elevated w-full max-w-4xl overflow-hidden rounded-[2rem]">
+        <div className="grid md:grid-cols-[1.02fr_0.98fr]">
+          <section className="relative overflow-hidden px-6 py-8 sm:px-8 sm:py-10 md:px-10">
             <div
-              className="absolute inset-0 opacity-80"
+              className="absolute inset-0 opacity-90"
               style={{
                 background:
-                  "radial-gradient(circle at top left, rgba(0,113,227,0.18), transparent 42%), radial-gradient(circle at bottom right, rgba(34,197,94,0.16), transparent 36%)",
+                  "radial-gradient(circle at top left, rgba(15,118,110,0.22), transparent 44%), radial-gradient(circle at bottom right, rgba(249,115,22,0.18), transparent 36%)",
               }}
             />
 
@@ -175,137 +180,77 @@ export default function LoginPage() {
                 className="text-[11px] font-semibold uppercase tracking-[0.2em]"
                 style={{ color: "var(--primary)" }}
               >
-                Tek Giris
+                QR Yoklama
               </p>
               <h1
-                className="mt-3 text-4xl font-extrabold leading-tight"
+                className="mt-3 text-3xl font-extrabold leading-tight sm:text-4xl"
                 style={{ color: "var(--text-primary)" }}
                 data-display="true"
               >
-                Ayni ekrandan gir.
+                Giriş yapın
                 <br />
-                Rolune gore panele gec.
+                veya taramaya geçin.
               </h1>
               <p
-                className="mt-4 max-w-xl text-sm"
+                className="mt-4 max-w-xl text-sm leading-6"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Admin bilgileriyle girersen admin paneline, uye hesabiyla
-                girersen kullanici dashboardina yonlendirilirsin.
+                Hesabınızla oturum açın veya taramaya geçin. Sistem rolünüzü
+                algılar ve sizi doğru panele yönlendirir.
               </p>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                <Link href="/scan" className="glass rounded-2xl p-4 text-left">
-                  <p
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    QR Tara
-                  </p>
-                  <p
-                    className="mt-1 text-xs"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    Oturum varsa dogrudan tarama akisina gec.
-                  </p>
-                </Link>
-
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  className="btn-primary w-full py-3 text-sm"
+                  onClick={() => {
+                    document.getElementById("identifier")?.focus();
+                  }}
+                >
+                  Giriş Yap
+                </button>
                 <Link
-                  href="/forgot-password"
-                  className="glass rounded-2xl p-4 text-left"
+                  href="/scan"
+                  className="btn-secondary w-full py-3 text-center text-sm"
                 >
-                  <p
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    Sifremi Unuttum
-                  </p>
-                  <p
-                    className="mt-1 text-xs"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    Hesap yardimi ve sifre akisina git.
-                  </p>
+                  QR Tara
                 </Link>
-
-                <Link
-                  href="/auth/signup"
-                  className="glass rounded-2xl p-4 text-left"
-                >
-                  <p
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    Uye Ol
-                  </p>
-                  <p
-                    className="mt-1 text-xs"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    Yeni kullanici hesabi olustur.
-                  </p>
-                </Link>
-              </div>
-
-              <div
-                className="mt-8 rounded-2xl p-4"
-                style={{ background: "var(--surface-soft)" }}
-              >
-                <p
-                  className="text-[11px] font-semibold uppercase tracking-[0.14em]"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Sistem Mantigi
-                </p>
-                <p
-                  className="mt-2 text-sm"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
-                  Tek form kullanilir. Sistemde admin olarak tanimli hesaba
-                  girersen admin paneli acilir. Normal uye hesabi ile girersen
-                  kullanici dashboardi acilir.
-                </p>
               </div>
             </div>
           </section>
 
-          <section className="border-t border-white/10 p-8 md:p-10 lg:border-l lg:border-t-0">
-            <div>
+          <section className="border-t border-white/10 px-6 py-8 sm:px-8 sm:py-10 md:border-l md:border-t-0 md:px-10">
+            <div className="mb-6">
               <h2
                 className="text-2xl font-bold"
                 style={{ color: "var(--text-primary)" }}
                 data-display="true"
               >
-                Giris Yap
+                Giriş Yap
               </h2>
               <p
-                className="mt-2 text-sm"
+                className="mt-2 text-sm leading-6"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Email veya kullanici bilgin ile tek formdan oturum ac.
+                Tek girişle admin ya da kullanıcı olarak devam edin.
               </p>
             </div>
 
-            <form
-              className="mt-6 space-y-5"
-              onSubmit={form.handleSubmit((values) => {
-                void onSubmit(values);
-              })}
-            >
+            <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
               <div className="space-y-1.5">
                 <label
                   htmlFor="identifier"
                   className="text-xs font-semibold uppercase tracking-wide"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Email / Kullanici
+                  E-posta / Telefon / Kullanıcı
                 </label>
                 <input
                   id="identifier"
                   type="text"
                   autoComplete="username"
                   className="glass-input w-full"
-                  placeholder="demo.admin veya ayse@example.com"
+                  placeholder="demo.admin, ayse@example.com veya 0555..."
                   {...form.register("identifier")}
                 />
                 {form.formState.errors.identifier ? (
@@ -336,10 +281,10 @@ export default function LoginPage() {
                     onClick={() => {
                       setShowPassword((current) => !current);
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-semibold transition"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-semibold"
                     style={{ color: "var(--text-tertiary)" }}
                   >
-                    {showPassword ? "Gizle" : "Goster"}
+                    {showPassword ? "Gizle" : "Göster"}
                   </button>
                 </div>
                 {form.formState.errors.password ? (
@@ -350,9 +295,16 @@ export default function LoginPage() {
               </div>
 
               {formError ? (
-                <p className="text-sm" style={{ color: "var(--error)" }}>
+                <div
+                  className="rounded-xl border px-3 py-2 text-sm"
+                  style={{
+                    color: "var(--error)",
+                    background: "var(--error-soft)",
+                    borderColor: "var(--error)",
+                  }}
+                >
                   {formError}
-                </p>
+                </div>
               ) : null}
 
               <button
@@ -361,34 +313,68 @@ export default function LoginPage() {
                 className="btn-primary w-full py-3 text-sm"
               >
                 {form.formState.isSubmitting
-                  ? "Giris yapiliyor..."
+                  ? "Giriş yapılıyor..."
                   : "Devam Et"}
               </button>
             </form>
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
-              <Link
-                href="/forgot-password"
-                className="font-semibold"
-                style={{ color: "var(--primary)" }}
-              >
-                Sifremi Unuttum
-              </Link>
-
-              <p style={{ color: "var(--text-secondary)" }}>
-                Hesabin yok mu?{" "}
+            <div
+              className="mt-6 rounded-2xl p-4"
+              style={{ background: "var(--surface-soft)" }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <Link
-                  href="/auth/signup"
+                  href="/forgot-password"
                   className="font-semibold"
                   style={{ color: "var(--primary)" }}
                 >
-                  Uye Ol
+                  Şifremi Unuttum
                 </Link>
-              </p>
+
+                <p style={{ color: "var(--text-secondary)" }}>
+                  Hesabın yok mu?{" "}
+                  <Link
+                    href="/auth/signup"
+                    className="font-semibold"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    Üye Ol
+                  </Link>
+                </p>
+              </div>
             </div>
           </section>
         </div>
       </div>
     </main>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <main className="flex min-h-screen items-center justify-center px-4 py-6 sm:py-10">
+      <div className="glass-elevated w-full max-w-4xl animate-pulse rounded-[2rem] p-8 sm:p-10">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-4">
+            <div className="h-4 w-28 rounded-full bg-white/40" />
+            <div className="h-10 w-3/4 rounded-2xl bg-white/30" />
+            <div className="h-20 rounded-2xl bg-white/20" />
+          </div>
+          <div className="space-y-4">
+            <div className="h-10 rounded-2xl bg-white/30" />
+            <div className="h-10 rounded-2xl bg-white/30" />
+            <div className="h-12 rounded-2xl bg-white/40" />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

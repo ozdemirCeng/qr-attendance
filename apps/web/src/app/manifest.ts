@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "QR Yoklama Tarama",
     short_name: "QR Yoklama",
     description: "QR kod ile yoklama ve giriş uygulaması",
-    start_url: "/scan",
+    start_url: "/login",
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#18181b",
