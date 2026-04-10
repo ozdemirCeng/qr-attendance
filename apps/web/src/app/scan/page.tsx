@@ -12,6 +12,16 @@ import { ApiError } from "@/lib/api";
 import { useAuth } from "@/providers/auth-provider";
 import { useParticipantAuth } from "@/providers/participant-auth-provider";
 
+function isLikelyInAppBrowser() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const ua = navigator.userAgent || "";
+
+  return /FBAN|FBAV|Instagram|Line|Twitter|TikTok|wv|WebView/i.test(ua);
+}
+
 export default function ScanLandingPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -93,9 +103,15 @@ export default function ScanLandingPage() {
 
       if (!locationResult.ok) {
         if (locationResult.code === 1) {
-          setErrorMessage(
-            "Konum izni verilmedi veya engellendi. Tarayıcı ayarlarından bu site için konumu açın ve tekrar deneyin.",
-          );
+          if (isLikelyInAppBrowser()) {
+            setErrorMessage(
+              "Uygulama içi tarayıcı konum iznini engelleyebilir. Linki Safari/Chrome'da açıp tekrar deneyin.",
+            );
+          } else {
+            setErrorMessage(
+              "Konum izni verilmedi veya engellendi. Tarayıcı ayarlarından bu site için konumu açın ve tekrar deneyin.",
+            );
+          }
         } else if (locationResult.code === 3) {
           setErrorMessage("Konum alınamadı (zaman aşımı). Lütfen tekrar deneyin.");
         } else {

@@ -26,17 +26,19 @@ export const dynamic = "force-dynamic";
 function resolveApiOrigin() {
   const internalOrigin = process.env.API_INTERNAL_URL?.trim();
   const publicOrigin = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const isDevelopment = process.env.NODE_ENV !== "production";
 
   if (internalOrigin) {
     return internalOrigin.replace(/\/+$/g, "");
   }
 
-  if (publicOrigin) {
-    return publicOrigin.replace(/\/+$/g, "");
+  if (isDevelopment) {
+    // In local development, prefer local API unless API_INTERNAL_URL explicitly overrides it.
+    return "http://localhost:3001";
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    return "http://localhost:3001";
+  if (publicOrigin) {
+    return publicOrigin.replace(/\/+$/g, "");
   }
 
   throw new Error("API_INTERNAL_URL or NEXT_PUBLIC_API_URL must be configured");

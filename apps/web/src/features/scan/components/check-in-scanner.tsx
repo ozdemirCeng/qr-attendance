@@ -94,6 +94,40 @@ function extractTokenFromQrContent(raw: string): string {
   return trimmed;
 }
 
+function isLikelyInAppBrowser() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const ua = navigator.userAgent || "";
+
+  return /FBAN|FBAV|Instagram|Line|Twitter|TikTok|wv|WebView/i.test(ua);
+}
+
+function resolveLocationErrorMessage(error: GeolocationPositionError) {
+  if (!window.isSecureContext) {
+    return "Bu bağlantı güvenli değil. Mobilde konum izni için HTTPS kullanın.";
+  }
+
+  if (error.code === 1) {
+    if (isLikelyInAppBrowser()) {
+      return "Uygulama içi tarayıcı konum iznini engelleyebilir. Linki Safari/Chrome'da açıp tekrar deneyin.";
+    }
+
+    return "Konum izni reddedildi. Telefon ayarlarında tarayıcı için konum iznini açıp tekrar deneyin.";
+  }
+
+  if (error.code === 2) {
+    return "Konum alınamadı. GPS ve konum servislerinin açık olduğundan emin olun.";
+  }
+
+  if (error.code === 3) {
+    return "Konum alma işlemi zaman aşımına uğradı. Açık alanda tekrar deneyin.";
+  }
+
+  return "Konum bilgisi alınamadı. Lütfen tekrar deneyin.";
+}
+
 export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   const router = useRouter();
   const { participantUser } = useParticipantAuth();
@@ -246,6 +280,13 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   }
 
   async function captureLocation(): Promise<ScanLocation | null> {
+    if (!window.isSecureContext) {
+      setLocationNotice(
+        "Bu bağlantı güvenli değil. Mobilde konum izni için HTTPS bağlantısını kullanın.",
+      );
+      return null;
+    }
+
     if (!navigator.geolocation) {
       setLocationNotice("Bu cihazda konum servisi desteklenmiyor.");
       return null;
@@ -270,15 +311,10 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
           resolve(nextLocation);
         },
         (positionError) => {
-          if (positionError.code === 1) {
-            setLocationNotice(
-              "Konum izni verilmedi. Tarayıcı ayarlarından konum iznini açıp sayfayı yenileyin.",
-            );
-          } else if (positionError.code === 3) {
-            setLocationNotice("Konum alma işlemi zaman aşımına uğradı. Tekrar deneyin.");
-          } else {
-            setLocationNotice("Konum bilgisi alınamadı. GPS açık olduğundan emin olun.");
-          }
+          const message = resolveLocationErrorMessage(positionError);
+
+          setLocationNotice(message);
+          setErrorMessage(message);
 
           setLocationLoading(false);
           resolve(null);
@@ -578,7 +614,11 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
                 disabled={locationLoading}
                 className="btn-secondary min-h-11 text-sm"
               >
-                {locationLoading ? "Konum Alınıyor..." : "Konumu Yenile"}
+                {locationLoading
+                  ? "Konum Alınıyor..."
+                  : location
+                    ? "Konumu Yenile"
+                    : "Konum İzni İste"}
               </button>
               <Link href="/scan" className="btn-secondary min-h-11 text-sm">
                 Geri Dön

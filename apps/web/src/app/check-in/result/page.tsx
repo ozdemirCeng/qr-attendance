@@ -4,13 +4,13 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { resolveApiErrorMessage } from "@/lib/api";
 
 type ResultPageProps = {
-  searchParams: {
+  searchParams: Promise<{
     status?: string;
     code?: string;
     name?: string;
     event?: string;
     eventId?: string;
-  };
+  }>;
 };
 
 type ErrorMeta = {
@@ -189,23 +189,24 @@ function resolveAction(
   };
 }
 
-export default function CheckInResultPage({ searchParams }: ResultPageProps) {
-  const isSuccess = searchParams.status === "success";
+export default async function CheckInResultPage({ searchParams }: ResultPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const isSuccess = resolvedSearchParams.status === "success";
   const name =
-    typeof searchParams.name === "string"
-      ? decodeURIComponent(searchParams.name)
+    typeof resolvedSearchParams.name === "string"
+      ? decodeURIComponent(resolvedSearchParams.name)
       : "";
   const eventName =
-    typeof searchParams.event === "string"
-      ? decodeURIComponent(searchParams.event)
+    typeof resolvedSearchParams.event === "string"
+      ? decodeURIComponent(resolvedSearchParams.event)
       : "";
   const code =
-    typeof searchParams.code === "string"
-      ? searchParams.code
+    typeof resolvedSearchParams.code === "string"
+      ? resolvedSearchParams.code
       : "UNKNOWN_ERROR";
   const eventId =
-    typeof searchParams.eventId === "string" && searchParams.eventId.trim()
-      ? decodeURIComponent(searchParams.eventId)
+    typeof resolvedSearchParams.eventId === "string" && resolvedSearchParams.eventId.trim()
+      ? decodeURIComponent(resolvedSearchParams.eventId)
       : null;
 
   const normalizedCode = code.toUpperCase();
