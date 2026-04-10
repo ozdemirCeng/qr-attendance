@@ -112,6 +112,7 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [manualToken, setManualToken] = useState("");
   const [location, setLocation] = useState<ScanLocation | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
   const [detectedToken, setDetectedToken] = useState<string | null>(null);
   const [identityInput, setIdentityInput] = useState("");
@@ -120,10 +121,15 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
     string | null
   >(null);
 
+  const locationRef = useRef<ScanLocation | null>(null);
+
+  // Request location permission immediately on page load
   useEffect(() => {
+    void captureLocation();
     return () => {
       stopScanner();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-process token from URL (QR display flow)
@@ -132,20 +138,38 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
     const extracted = extractTokenFromQrContent(initialToken);
     if (!extracted) return;
 
-    // If participant is logged in, auto-submit with empty photo
-    if (participantUser) {
-      setDetectedToken(extracted);
-      setIdentityInput(participantUser.email);
+    async function processUrlToken(token: string) {
+      // Ensure location is captured before proceeding
+      let currentLocation = locationRef.current;
+      if (!currentLocation) {
+        currentLocation = await captureLocation();
+      }
+
+      // If participant is logged in, auto-submit with empty photo
+      if (participantUser) {
+        setDetectedToken(token);
+        setIdentityInput(participantUser.email);
+        setState("idle");
+        if (currentLocation) {
+          void submitWithIdentity(token, participantUser.email, "");
+        } else {
+          setErrorMessage("Konum izni gerekli. Lütfen konum iznini verin ve tekrar deneyin.");
+        }
+        return;
+      }
+
+      // Otherwise show identity step
+      setDetectedToken(token);
+      setIdentityInput("");
+      setErrorMessage(
+        currentLocation
+          ? null
+          : "Konum bilgisi alınamadı. 'Konumu Yenile' butonunu deneyin.",
+      );
       setState("idle");
-      void submitWithIdentity(extracted, participantUser.email, "");
-      return;
     }
 
-    // Otherwise show identity step
-    setDetectedToken(extracted);
-    setIdentityInput("");
-    setErrorMessage(null);
-    setState("idle");
+    void processUrlToken(extracted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialToken]);
 
@@ -176,11 +200,31 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
     setState("idle");
   }
 
-  async function captureLocation() {
+  async function captureLocation(): Promise<ScanLocation | null> {
     if (!navigator.geolocation) {
       setLocationNotice("Bu cihazda konum servisi desteklenmiyor.");
       return null;
     }
+
+    // Check if geolocation permission was permanently denied via Permissions API
+    if (navigator.permissions) {
+      try {
+        const permissionStatus = await navigator.permissions.query({
+          name: "geolocation",
+        });
+        if (permissionStatus.state === "denied") {
+          setLocationNotice(
+            "Konum izni engellendi. Tarayıcı ayarlarından bu site için konum iznini açın, ardından sayfayı yenileyin.",
+          );
+          return null;
+        }
+      } catch {
+        // Permissions API not supported for geolocation — proceed with getCurrentPosition
+      }
+    }
+
+    setLocationLoading(true);
+    setLocationNotice("Konum alınıyor...");
 
     return new Promise<ScanLocation | null>((resolve) => {
       navigator.geolocation.getCurrentPosition(
@@ -192,23 +236,28 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
           };
 
           setLocation(nextLocation);
+          locationRef.current = nextLocation;
           setLocationNotice(null);
+          setLocationLoading(false);
           resolve(nextLocation);
         },
         (positionError) => {
           if (positionError.code === 1) {
-            setLocationNotice("Konum izni verilmedi.");
+            setLocationNotice(
+              "Konum izni verilmedi. Tarayıcı ayarlarından konum iznini açıp sayfayı yenileyin.",
+            );
           } else if (positionError.code === 3) {
-            setLocationNotice("Konum alma işlemi zaman aşımına uğradı.");
+            setLocationNotice("Konum alma işlemi zaman aşımına uğradı. Tekrar deneyin.");
           } else {
-            setLocationNotice("Konum bilgisi alınamadı.");
+            setLocationNotice("Konum bilgisi alınamadı. GPS açık olduğundan emin olun.");
           }
 
+          setLocationLoading(false);
           resolve(null);
         },
         {
-          timeout: 10_000,
-          maximumAge: 30_000,
+          timeout: 15_000,
+          maximumAge: 60_000,
           enableHighAccuracy: true,
         },
       );
@@ -511,9 +560,10 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
                 onClick={() => {
                   void captureLocation();
                 }}
+                disabled={locationLoading}
                 className="btn-secondary min-h-11 text-sm"
               >
-                Konumu Yenile
+                {locationLoading ? "Konum Alınıyor..." : "Konumu Yenile"}
               </button>
               <Link href="/scan" className="btn-secondary min-h-11 text-sm">
                 Geri Dön
@@ -533,11 +583,13 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
 
           {location ? (
             <p className="mt-1 text-xs" style={{ color: "var(--success)" }}>
-              Konum hazır: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
+              ✓ Konum hazır: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
             </p>
           ) : (
-            <p className="mt-1 text-xs" style={{ color: "var(--warning)" }}>
-              {locationNotice ?? "Konum henüz hazır değil."}
+            <p className="mt-1 text-xs" style={{ color: locationLoading ? "var(--text-secondary)" : "var(--warning)" }}>
+              {locationLoading
+                ? "⏳ Konum alınıyor..."
+                : locationNotice ?? "⚠ Konum henüz hazır değil. Konum izni vermeniz gerekiyor."}
             </p>
           )}
 

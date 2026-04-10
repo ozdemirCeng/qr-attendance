@@ -15,23 +15,25 @@ Onemli not:
 
 ## Ekran Goruntuleri
 
-### 1) Ana Akis
+### 1) Giris ve Katilimci Akisi
 
-![Uygulama ekran goruntusu 1](images/readme/screenshot-01.png)
+![Giris ekrani](<images/Ekran görüntüsü 2026-04-11 001451.png>)
 
-![Uygulama ekran goruntusu 2](images/readme/screenshot-02.png)
+![Kullanici paneli](<images/Ekran görüntüsü 2026-04-11 001513.png>)
 
-### 2) Etkinlik ve Oturum Yonetimi
+![QR tarama ekrani](<images/Ekran görüntüsü 2026-04-11 001524.png>)
 
-![Uygulama ekran goruntusu 3](images/readme/screenshot-03.png)
+### 2) Yonetim Paneli ve Denetim
 
-![Uygulama ekran goruntusu 4](images/readme/screenshot-04.png)
+![Admin paneli](<images/Ekran görüntüsü 2026-04-11 001550.png>)
 
-### 3) QR ve Katilim Akisi
+![Denetim kayitlari](<images/Ekran görüntüsü 2026-04-11 001648.png>)
 
-![Uygulama ekran goruntusu 5](images/readme/screenshot-05.png)
+### 3) Etkinlik Yonetimi
 
-![Uygulama ekran goruntusu 6](images/readme/screenshot-06.png)
+![Yeni etkinlik olusturma formu](<images/Ekran görüntüsü 2026-04-11 001708.png>)
+
+![Etkinlik detayi ve canli QR](<images/Ekran görüntüsü 2026-04-11 001929.png>)
 
 ## Mimari
 

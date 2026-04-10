@@ -7,22 +7,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Merriweather:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Merriweather:wght@400;700&display=swap"
       rel="stylesheet"
     />
     <style>
       :root {
-        --bg: #071024;
-        --bg-soft: #102245;
-        --panel: rgba(8, 19, 42, 0.72);
+        --bg: #060e1e;
+        --bg-soft: #0e1d3d;
+        --panel: rgba(10, 20, 45, 0.82);
+        --panel-light: rgba(20, 35, 65, 0.6);
         --text: #eaf2ff;
-        --muted: #b8caeb;
+        --muted: #a8bfe0;
         --accent: #4da3ff;
         --accent-2: #ff8f3f;
         --ok: #4dd6a0;
         --danger: #ff6f7a;
-        --border: rgba(255, 255, 255, 0.12);
-        --shadow: 0 20px 55px rgba(0, 0, 0, 0.35);
+        --border: rgba(255, 255, 255, 0.1);
+        --border-bright: rgba(255, 255, 255, 0.18);
+        --shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+        --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.25);
+        --radius: 18px;
+        --radius-lg: 24px;
       }
 
       * {
@@ -43,15 +48,17 @@
         font-family: "Outfit", "Segoe UI", sans-serif;
       }
 
+      /* ─── Animated background ───────────────────────── */
       .bg-layer {
         position: fixed;
         inset: 0;
         z-index: 0;
         background:
-          radial-gradient(circle at 10% 15%, rgba(77, 163, 255, 0.25), transparent 35%),
-          radial-gradient(circle at 88% 78%, rgba(255, 143, 63, 0.24), transparent 30%),
-          linear-gradient(130deg, #050c1d 0%, #0a1530 45%, #091227 100%);
-        animation: drift 16s ease-in-out infinite alternate;
+          radial-gradient(ellipse at 8% 12%, rgba(77, 163, 255, 0.22), transparent 40%),
+          radial-gradient(ellipse at 92% 82%, rgba(255, 143, 63, 0.18), transparent 35%),
+          radial-gradient(ellipse at 50% 50%, rgba(77, 214, 160, 0.06), transparent 50%),
+          linear-gradient(145deg, #040a18 0%, #0a1530 50%, #070f25 100%);
+        animation: drift 20s ease-in-out infinite alternate;
       }
 
       .bg-layer::before,
@@ -59,49 +66,46 @@
         content: "";
         position: absolute;
         border-radius: 999px;
-        filter: blur(18px);
-        opacity: 0.35;
+        filter: blur(80px);
+        opacity: 0.2;
       }
 
       .bg-layer::before {
-        width: 380px;
-        height: 380px;
-        left: -120px;
-        bottom: -120px;
+        width: 500px;
+        height: 500px;
+        left: -200px;
+        bottom: -200px;
         background: #2278ff;
+        animation: float-blob 12s ease-in-out infinite alternate;
       }
 
       .bg-layer::after {
-        width: 320px;
-        height: 320px;
-        right: -90px;
-        top: -90px;
+        width: 400px;
+        height: 400px;
+        right: -150px;
+        top: -150px;
         background: #ff9144;
+        animation: float-blob 14s ease-in-out infinite alternate-reverse;
       }
 
       @keyframes drift {
-        from {
-          transform: scale(1) translateY(0);
-        }
-        to {
-          transform: scale(1.04) translateY(-8px);
-        }
+        from { transform: scale(1) translateY(0); }
+        to { transform: scale(1.03) translateY(-6px); }
       }
 
-      .deck {
-        position: relative;
-        z-index: 1;
-        width: 100%;
-        height: 100%;
+      @keyframes float-blob {
+        from { transform: translate(0, 0) scale(1); }
+        to { transform: translate(30px, -20px) scale(1.1); }
       }
 
+      /* ─── Progress bar ──────────────────────────────── */
       .progress-wrap {
         position: fixed;
         left: 0;
         top: 0;
         width: 100%;
-        height: 4px;
-        background: rgba(255, 255, 255, 0.08);
+        height: 3px;
+        background: rgba(255, 255, 255, 0.06);
         z-index: 4;
       }
 
@@ -110,6 +114,15 @@
         width: 0;
         background: linear-gradient(90deg, var(--accent), var(--accent-2));
         transition: width 280ms ease;
+        border-radius: 0 2px 2px 0;
+      }
+
+      /* ─── Deck + Slides ─────────────────────────────── */
+      .deck {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        height: 100%;
       }
 
       .slides {
@@ -123,12 +136,12 @@
         inset: 0;
         display: grid;
         grid-template-rows: auto 1fr auto;
-        gap: 22px;
-        padding: clamp(20px, 3vw, 42px);
+        gap: 16px;
+        padding: clamp(18px, 2.8vw, 38px) clamp(22px, 3.2vw, 48px);
         opacity: 0;
-        transform: translateX(48px) scale(0.985);
+        transform: translateX(40px) scale(0.99);
         pointer-events: none;
-        transition: opacity 320ms ease, transform 320ms ease;
+        transition: opacity 350ms ease, transform 350ms ease;
       }
 
       .slide.active {
@@ -137,39 +150,52 @@
         pointer-events: auto;
       }
 
+      /* ─── Typography ────────────────────────────────── */
       .kicker {
-        letter-spacing: 0.14em;
+        letter-spacing: 0.15em;
         text-transform: uppercase;
-        font-size: 0.82rem;
-        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--accent);
       }
 
-      h1,
-      h2,
-      h3 {
+      h1, h2, h3 {
         margin: 0;
-        line-height: 1.08;
+        line-height: 1.1;
+        font-weight: 700;
       }
 
       h1 {
-        font-size: clamp(1.9rem, 4vw, 3.5rem);
-        max-width: 18ch;
+        font-size: clamp(1.8rem, 3.8vw, 3.2rem);
+        max-width: 22ch;
       }
 
       h2 {
-        font-size: clamp(1.5rem, 3.2vw, 2.8rem);
+        font-size: clamp(1.4rem, 2.8vw, 2.4rem);
+      }
+
+      h3 {
+        font-size: clamp(1rem, 1.6vw, 1.3rem);
       }
 
       p {
         margin: 0;
         color: var(--muted);
         line-height: 1.6;
-        font-size: clamp(0.95rem, 1.8vw, 1.12rem);
+        font-size: clamp(0.88rem, 1.5vw, 1.05rem);
       }
 
+      .highlight {
+        background: linear-gradient(90deg, #8cc3ff, #ffd2a9);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+      }
+
+      /* ─── Hero (title slides) ───────────────────────── */
       .hero {
         display: grid;
-        gap: 18px;
+        gap: 14px;
         align-content: center;
       }
 
@@ -178,41 +204,59 @@
         align-items: center;
         gap: 8px;
         width: fit-content;
-        padding: 8px 14px;
-        border: 1px solid var(--border);
+        padding: 7px 14px;
+        border: 1px solid var(--border-bright);
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.03);
-        color: var(--text);
+        background: rgba(77, 163, 255, 0.08);
+        color: var(--accent);
+        font-size: 0.85rem;
+        font-weight: 600;
       }
 
-      .highlight {
-        color: #ffffff;
-        background: linear-gradient(90deg, #8cc3ff, #ffd2a9);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-
+      /* ─── Content Grid ──────────────────────────────── */
       .content-grid {
         display: grid;
-        grid-template-columns: 1.05fr 1fr;
-        gap: clamp(16px, 3vw, 30px);
-        align-items: center;
+        grid-template-columns: 1.08fr 1fr;
+        gap: clamp(14px, 2.4vw, 26px);
+        align-items: start;
+        overflow: hidden;
       }
 
+      .content-grid-reverse {
+        grid-template-columns: 1fr 1.08fr;
+      }
+
+      .content-single {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: clamp(14px, 2.4vw, 20px);
+        align-items: start;
+        overflow: hidden;
+      }
+
+      .two-panel {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(14px, 2.4vw, 26px);
+        align-items: start;
+      }
+
+      /* ─── Panel ─────────────────────────────────────── */
       .panel {
         background: var(--panel);
         border: 1px solid var(--border);
-        border-radius: 22px;
-        box-shadow: var(--shadow);
-        padding: clamp(16px, 2.4vw, 26px);
-        -webkit-backdrop-filter: blur(9px);
-        backdrop-filter: blur(9px);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        padding: clamp(14px, 2vw, 22px);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
       }
 
+      /* ─── Lists ─────────────────────────────────────── */
       .list {
         display: grid;
-        gap: 10px;
-        margin-top: 14px;
+        gap: 9px;
+        margin-top: 10px;
       }
 
       .list div {
@@ -221,99 +265,162 @@
         gap: 10px;
         align-items: start;
         color: #d4e4ff;
-        line-height: 1.48;
+        line-height: 1.5;
+        font-size: clamp(0.86rem, 1.4vw, 1rem);
       }
 
       .dot {
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 999px;
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        margin-top: 9px;
+        margin-top: 8px;
+        flex-shrink: 0;
       }
 
+      .list p {
+        margin-top: 8px;
+      }
+
+      /* ─── Screenshot Figures ────────────────────────── */
       figure.shot {
         margin: 0;
-        border-radius: 22px;
+        border-radius: var(--radius-lg);
         overflow: hidden;
-        border: 1px solid var(--border);
+        border: 1px solid var(--border-bright);
         box-shadow: var(--shadow);
-        background: #0a1020;
+        background: #080e1c;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Browser-style top bar for desktop screenshots */
+      figure.shot .browser-bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: rgba(15, 25, 50, 0.9);
+        border-bottom: 1px solid var(--border);
+      }
+
+      figure.shot .browser-bar .dot-r { background: #ff5f57; }
+      figure.shot .browser-bar .dot-y { background: #ffbd2e; }
+      figure.shot .browser-bar .dot-g { background: #28ca42; }
+
+      figure.shot .browser-bar span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      figure.shot .browser-bar .url-bar {
+        flex: 1;
+        margin-left: 8px;
+        padding: 3px 10px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-family: monospace;
       }
 
       figure.shot img {
         display: block;
         width: 100%;
-        height: min(45vh, 420px);
-        object-fit: cover;
+        height: auto;
+        max-height: min(48vh, 440px);
+        object-fit: contain;
+        background: #0c1424;
       }
 
-      .panel p + p {
-        margin-top: 10px;
-      }
-
-      .mt-14 {
-        margin-top: 14px;
-      }
-
-      .mt-16 {
-        margin-top: 16px;
+      /* For mobile screenshots - show them in a phone frame */
+      figure.shot.mobile-shot img {
+        max-height: min(52vh, 460px);
+        object-fit: contain;
+        padding: 8px;
+        background: linear-gradient(180deg, #f5f7fa 0%, #e8ecf2 100%);
       }
 
       figure.shot figcaption {
-        font-size: 0.9rem;
-        color: #c8dafb;
-        padding: 10px 14px 12px;
-        background: rgba(10, 16, 32, 0.84);
+        font-size: 0.82rem;
+        color: var(--muted);
+        padding: 8px 14px 10px;
+        background: rgba(10, 16, 32, 0.9);
+        border-top: 1px solid var(--border);
       }
 
+      .panel p + p {
+        margin-top: 8px;
+      }
+
+      .mt-10 { margin-top: 10px; }
+      .mt-12 { margin-top: 12px; }
+      .mt-14 { margin-top: 14px; }
+
+      /* ─── Metrics ───────────────────────────────────── */
       .metric-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
+        gap: 10px;
       }
 
       .metric {
-        padding: 16px;
-        border-radius: 16px;
+        padding: 14px;
+        border-radius: 14px;
         border: 1px solid var(--border);
-        background: rgba(255, 255, 255, 0.04);
+        background: rgba(255, 255, 255, 0.03);
+        text-align: center;
       }
 
       .metric strong {
         display: block;
-        font-size: clamp(1.4rem, 2.8vw, 2.1rem);
-        margin-bottom: 6px;
+        font-size: clamp(1.2rem, 2.4vw, 1.8rem);
+        margin-bottom: 4px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
       }
 
       .metric span {
         color: var(--muted);
-        font-size: 0.93rem;
+        font-size: 0.82rem;
+        line-height: 1.4;
       }
 
+      /* ─── Chips ─────────────────────────────────────── */
       .stack {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 14px;
+        gap: 8px;
+        margin-top: 10px;
       }
 
       .chip {
-        padding: 8px 12px;
+        padding: 6px 12px;
         border-radius: 999px;
         border: 1px solid var(--border);
-        background: rgba(255, 255, 255, 0.03);
-        font-size: 0.9rem;
-        color: #d6e8ff;
+        background: rgba(77, 163, 255, 0.06);
+        font-size: 0.84rem;
+        color: #c0d8ff;
+        font-weight: 500;
       }
 
+      /* ─── Quote ─────────────────────────────────────── */
       .quote {
         font-family: "Merriweather", serif;
-        font-size: clamp(1.1rem, 2.2vw, 1.5rem);
-        line-height: 1.6;
-        color: #f4f8ff;
+        font-size: clamp(0.95rem, 1.8vw, 1.3rem);
+        line-height: 1.65;
+        color: #e8f0ff;
+        font-style: italic;
+        position: relative;
+        padding-left: 20px;
+        border-left: 3px solid;
+        border-image: linear-gradient(180deg, var(--accent), var(--accent-2)) 1;
       }
 
+      /* ─── Footer ────────────────────────────────────── */
       .footer {
         display: flex;
         align-items: center;
@@ -322,84 +429,123 @@
       }
 
       .hint {
-        color: #adc5ec;
-        font-size: 0.9rem;
+        color: #8aa6cf;
+        font-size: 0.82rem;
       }
 
+      /* ─── Controls ──────────────────────────────────── */
       .controls {
         position: fixed;
-        right: 20px;
-        bottom: 20px;
+        right: 18px;
+        bottom: 18px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         z-index: 5;
       }
 
       .btn {
         border: 1px solid var(--border);
-        background: rgba(8, 19, 42, 0.78);
-        color: #f0f6ff;
-        border-radius: 12px;
-        padding: 9px 12px;
+        background: rgba(8, 19, 42, 0.85);
+        color: #e0ecff;
+        border-radius: 10px;
+        padding: 8px 12px;
         font-family: inherit;
-        font-size: 0.9rem;
+        font-size: 0.82rem;
         cursor: pointer;
         transition: transform 120ms ease, background 120ms ease;
+        backdrop-filter: blur(8px);
       }
 
       .btn:hover {
         transform: translateY(-1px);
-        background: rgba(77, 163, 255, 0.22);
+        background: rgba(77, 163, 255, 0.18);
       }
 
       .counter {
-        min-width: 58px;
+        min-width: 52px;
         text-align: center;
+        font-weight: 600;
       }
 
+      /* ─── Help badge ────────────────────────────────── */
+      .help {
+        position: fixed;
+        top: 14px;
+        right: 18px;
+        z-index: 5;
+        color: #9ab5de;
+        font-size: 0.78rem;
+        background: rgba(8, 19, 42, 0.75);
+        border: 1px solid var(--border);
+        padding: 6px 10px;
+        border-radius: 8px;
+        backdrop-filter: blur(8px);
+      }
+
+      /* ─── Notes ─────────────────────────────────────── */
       .notes {
         display: none;
       }
 
       body.show-notes .notes {
         position: fixed;
-        left: 20px;
-        bottom: 20px;
-        max-width: min(560px, calc(100vw - 40px));
-        max-height: 32vh;
+        left: 18px;
+        bottom: 18px;
+        max-width: min(520px, calc(100vw - 36px));
+        max-height: 30vh;
         overflow: auto;
         z-index: 5;
         display: block;
-        padding: 14px 16px;
-        border-radius: 14px;
+        padding: 12px 14px;
+        border-radius: 12px;
         border: 1px solid var(--border);
-        background: rgba(6, 12, 25, 0.92);
-        color: #ebf4ff;
-        line-height: 1.55;
+        background: rgba(6, 12, 25, 0.94);
+        color: #e0ecff;
+        font-size: 0.88rem;
+        line-height: 1.5;
         box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
       }
 
       body.show-notes .notes strong {
-        color: #9ac7ff;
+        color: var(--accent);
       }
 
-      .help {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 5;
-        color: #b7cced;
-        font-size: 0.88rem;
-        background: rgba(8, 19, 42, 0.68);
+      /* ─── Title Slide Specific ──────────────────────── */
+      .title-meta {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 10px;
+      }
+
+      .title-meta-item {
+        padding: 12px 16px;
+        border-radius: 12px;
         border: 1px solid var(--border);
-        padding: 8px 11px;
-        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
       }
 
-      body.capture-mode .bg-layer {
-        animation: none;
+      .title-meta-item .label {
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 4px;
+        font-weight: 600;
       }
+
+      .title-meta-item .value {
+        font-size: 0.92rem;
+        color: var(--text);
+        line-height: 1.4;
+      }
+
+      /* ─── Capture Mode ──────────────────────────────── */
+      body.capture-mode .bg-layer { animation: none; }
+      body.capture-mode .bg-layer::before,
+      body.capture-mode .bg-layer::after { animation: none; }
 
       body.capture-mode .controls,
       body.capture-mode .help,
@@ -412,34 +558,127 @@
         transition: none;
       }
 
+      /* ─── Arch Diagram ─────────────────────────────── */
+      .arch-diagram {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .arch-block {
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.03);
+        text-align: center;
+      }
+
+      .arch-block .arch-icon {
+        font-size: 1.6rem;
+        margin-bottom: 6px;
+      }
+
+      .arch-block .arch-title {
+        font-weight: 700;
+        font-size: 0.92rem;
+        color: var(--text);
+        margin-bottom: 4px;
+      }
+
+      .arch-block .arch-desc {
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .arch-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        color: var(--accent);
+      }
+
+      /* ─── Flow steps ────────────────────────────────── */
+      .flow-steps {
+        display: flex;
+        gap: 0;
+        align-items: stretch;
+        margin-top: 10px;
+      }
+
+      .flow-step {
+        flex: 1;
+        padding: 12px 10px;
+        text-align: center;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.03);
+        position: relative;
+      }
+
+      .flow-step:first-child {
+        border-radius: 12px 0 0 12px;
+      }
+
+      .flow-step:last-child {
+        border-radius: 0 12px 12px 0;
+      }
+
+      .flow-step .step-num {
+        display: inline-flex;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff;
+        font-size: 0.72rem;
+        font-weight: 700;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 6px;
+      }
+
+      .flow-step .step-text {
+        font-size: 0.78rem;
+        color: #c4d8f8;
+        line-height: 1.4;
+      }
+
+      /* ─── Responsive ────────────────────────────────── */
       @media (max-width: 980px) {
-        .content-grid {
+        .content-grid,
+        .content-grid-reverse,
+        .two-panel {
           grid-template-columns: 1fr;
           align-content: start;
         }
 
         figure.shot img {
-          height: min(42vh, 380px);
+          max-height: min(38vh, 340px);
         }
 
         .metric-grid {
           grid-template-columns: 1fr;
         }
+
+        .title-meta {
+          grid-template-columns: 1fr;
+        }
+
+        .arch-diagram {
+          grid-template-columns: 1fr;
+        }
       }
 
+      /* ─── Print ─────────────────────────────────────── */
       @media print {
-        html,
-        body {
+        html, body {
           overflow: visible;
           background: #fff;
           color: #111;
         }
 
-        .bg-layer,
-        .controls,
-        .help,
-        .progress-wrap,
-        .notes {
+        .bg-layer, .controls, .help, .progress-wrap, .notes {
           display: none !important;
         }
 
@@ -453,10 +692,7 @@
           background: #fff;
         }
 
-        .panel,
-        figure.shot,
-        .metric,
-        .chip {
+        .panel, figure.shot, .metric, .chip {
           color: #111;
           border-color: #bbb;
           background: #fff;
@@ -475,64 +711,88 @@
     <main class="deck" role="application" aria-label="QR Yoklama sunumu">
       <div class="help">Oklar: Gezin | C: Çekim Modu | N: Notlar | F: Tam Ekran</div>
       <div class="slides" id="slides">
-        <section class="slide active" data-title="Açılış">
-          <div class="hero">
-            <span class="badge">Staj Sunumu • QR Yoklama</span>
-            <h1>
-              Etkinlik katılımını <span class="highlight">hızlı, güvenli</span> ve
-              denetlenebilir hale getiren uçtan uca web platformu
-            </h1>
-            <p>
-              Bu sunumda projenin çıkış problemini, teknik mimarisini, geliştirme
-              kararlarını, canlı ekranlarını ve staj sürecindeki katkılarımı
-              adım adım anlatıyorum.
-            </p>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 1 — KAPAK / TITLE -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <section class="slide active" data-title="Kapak">
+          <div>
+            <span class="kicker">Staj Projesi Sunumu</span>
           </div>
-          <div class="panel">
-            <div class="quote">
-              "Hedefim yalnızca QR okutan bir ekran yapmak değil; etkinlik
-              operasyonunu baştan sona sadeleştiren ve yönetilebilir kılan bir ürün
-              ortaya çıkarmaktı."
+          <div class="hero" style="gap: 18px;">
+            <h1>
+              <span class="highlight">QR Yoklama</span> — Etkinlik Katılım Yönetim Platformu
+            </h1>
+            <p style="max-width: 54ch;">
+              Etkinlik katılımını hızlı, güvenli ve denetlenebilir hale getiren
+              uçtan uca web platformu tasarımı ve geliştirilmesi.
+            </p>
+            <div class="title-meta">
+              <div class="title-meta-item">
+                <div class="label">Öğrenci</div>
+                <div class="value">Ömer Faruk Özdemir</div>
+              </div>
+              <div class="title-meta-item">
+                <div class="label">Kurum / Şirket</div>
+                <div class="value">SafeSpeech Yazılım</div>
+              </div>
+              <div class="title-meta-item">
+                <div class="label">Üniversite</div>
+                <div class="value">Kocaeli Üniversitesi — Mühendislik Fakültesi</div>
+              </div>
+              <div class="title-meta-item">
+                <div class="label">İletişim</div>
+                <div class="value">dev.omer.ozdemir@gmail.com</div>
+              </div>
             </div>
           </div>
           <div class="footer">
-            <span class="kicker">Hazırlayan: Ömer Faruk Özdemir</span>
-            <span class="hint">SafeSpeech Yazılım • dev.omer.ozdemir@gmail.com</span>
+            <span class="hint">2025-2026 Akademik Yılı • Staj Dönemi</span>
+            <span class="hint">Slayt 1 / 14 • Açılış</span>
           </div>
           <aside class="notes">
-            <strong>Konuşma notu:</strong> Açılışta önce problemi tek cümlede söyle,
-            sonra bu projede sadece arayüz değil süreç tasarladığını vurgula.
+            <strong>Konuşma notu:</strong> Açılışta kendini tanıt, projeyi tek
+            cümlede özetle. "Etkinliklerde yoklama sürecini dijitalleştiren bir
+            platform geliştirdim" ile başla.
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 2 — GÜNDEM -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Gündem">
           <div>
             <span class="kicker">Sunum Akışı</span>
-            <h2>Neler paylaşacağım?</h2>
+            <h2>Gündem</h2>
           </div>
-          <div class="content-grid">
+          <div class="two-panel">
             <div class="panel">
+              <h3 style="margin-bottom: 8px;">İçerik</h3>
               <div class="list">
-                <div><span class="dot"></span><span>Gerçek ihtiyaç analizi ve proje hedefleri</span></div>
+                <div><span class="dot"></span><span>Problem tanımı ve proje hedefleri</span></div>
                 <div><span class="dot"></span><span>Mimari kurgu: web, API ve veri katmanı</span></div>
-                <div><span class="dot"></span><span>Yönetim paneli ve etkinlik planlama modülü</span></div>
-                <div><span class="dot"></span><span>QR doğrulama, katılımcı akışı ve kayıt yönetimi</span></div>
+                <div><span class="dot"></span><span>Yönetim paneli ve etkinlik planlama</span></div>
+                <div><span class="dot"></span><span>QR doğrulama ve katılımcı akışı</span></div>
                 <div><span class="dot"></span><span>Güvenlik, denetim logları ve hata yönetimi</span></div>
-                <div><span class="dot"></span><span>Çözülen teknik problemler ve elde edilen çıktılar</span></div>
+                <div><span class="dot"></span><span>Çözülen teknik sorunlar ve kazanımlar</span></div>
               </div>
-              <p class="mt-14">
-                Sunum boyunca her ekranı yalnızca görsel olarak değil, arkasındaki
-                iş kuralı ve teknik karar ile birlikte açıklayacağım.
-              </p>
             </div>
-            <figure class="shot">
-              <img src="images/readme/screenshot-02.png" alt="Panel ana ekranı" />
-              <figcaption>Kontrol panelinden etkinliklerin genel görünümü</figcaption>
-            </figure>
+            <div>
+              <figure class="shot">
+                <div class="browser-bar">
+                  <span class="dot-r"></span>
+                  <span class="dot-y"></span>
+                  <span class="dot-g"></span>
+                  <div class="url-bar">localhost:3000/dashboard</div>
+                </div>
+                <img src="images/Ekran görüntüsü 2026-04-11 001513.png" alt="Kullanıcı paneli ana ekranı" />
+                <figcaption>Kullanıcı panelinden etkinlik ve hesap özet görünümü</figcaption>
+              </figure>
+            </div>
           </div>
           <div class="footer">
-            <span class="hint">Toplam 13 slayt</span>
-            <span class="hint">Yaklaşık süre: 10-12 dakika</span>
+            <span class="hint">Toplam 13 slayt — Yaklaşık 10-12 dakika</span>
+            <span class="hint">Slayt 2 / 14 • Yol Haritası</span>
           </div>
           <aside class="notes">
             <strong>Konuşma notu:</strong> Burada dinleyiciye "ne izleyeceğiz"
@@ -541,17 +801,21 @@
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 3 — PROBLEM & HEDEF -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Problem ve Hedef">
           <div>
-            <span class="kicker">Proje Çıkış Noktası</span>
+            <span class="kicker">Projenin Çıkış Noktası</span>
             <h2>Neyi çözmek istedim?</h2>
           </div>
           <div class="content-grid">
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Mevcut Sorunlar</h3>
               <div class="list">
                 <div>
                   <span class="dot"></span>
-                  <span>Manuel yoklamada uzun bekleme ve giriş noktasında yoğunluk oluşması</span>
+                  <span>Manuel yoklamada uzun bekleme ve giriş noktasında yoğunluk</span>
                 </div>
                 <div>
                   <span class="dot"></span>
@@ -559,24 +823,21 @@
                 </div>
                 <div>
                   <span class="dot"></span>
-                  <span>Etkinlik sonrası raporlanabilir ve denetlenebilir verinin yetersiz kalması</span>
+                  <span>Etkinlik sonrası raporlanabilir verinin yetersizliği</span>
                 </div>
               </div>
-              <p class="mt-16">
-                Çözüm hedefim, tek bir platformda etkinlik planlama, kimlik
-                doğrulama, katılım kaydı ve denetim süreçlerini birleşik şekilde
-                yönetebilmekti.
-              </p>
-              <p>
-                Böylece hem organizasyon ekiplerinin operasyonel yükünü azaltmak,
-                hem de katılımcı deneyimini hızlandırmak mümkün hale geldi.
+              <p class="mt-14">
+                Çözüm hedefim: tek bir platformda etkinlik planlama, kimlik
+                doğrulama, katılım kaydı ve denetim süreçlerini birleşik
+                yönetebilmek.
               </p>
             </div>
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Hedefler</h3>
               <div class="metric-grid">
                 <div class="metric">
                   <strong>Hız</strong>
-                  <span>Katılım doğrulamasını saniyeler seviyesine indirme</span>
+                  <span>Doğrulamayı saniyeler seviyesine indirme</span>
                 </div>
                 <div class="metric">
                   <strong>Güven</strong>
@@ -584,14 +845,14 @@
                 </div>
                 <div class="metric">
                   <strong>İzlenebilirlik</strong>
-                  <span>Tüm işlem adımlarını loglar üzerinden takip edebilme</span>
+                  <span>Tüm adımları loglarla takip edebilme</span>
                 </div>
               </div>
             </div>
           </div>
           <div class="footer">
             <span class="hint">Odak: operasyonu sadeleştirirken güvenliği artırmak</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 3 / 14 • Problem Tanımı</span>
           </div>
           <aside class="notes">
             <strong>Konuşma notu:</strong> Bu slaytta önce problem etkisini anlat,
@@ -599,62 +860,75 @@
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 4 — KAPSAM & BAŞARI KRİTERLERİ -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Kapsam ve Başarı Kriterleri">
           <div>
             <span class="kicker">Proje Tanımı</span>
-            <h2>Kapsamı nasıl belirledim?</h2>
+            <h2>Kapsam ve başarı kriterleri</h2>
           </div>
           <div class="content-grid">
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Kapsam</h3>
               <p>
                 Projeyi sadece bir check-in ekranı değil, yönetilebilir bir ürün
-                olarak ele aldım. Bu nedenle kapsamı üç ana modül üzerinden
-                netleştirdim: yönetim paneli, katılımcı akışı ve denetim sistemi.
+                olarak ele aldım. Kapsamı üç ana modül üzerinden netleştirdim:
               </p>
               <div class="list">
                 <div><span class="dot"></span><span>Etkinlik oluşturma ve planlama yönetimi</span></div>
                 <div><span class="dot"></span><span>QR ile hızlı ve doğrulanabilir katılım alma</span></div>
-                <div><span class="dot"></span><span>İşlem kayıtlarının filtrelenebilir şekilde tutulması</span></div>
+                <div><span class="dot"></span><span>İşlem kayıtlarının filtrelenebilir tutulması</span></div>
               </div>
             </div>
             <div class="panel">
-              <p>Başarı kriterlerini proje başında somutlaştırdım:</p>
+              <h3 style="margin-bottom: 6px;">Başarı Kriterleri</h3>
               <div class="list">
                 <div><span class="dot"></span><span>Kullanıcının minimum adımda check-in tamamlaması</span></div>
-                <div><span class="dot"></span><span>Yetkisiz veya hatalı girişlerin anlaşılır şekilde engellenmesi</span></div>
-                <div><span class="dot"></span><span>Yönetim tarafında etkinliklerin tek ekrandan izlenebilmesi</span></div>
-                <div><span class="dot"></span><span>Süreç sonunda raporlanabilir veri bütünlüğünün korunması</span></div>
+                <div><span class="dot"></span><span>Yetkisiz girişlerin anlaşılır şekilde engellenmesi</span></div>
+                <div><span class="dot"></span><span>Etkinliklerin tek ekrandan izlenebilmesi</span></div>
+                <div><span class="dot"></span><span>Raporlanabilir veri bütünlüğünün korunması</span></div>
               </div>
             </div>
           </div>
           <div class="footer">
             <span class="hint">Kapsamı net tanımlamak geliştirme hızını artırdı</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 4 / 14 • Kapsam</span>
           </div>
           <aside class="notes">
-            <strong>Konuşma notu:</strong> Bu slayt, projenin neden düzenli ilerlediğini
-            anlatmak için önemli. Kapsam ve kriterler baştan netti.
+            <strong>Konuşma notu:</strong> Bu slayt, projenin neden düzenli
+            ilerlediğini anlatmak için önemli. Kapsam ve kriterler baştan netti.
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 5 — MİMARİ -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Mimari">
           <div>
             <span class="kicker">Teknik Yaklaşım</span>
-            <h2>Kullandığım yapı</h2>
+            <h2>Sistem mimarisi ve kullanılan teknolojiler</h2>
           </div>
           <div class="content-grid">
             <div class="panel">
-              <p>
-                Uygulamada web arayüzü, API katmanı ve veritabanı tarafını birlikte
-                ele aldım. Böylece hem kullanıcı deneyimini hem de sistem
-                dayanıklılığını aynı anda iyileştirme şansım oldu.
-              </p>
-              <p>
-                Frontend tarafında hızlı arayüz akışı; backend tarafında doğrulama,
-                yetkilendirme ve kuralların merkezi yönetimi; veritabanında ise
-                tutarlı kayıt yapısı ile sürdürülebilir bir temel kuruldu.
-              </p>
-              <div class="stack">
+              <div class="arch-diagram">
+                <div class="arch-block">
+                  <div class="arch-icon">🖥️</div>
+                  <div class="arch-title">Frontend</div>
+                  <div class="arch-desc">Next.js, React, React Query</div>
+                </div>
+                <div class="arch-block">
+                  <div class="arch-icon">⚙️</div>
+                  <div class="arch-title">Backend</div>
+                  <div class="arch-desc">NestJS, Zod, JWT Auth</div>
+                </div>
+                <div class="arch-block">
+                  <div class="arch-icon">🗄️</div>
+                  <div class="arch-title">Veritabanı</div>
+                  <div class="arch-desc">PostgreSQL, Drizzle ORM</div>
+                </div>
+              </div>
+              <div class="stack" style="margin-top: 14px;">
                 <span class="chip">Next.js</span>
                 <span class="chip">NestJS</span>
                 <span class="chip">TypeScript</span>
@@ -666,6 +940,7 @@
               </div>
             </div>
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Mimari Kararlar</h3>
               <div class="list">
                 <div>
                   <span class="dot"></span>
@@ -685,14 +960,14 @@
                 </div>
               </div>
               <p class="mt-14">
-                Mimari kararların temel hedefi; geliştirme sırasında hız kazanmak,
-                sonrasında ise bakım maliyetini düşürmekti.
+                Temel hedef: geliştirme sırasında hız kazanmak,
+                sonrasında bakım maliyetini düşürmek.
               </p>
             </div>
           </div>
           <div class="footer">
-            <span class="hint">Amaç: modüler, sürdürülebilir ve test edilebilir bir yapı</span>
-            <span class="hint"></span>
+            <span class="hint">Modüler, sürdürülebilir ve test edilebilir yapı</span>
+            <span class="hint">Slayt 5 / 14 • Mimari</span>
           </div>
           <aside class="notes">
             <strong>Konuşma notu:</strong> Teknolojileri tek tek saymak yerine,
@@ -700,6 +975,9 @@
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 6 — YÖNETİM PANELİ -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Panel">
           <div>
             <span class="kicker">Yönetim Ekranı</span>
@@ -707,52 +985,73 @@
           </div>
           <div class="content-grid">
             <figure class="shot">
-              <img src="images/readme/screenshot-02.png" alt="Kontrol paneli" />
+              <div class="browser-bar">
+                <span class="dot-r"></span>
+                <span class="dot-y"></span>
+                <span class="dot-g"></span>
+                <div class="url-bar">localhost:3000/dashboard</div>
+              </div>
+              <img src="images/Ekran görüntüsü 2026-04-11 001550.png" alt="Kontrol paneli" />
               <figcaption>Etkinlik kartları, metrikler ve hızlı aksiyon alanları</figcaption>
             </figure>
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Öne Çıkan Özellikler</h3>
               <div class="list">
                 <div>
                   <span class="dot"></span>
-                  <span>Etkinliklerin toplam durumu tek ekranda görülebiliyor</span>
+                  <span>Etkinliklerin toplam durumu tek ekranda</span>
                 </div>
                 <div>
                   <span class="dot"></span>
-                  <span>Katılım oranı ve organizasyon bilgisi kolay okunuyor</span>
+                  <span>Katılım oranı ve organizasyon bilgisi kolay okunur</span>
                 </div>
                 <div>
                   <span class="dot"></span>
-                  <span>Yeni etkinlik başlatma ve mevcut etkinliğe geçiş hızlı</span>
+                  <span>Yeni etkinlik başlatma ve geçiş hızlı</span>
                 </div>
               </div>
               <p class="mt-14">
-                Bu ekran, organizatörün "sistemin o anki durumu" sorusuna birkaç
-                saniyede yanıt almasını sağlıyor. Operasyonel kararlar tek panelden
-                alınabildiği için saha ekibiyle koordinasyon kolaylaşıyor.
+                Organizatörün "sistemin o anki durumu" sorusuna birkaç saniyede
+                yanıt almasını sağlayan merkezi kontrol noktası.
               </p>
+              <div class="stack mt-14">
+                <span class="chip">Canlı görünürlük</span>
+                <span class="chip">Hızlı aksiyon</span>
+                <span class="chip">Operasyon kontrolü</span>
+              </div>
             </div>
           </div>
           <div class="footer">
             <span class="hint">Operasyon ekibi için kontrol noktası</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 6 / 14 • Yönetim Paneli</span>
           </div>
           <aside class="notes">
             <strong>Konuşma notu:</strong> Paneli bir iş günü senaryosu ile anlat.
-            "Etkinlik başlamadan önce kontrol edilen kritik göstergeler" iyi bir giriş olur.
+            "Etkinlik başlamadan önce kontrol edilen kritik göstergeler" iyi bir giriş.
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 7 — ETKİNLİK DETAYI + QR -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Etkinlik Detayı">
           <div>
             <span class="kicker">Canlı Katılım Yönetimi</span>
-            <h2>Etkinlik detayında canlı QR üretimi</h2>
+            <h2>Etkinlik detayı ve canlı QR üretimi</h2>
           </div>
           <div class="content-grid">
             <figure class="shot">
-              <img src="images/readme/screenshot-01.png" alt="Etkinlik detay ekranı" />
-              <figcaption>Canlı QR, kısa doğrulama kodu ve katılım hareketi</figcaption>
+              <div class="browser-bar">
+                <span class="dot-r"></span>
+                <span class="dot-y"></span>
+                <span class="dot-g"></span>
+                <div class="url-bar">localhost:3000/events/[id]#qr</div>
+              </div>
+              <img src="images/Ekran görüntüsü 2026-04-11 001929.png" alt="Etkinlik detay ekranı" />
+              <figcaption>Canlı QR kodu, kısa doğrulama kodu ve katılım akışı</figcaption>
             </figure>
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">QR Doğrulama Akışı</h3>
               <div class="list">
                 <div>
                   <span class="dot"></span>
@@ -760,23 +1059,36 @@
                 </div>
                 <div>
                   <span class="dot"></span>
-                  <span>Katılımcı girişi sırasında bilgilerin eşleşmesi sağlanıyor</span>
+                  <span>Katılımcı girişinde bilgilerin eşleşmesi sağlanıyor</span>
                 </div>
                 <div>
                   <span class="dot"></span>
                   <span>Organizatör anlık katılım akışını takip edebiliyor</span>
                 </div>
               </div>
-              <p class="mt-14">
-                Bu yaklaşım sayesinde doğrulama yalnızca "kamera okudu" seviyesinde
-                kalmıyor; süreçte hem kullanıcı hem sistem tarafında ek doğrulama
-                katmanları devreye giriyor.
-              </p>
+              <div class="flow-steps" style="margin-top: 14px;">
+                <div class="flow-step">
+                  <div class="step-num">1</div>
+                  <div class="step-text">QR Oluştur</div>
+                </div>
+                <div class="flow-step">
+                  <div class="step-num">2</div>
+                  <div class="step-text">Tara</div>
+                </div>
+                <div class="flow-step">
+                  <div class="step-num">3</div>
+                  <div class="step-text">Doğrula</div>
+                </div>
+                <div class="flow-step">
+                  <div class="step-num">4</div>
+                  <div class="step-text">Kayıt</div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="footer">
             <span class="hint">Tek ekranda doğrulama + izleme</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 7 / 14 • QR Akışı</span>
           </div>
           <aside class="notes">
             <strong>Konuşma notu:</strong> Burada güvenlik katmanlarını sade anlat:
@@ -784,6 +1096,9 @@
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 8 — ETKİNLİK OLUŞTURMA -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Etkinlik Oluşturma">
           <div>
             <span class="kicker">Yönetim Akışı</span>
@@ -791,14 +1106,21 @@
           </div>
           <div class="content-grid">
             <figure class="shot">
-              <img src="images/readme/screenshot-04.png" alt="Yeni etkinlik formu" />
+              <div class="browser-bar">
+                <span class="dot-r"></span>
+                <span class="dot-y"></span>
+                <span class="dot-g"></span>
+                <div class="url-bar">localhost:3000/events/new</div>
+              </div>
+              <img src="images/Ekran görüntüsü 2026-04-11 001708.png" alt="Yeni etkinlik formu" />
               <figcaption>Temel bilgiler, konum ve zamanlama alanları</figcaption>
             </figure>
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Form Tasarımı</h3>
               <div class="list">
                 <div>
                   <span class="dot"></span>
-                  <span>Form yapısı adım adım ve okunabilir şekilde tasarlandı</span>
+                  <span>Adım adım, okunabilir form yapısı</span>
                 </div>
                 <div>
                   <span class="dot"></span>
@@ -806,41 +1128,49 @@
                 </div>
                 <div>
                   <span class="dot"></span>
-                  <span>Zaman penceresi net verilerek yanlış girişler azalıyor</span>
+                  <span>Zaman penceresi net verilerek hatalı girişler azalıyor</span>
                 </div>
               </div>
               <p class="mt-14">
-                Etkinlik bilgileri doğru girildiğinde, devamındaki QR üretimi,
-                katılımcı doğrulaması ve raporlama adımları daha sorunsuz işliyor.
+                Etkinlik bilgileri doğru girildiğinde, QR üretimi, katılımcı
+                doğrulaması ve raporlama daha sorunsuz işliyor.
               </p>
+              <div class="stack mt-14">
+                <span class="chip">Alan doğrulama</span>
+                <span class="chip">Konum sınırı</span>
+                <span class="chip">Zaman penceresi</span>
+              </div>
             </div>
           </div>
           <div class="footer">
             <span class="hint">Doğru giriş, doğru doğrulama için temel adım</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 8 / 14 • Oluşturma</span>
           </div>
           <aside class="notes">
-            <strong>Konuşma notu:</strong> Burada iş kuralı mantığını anlat:
-            etkinlik bilgilerinin doğru girilmesi, sonraki tüm kontrol akışını
-            doğrudan etkiliyor.
+            <strong>Konuşma notu:</strong> Etkinlik bilgilerinin doğru girilmesi,
+            sonraki tüm kontrol akışını doğrudan etkiliyor.
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 9 — KATILIMCI AKIŞI -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Katılımcı Akışı">
           <div>
             <span class="kicker">Mobil Odaklı Deneyim</span>
             <h2>Katılımcı için hızlı giriş ekranı</h2>
           </div>
-          <div class="content-grid">
-            <figure class="shot">
-              <img src="images/readme/screenshot-05.png" alt="Katılımcı tarama ekranı" />
-              <figcaption>Tek butonla tarama ve otomatik tanıma akışı</figcaption>
+          <div class="content-grid" style="grid-template-columns: auto 1fr;">
+            <figure class="shot mobile-shot" style="max-width: 280px;">
+              <img src="images/Ekran görüntüsü 2026-04-11 001524.png" alt="Katılımcı tarama ekranı" />
+              <figcaption>Tek butonla tarama akışı</figcaption>
             </figure>
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Mobil Deneyim</h3>
               <div class="list">
                 <div>
                   <span class="dot"></span>
-                  <span>Katılımcı tarafında sade ve yönlendirici bir ekran var</span>
+                  <span>Katılımcı tarafında sade ve yönlendirici ekran</span>
                 </div>
                 <div>
                   <span class="dot"></span>
@@ -852,22 +1182,39 @@
                 </div>
               </div>
               <p class="mt-14">
-                Kullanıcı deneyimindeki ana kararım, gereksiz alanları kaldırmak ve
-                kullanıcıyı tek bir ana aksiyona yönlendirmek oldu. Bu da işlem
-                süresini gözle görülür biçimde kısalttı.
+                Ana kararım: gereksiz alanları kaldırmak ve kullanıcıyı tek bir
+                ana aksiyona yönlendirmek. Bu işlem süresini belirgin biçimde kısalttı.
               </p>
+
+              <div class="flow-steps" style="margin-top: 14px;">
+                <div class="flow-step">
+                  <div class="step-num">1</div>
+                  <div class="step-text">Uygulamayı Aç</div>
+                </div>
+                <div class="flow-step">
+                  <div class="step-num">2</div>
+                  <div class="step-text">Taramayı Başlat</div>
+                </div>
+                <div class="flow-step">
+                  <div class="step-num">3</div>
+                  <div class="step-text">Otomatik Kayıt</div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="footer">
             <span class="hint">Amaç: en az adımda katılım tamamlama</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 9 / 14 • Katılımcı Deneyimi</span>
           </div>
           <aside class="notes">
-            <strong>Konuşma notu:</strong> Burada önce eski akıştaki fazlalığı söyle,
-            sonra sadeleştirilmiş akışın neden daha hızlı olduğunu örnekle anlat.
+            <strong>Konuşma notu:</strong> Eski akıştaki fazlalığı söyle, sonra
+            sadeleştirilmiş akışın neden daha hızlı olduğunu örnekle anlat.
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 10 — DENETİM VE GÜVENLİK -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Denetim ve Güvenlik">
           <div>
             <span class="kicker">Kayıt ve İzlenebilirlik</span>
@@ -875,10 +1222,17 @@
           </div>
           <div class="content-grid">
             <figure class="shot">
-              <img src="images/readme/screenshot-03.png" alt="Denetim logları" />
+              <div class="browser-bar">
+                <span class="dot-r"></span>
+                <span class="dot-y"></span>
+                <span class="dot-g"></span>
+                <div class="url-bar">localhost:3000/dashboard/audit</div>
+              </div>
+              <img src="images/Ekran görüntüsü 2026-04-11 001648.png" alt="Denetim logları" />
               <figcaption>İşlem bazlı log kayıtları ve filtrelenebilir görünüm</figcaption>
             </figure>
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Denetim Sistemi</h3>
               <div class="list">
                 <div>
                   <span class="dot"></span>
@@ -894,26 +1248,29 @@
                 </div>
               </div>
               <p class="mt-14">
-                Bu yapı, yalnızca güvenlik için değil, operasyonel şeffaflık için
+                Bu yapı yalnızca güvenlik için değil, operasyonel şeffaflık için
                 de güçlü bir temel sağlıyor.
               </p>
-              <p>
-                Olası bir tutarsızlık durumunda geriye dönük iz sürmek mümkün
-                olduğu için ekipler sorunlara daha hızlı ve veriye dayalı müdahale
-                edebiliyor.
-              </p>
+              <div class="stack mt-14">
+                <span class="chip">İşlem geçmişi</span>
+                <span class="chip">Filtrelenebilir log</span>
+                <span class="chip">Geriye dönük analiz</span>
+              </div>
             </div>
           </div>
           <div class="footer">
             <span class="hint">Loglar: teknik takip + yönetim görünürlüğü</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 10 / 14 • Denetim</span>
           </div>
           <aside class="notes">
             <strong>Konuşma notu:</strong> "Sadece çalışıyor olması değil,
-            denetlenebilir olması" fikrini özellikle kurumsal beklentiyle bağla.
+            denetlenebilir olması" fikrini kurumsal beklentiyle bağla.
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 11 — GİRİŞ EKRANI -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Giriş Ekranı">
           <div>
             <span class="kicker">Kimlik Doğrulama</span>
@@ -921,18 +1278,25 @@
           </div>
           <div class="content-grid">
             <figure class="shot">
-              <img src="images/readme/screenshot-06.png" alt="Giriş sayfası" />
-              <figcaption>Yetkili kullanıcı giriş ekranı</figcaption>
+              <div class="browser-bar">
+                <span class="dot-r"></span>
+                <span class="dot-y"></span>
+                <span class="dot-g"></span>
+                <div class="url-bar">localhost:3000/login</div>
+              </div>
+              <img src="images/Ekran görüntüsü 2026-04-11 001451.png" alt="Giriş sayfası" />
+              <figcaption>Yetkili kullanıcı giriş ekranı — dark mode</figcaption>
             </figure>
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Kimlik Doğrulama</h3>
               <div class="list">
                 <div>
                   <span class="dot"></span>
-                  <span>Giriş ekranı sade, odaklı ve anlaşılır tasarlandı</span>
+                  <span>Giriş ekranı sade, odaklı ve anlaşılır</span>
                 </div>
                 <div>
                   <span class="dot"></span>
-                  <span>Yetkili rollerin erişimi kontrol altında tutuluyor</span>
+                  <span>Yetkili rollerin erişimi kontrol altında</span>
                 </div>
                 <div>
                   <span class="dot"></span>
@@ -940,58 +1304,80 @@
                 </div>
               </div>
               <p class="mt-14">
-                Bu ekranla birlikte yetki sınırları daha net hale geldi ve yönetim
-                araçlarına erişim yalnızca doğrulanan kullanıcılarla sınırlandırıldı.
+                Yetki sınırları net tanımlandı ve yönetim araçlarına erişim
+                yalnızca doğrulanan kullanıcılarla sınırlandırıldı.
               </p>
+              <div class="stack mt-14">
+                <span class="chip">Rol bazlı erişim</span>
+                <span class="chip">Tek giriş noktası</span>
+                <span class="chip">Güvenli yönlendirme</span>
+              </div>
             </div>
           </div>
           <div class="footer">
             <span class="hint">Güvenli başlangıç, güvenli süreç</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 11 / 14 • Kimlik Doğrulama</span>
           </div>
           <aside class="notes">
             <strong>Konuşma notu:</strong> Yetkilendirme tarafını teknik detaya
-            boğmadan anlat. "Önce kimlik doğrulama, sonra yönetim yetkileri" akışını
-            net cümlelerle geç.
+            boğmadan anlat. "Önce kimlik doğrulama, sonra yönetim yetkileri."
           </aside>
         </section>
 
-        <section class="slide" data-title="Geliştirme Sürecinde Çözülen Sorunlar">
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 12 — ÇÖZÜLEN SORUNLAR -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <section class="slide" data-title="Çözülen Sorunlar">
           <div>
             <span class="kicker">Mühendislik Süreci</span>
             <h2>Karşılaştığım kritik problemler ve çözümler</h2>
           </div>
           <div class="content-grid">
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Çözülen Sorunlar</h3>
               <div class="list">
                 <div><span class="dot"></span><span>Proxy katmanında içerik kodlama kaynaklı hatalar giderildi</span></div>
                 <div><span class="dot"></span><span>QR akışında gereksiz etkinlik seçimi kaldırılarak süreç sadeleştirildi</span></div>
                 <div><span class="dot"></span><span>Hata kodlarının kullanıcıya anlaşılır yansıtılması iyileştirildi</span></div>
-                <div><span class="dot"></span><span>Oturum kontrolü yalnızca gerekli rotalara indirgenerek gereksiz çağrılar azaltıldı</span></div>
+                <div><span class="dot"></span><span>Oturum kontrolü yalnızca gerekli rotalara indirgendi</span></div>
               </div>
             </div>
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Edinilen Deneyim</h3>
               <p>
                 Bu iyileştirmeler sonrası sistem hem teknik olarak daha stabil hale
                 geldi hem de kullanıcı tarafındaki akış daha tutarlı çalışmaya başladı.
               </p>
               <p>
-                Staj sürecinde öğrendiğim en önemli nokta, bir problemi çözerken
-                yalnızca kodu değil kullanıcı davranışını ve operasyon etkisini de
+                Staj sürecinde öğrendiğim en önemli nokta: bir problemi çözerken
+                yalnızca kodu değil, kullanıcı davranışını ve operasyon etkisini de
                 birlikte değerlendirmek gerektiğiydi.
               </p>
+
+              <div class="quote" style="margin-top: 14px;">
+                Problem çözmek, kodu düzeltmekten daha fazlasıdır — kullanıcıyı
+                ve operasyonu birlikte düşünmek gerekir.
+              </div>
+              <div class="stack mt-14">
+                <span class="chip">Kök neden analizi</span>
+                <span class="chip">Kalıcı çözüm</span>
+                <span class="chip">Kullanıcı etkisi</span>
+              </div>
             </div>
           </div>
           <div class="footer">
             <span class="hint">Hedef: daha az hata, daha net akış, daha sürdürülebilir kod</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 12 / 14 • Sorun Çözümü</span>
           </div>
           <aside class="notes">
             <strong>Konuşma notu:</strong> Bu slaytta geliştirme sürecindeki teknik
-            olgunluğu göster. "Sorun gördüm, kök nedeni buldum, kalıcı çözdüm" çizgisi önemli.
+            olgunluğu göster. "Sorun gördüm, kök nedeni buldum, kalıcı çözdüm."
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 13 — KAZANIMLAR -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Kazanımlar">
           <div>
             <span class="kicker">Staj Süreci Çıktıları</span>
@@ -999,6 +1385,7 @@
           </div>
           <div class="content-grid">
             <div class="panel">
+              <h3 style="margin-bottom: 6px;">Kazanımlar</h3>
               <div class="list">
                 <div>
                   <span class="dot"></span>
@@ -1018,7 +1405,7 @@
                 </div>
                 <div>
                   <span class="dot"></span>
-                  <span>Dokümantasyon, sunum ve teslim kalitesini artırma deneyimi</span>
+                  <span>Dokümantasyon, sunum ve teslim kalitesini artırma</span>
                 </div>
               </div>
             </div>
@@ -1045,47 +1432,62 @@
           </div>
           <div class="footer">
             <span class="hint">Teknik başarı + ürün bakışı</span>
-            <span class="hint"></span>
+            <span class="hint">Slayt 13 / 14 • Kazanımlar</span>
           </div>
           <aside class="notes">
-            <strong>Konuşma notu:</strong> Burayı kişisel gelişim ve ekip katkısı
-            dengesiyle anlat. Sadece teknoloji değil, süreç yönetimini de öğrendiğini
-            vurgula.
+            <strong>Konuşma notu:</strong> Kişisel gelişim ve ekip katkısı
+            dengesiyle anlat. Sadece teknoloji değil, süreç yönetimini de
+            öğrendiğini vurgula.
           </aside>
         </section>
 
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- SLIDE 14 — KAPANIŞ -->
+        <!-- ═══════════════════════════════════════════════ -->
         <section class="slide" data-title="Kapanış">
-          <div class="hero">
+          <div>
             <span class="kicker">Teşekkürler</span>
-            <h1>
-              Sorularınızı memnuniyetle yanıtlarım.
-            </h1>
-            <p>
-              İsterseniz devamında canlı demoda etkinlik oluşturma, QR doğrulama ve
-              denetim kayıtlarının nasıl çalıştığını kısa bir senaryo ile gösterebilirim.
-            </p>
           </div>
-          <div class="panel">
-            <div class="quote">
-              "Bu proje bana, teknik doğruluk ile kullanıcı deneyimi birlikte ele
-              alınmadığında gerçek bir ürün etkisi üretmenin zor olduğunu öğretti."
+          <div class="hero" style="gap: 16px;">
+            <h1>Sorularınızı memnuniyetle yanıtlarım</h1>
+            <p style="max-width: 50ch;">
+              İsterseniz devamında canlı demoda etkinlik oluşturma, QR doğrulama
+              ve denetim kayıtlarının nasıl çalıştığını kısa bir senaryo ile
+              gösterebilirim.
+            </p>
+            <div class="panel" style="max-width: 600px;">
+              <div class="quote">
+                Bu proje bana, teknik doğruluk ile kullanıcı deneyimi birlikte
+                ele alınmadığında gerçek bir ürün etkisi üretmenin zor olduğunu öğretti.
+              </div>
+            </div>
+            <div class="title-meta" style="max-width: 540px;">
+              <div class="title-meta-item">
+                <div class="label">Hazırlayan</div>
+                <div class="value">Ömer Faruk Özdemir</div>
+              </div>
+              <div class="title-meta-item">
+                <div class="label">İletişim</div>
+                <div class="value">dev.omer.ozdemir@gmail.com</div>
+              </div>
             </div>
           </div>
           <div class="footer">
-            <span class="kicker">İletişim: dev.omer.ozdemir@gmail.com</span>
+            <span class="hint">Kocaeli Üniversitesi • SafeSpeech Yazılım</span>
             <span class="hint">Dinlediğiniz için teşekkür ederim.</span>
           </div>
           <aside class="notes">
-            <strong>Konuşma notu:</strong> Kapanışta bir cümleyle katkı sağlayan
-            kişilere teşekkür et, ardından soru-cevap için alan aç.
+            <strong>Konuşma notu:</strong> Kapanışta katkı sağlayan kişilere
+            teşekkür et, ardından soru-cevap için alan aç.
           </aside>
         </section>
+
       </div>
     </main>
 
     <div class="controls" aria-label="Sunum kontrol butonları">
       <button class="btn" id="prevBtn" type="button" aria-label="Önceki slayt">← Önceki</button>
-      <div class="btn counter" id="counter" aria-live="polite">1 / 13</div>
+      <div class="btn counter" id="counter" aria-live="polite">1 / 14</div>
       <button class="btn" id="captureBtn" type="button" aria-label="Çekim modu aç kapa">Çekim Modu</button>
       <button class="btn" id="nextBtn" type="button" aria-label="Sonraki slayt">Sonraki →</button>
     </div>
@@ -1110,20 +1512,17 @@
 
         function updateSlide(nextIndex) {
           index = Math.max(0, Math.min(nextIndex, slides.length - 1));
-          slides.forEach((slide, i) => slide.classList.toggle("active", i === index));
-          const ratio = ((index + 1) / slides.length) * 100;
+          slides.forEach(function (slide, i) {
+            slide.classList.toggle("active", i === index);
+          });
+          var ratio = ((index + 1) / slides.length) * 100;
           progress.style.width = ratio + "%";
           counter.textContent = (index + 1) + " / " + slides.length;
-          document.title = "QR Yoklama - " + slides[index].dataset.title;
+          document.title = "QR Yoklama — " + slides[index].dataset.title;
         }
 
-        function next() {
-          updateSlide(index + 1);
-        }
-
-        function prev() {
-          updateSlide(index - 1);
-        }
+        function next() { updateSlide(index + 1); }
+        function prev() { updateSlide(index - 1); }
 
         prevBtn.addEventListener("click", prev);
         nextBtn.addEventListener("click", next);
@@ -1134,7 +1533,7 @@
         }
 
         document.addEventListener("keydown", function (event) {
-          const key = event.key;
+          var key = event.key;
           if (key === "ArrowRight" || key === "PageDown" || key === " ") {
             event.preventDefault();
             next();
@@ -1166,14 +1565,14 @@
           }
         });
 
-        let touchStartX = null;
+        var touchStartX = null;
         document.addEventListener("touchstart", function (event) {
           touchStartX = event.changedTouches[0].clientX;
         });
         document.addEventListener("touchend", function (event) {
           if (touchStartX === null) return;
-          const touchEndX = event.changedTouches[0].clientX;
-          const diff = touchStartX - touchEndX;
+          var touchEndX = event.changedTouches[0].clientX;
+          var diff = touchStartX - touchEndX;
           if (Math.abs(diff) > 44) {
             if (diff > 0) next();
             else prev();
