@@ -112,8 +112,12 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
     cache: "no-store",
     redirect: "manual",
   });
+  const responseBody =
+    method === "HEAD" || backendResponse.status === 204
+      ? undefined
+      : await backendResponse.arrayBuffer();
 
-  return new NextResponse(backendResponse.body, {
+  return new NextResponse(responseBody, {
     status: backendResponse.status,
     headers: buildProxyResponseHeaders(backendResponse),
   });
