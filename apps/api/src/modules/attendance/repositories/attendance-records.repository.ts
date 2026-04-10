@@ -29,114 +29,124 @@ type UpdateAttendanceRecordInput = Partial<
 
 type AttendanceRecordRow = AttendanceRecordEntity;
 
-const ATTENDANCE_RECORD_SELECT = `
-  select
-    id,
-    event_id as "eventId",
-    session_id as "sessionId",
-    participant_id as "participantId",
-    full_name as "fullName",
-    email,
-    phone,
-    scanned_at as "scannedAt",
-    latitude,
-    longitude,
-    accuracy,
-    distance_from_venue as "distanceFromVenue",
-    is_valid as "isValid",
-    invalid_reason as "invalidReason",
-    qr_nonce as "qrNonce",
-    ip_address as "ipAddress",
-    device_fingerprint as "deviceFingerprint",
-    verification_photo_data_url as "verificationPhotoDataUrl",
-    verification_photo_captured_at as "verificationPhotoCapturedAt",
-    created_at as "createdAt"
-`;
-
 @Injectable()
 export class AttendanceRecordsRepository {
+  private verificationPhotoColumnSupport: Promise<boolean> | null = null;
+
   async create(
     input: CreateAttendanceRecordInput,
   ): Promise<AttendanceRecordEntity> {
+    const supportsVerificationPhoto = await this.hasVerificationPhotoColumns();
     const sql = getSql();
     const rows = (await sql.query(
-      `
-        insert into attendance_records (
-          event_id,
-          session_id,
-          participant_id,
-          full_name,
-          email,
-          phone,
-          scanned_at,
-          latitude,
-          longitude,
-          accuracy,
-          distance_from_venue,
-          is_valid,
-          invalid_reason,
-          qr_nonce,
-          ip_address,
-          device_fingerprint,
-          verification_photo_data_url,
-          verification_photo_captured_at
-        )
-        values (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9,
-          $10, $11, $12, $13, $14, $15, $16, $17, $18
-        )
-        returning
-          id,
-          event_id as "eventId",
-          session_id as "sessionId",
-          participant_id as "participantId",
-          full_name as "fullName",
-          email,
-          phone,
-          scanned_at as "scannedAt",
-          latitude,
-          longitude,
-          accuracy,
-          distance_from_venue as "distanceFromVenue",
-          is_valid as "isValid",
-          invalid_reason as "invalidReason",
-          qr_nonce as "qrNonce",
-          ip_address as "ipAddress",
-          device_fingerprint as "deviceFingerprint",
-          verification_photo_data_url as "verificationPhotoDataUrl",
-          verification_photo_captured_at as "verificationPhotoCapturedAt",
-          created_at as "createdAt"
-      `,
-      [
-        input.eventId,
-        input.sessionId,
-        input.participantId,
-        input.fullName,
-        input.email,
-        input.phone,
-        input.scannedAt,
-        input.latitude,
-        input.longitude,
-        input.accuracy,
-        input.distanceFromVenue,
-        input.isValid,
-        input.invalidReason,
-        input.qrNonce,
-        input.ipAddress,
-        input.deviceFingerprint,
-        input.verificationPhotoDataUrl,
-        input.verificationPhotoCapturedAt,
-      ],
+      supportsVerificationPhoto
+        ? `
+            insert into attendance_records (
+              event_id,
+              session_id,
+              participant_id,
+              full_name,
+              email,
+              phone,
+              scanned_at,
+              latitude,
+              longitude,
+              accuracy,
+              distance_from_venue,
+              is_valid,
+              invalid_reason,
+              qr_nonce,
+              ip_address,
+              device_fingerprint,
+              verification_photo_data_url,
+              verification_photo_captured_at
+            )
+            values (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9,
+              $10, $11, $12, $13, $14, $15, $16, $17, $18
+            )
+            returning
+              ${this.selectColumns(true)}
+          `
+        : `
+            insert into attendance_records (
+              event_id,
+              session_id,
+              participant_id,
+              full_name,
+              email,
+              phone,
+              scanned_at,
+              latitude,
+              longitude,
+              accuracy,
+              distance_from_venue,
+              is_valid,
+              invalid_reason,
+              qr_nonce,
+              ip_address,
+              device_fingerprint
+            )
+            values (
+              $1, $2, $3, $4, $5, $6, $7, $8,
+              $9, $10, $11, $12, $13, $14, $15, $16
+            )
+            returning
+              ${this.selectColumns(false)}
+          `,
+      supportsVerificationPhoto
+        ? [
+            input.eventId,
+            input.sessionId,
+            input.participantId,
+            input.fullName,
+            input.email,
+            input.phone,
+            input.scannedAt,
+            input.latitude,
+            input.longitude,
+            input.accuracy,
+            input.distanceFromVenue,
+            input.isValid,
+            input.invalidReason,
+            input.qrNonce,
+            input.ipAddress,
+            input.deviceFingerprint,
+            input.verificationPhotoDataUrl,
+            input.verificationPhotoCapturedAt,
+          ]
+        : [
+            input.eventId,
+            input.sessionId,
+            input.participantId,
+            input.fullName,
+            input.email,
+            input.phone,
+            input.scannedAt,
+            input.latitude,
+            input.longitude,
+            input.accuracy,
+            input.distanceFromVenue,
+            input.isValid,
+            input.invalidReason,
+            input.qrNonce,
+            input.ipAddress,
+            input.deviceFingerprint,
+          ],
     )) as AttendanceRecordRow[];
 
     return this.mapRow(rows[0]);
   }
 
   async findByParticipantAndSession(participantId: string, sessionId: string) {
+    const selectColumns = this.selectColumns(
+      await this.hasVerificationPhotoColumns(),
+    );
     const sql = getSql();
     const rows = (await sql.query(
       `
-        ${ATTENDANCE_RECORD_SELECT}
+        select
+          ${selectColumns}
         from attendance_records
         where participant_id = $1
           and session_id = $2
@@ -149,10 +159,14 @@ export class AttendanceRecordsRepository {
   }
 
   async findBySessionId(sessionId: string) {
+    const selectColumns = this.selectColumns(
+      await this.hasVerificationPhotoColumns(),
+    );
     const sql = getSql();
     const rows = (await sql.query(
       `
-        ${ATTENDANCE_RECORD_SELECT}
+        select
+          ${selectColumns}
         from attendance_records
         where session_id = $1
         order by scanned_at desc
@@ -164,10 +178,14 @@ export class AttendanceRecordsRepository {
   }
 
   async findByEventId(eventId: string) {
+    const selectColumns = this.selectColumns(
+      await this.hasVerificationPhotoColumns(),
+    );
     const sql = getSql();
     const rows = (await sql.query(
       `
-        ${ATTENDANCE_RECORD_SELECT}
+        select
+          ${selectColumns}
         from attendance_records
         where event_id = $1
         order by scanned_at desc
@@ -186,6 +204,9 @@ export class AttendanceRecordsRepository {
     page,
     limit,
   }: ListAttendanceRecordsInput) {
+    const selectColumns = this.selectColumns(
+      await this.hasVerificationPhotoColumns(),
+    );
     const sql = getSql();
     const params: unknown[] = [eventId];
     const conditions = ['event_id = $1'];
@@ -222,7 +243,8 @@ export class AttendanceRecordsRepository {
     const [itemRows, countRows] = await Promise.all([
       sql.query(
         `
-          ${ATTENDANCE_RECORD_SELECT}
+          select
+            ${selectColumns}
           from attendance_records
           ${whereClause}
           order by scanned_at desc
@@ -258,10 +280,14 @@ export class AttendanceRecordsRepository {
       return null;
     }
 
+    const selectColumns = this.selectColumns(
+      await this.hasVerificationPhotoColumns(),
+    );
     const sql = getSql();
     const rows = (await sql.query(
       `
-        ${ATTENDANCE_RECORD_SELECT}
+        select
+          ${selectColumns}
         from attendance_records
         where id = $1
         limit 1
@@ -282,6 +308,9 @@ export class AttendanceRecordsRepository {
       return null;
     }
 
+    const selectColumns = this.selectColumns(
+      await this.hasVerificationPhotoColumns(),
+    );
     const sql = getSql();
     const rows = (await sql.query(
       `
@@ -291,26 +320,7 @@ export class AttendanceRecordsRepository {
           invalid_reason = $3
         where id = $1
         returning
-          id,
-          event_id as "eventId",
-          session_id as "sessionId",
-          participant_id as "participantId",
-          full_name as "fullName",
-          email,
-          phone,
-          scanned_at as "scannedAt",
-          latitude,
-          longitude,
-          accuracy,
-          distance_from_venue as "distanceFromVenue",
-          is_valid as "isValid",
-          invalid_reason as "invalidReason",
-          qr_nonce as "qrNonce",
-          ip_address as "ipAddress",
-          device_fingerprint as "deviceFingerprint",
-          verification_photo_data_url as "verificationPhotoDataUrl",
-          verification_photo_captured_at as "verificationPhotoCapturedAt",
-          created_at as "createdAt"
+          ${selectColumns}
       `,
       [
         id,
@@ -331,5 +341,61 @@ export class AttendanceRecordsRepository {
       ),
       createdAt: toIsoString(row.createdAt),
     };
+  }
+
+  private async hasVerificationPhotoColumns() {
+    if (!this.verificationPhotoColumnSupport) {
+      this.verificationPhotoColumnSupport =
+        this.detectVerificationPhotoColumns();
+    }
+
+    return this.verificationPhotoColumnSupport;
+  }
+
+  private async detectVerificationPhotoColumns() {
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        select count(*)::int as total
+        from information_schema.columns
+        where table_name = 'attendance_records'
+          and column_name in (
+            'verification_photo_data_url',
+            'verification_photo_captured_at'
+          )
+      `,
+    )) as Array<{ total: number }>;
+
+    return (rows[0]?.total ?? 0) === 2;
+  }
+
+  private selectColumns(includeVerificationPhoto: boolean) {
+    return `
+      id,
+      event_id as "eventId",
+      session_id as "sessionId",
+      participant_id as "participantId",
+      full_name as "fullName",
+      email,
+      phone,
+      scanned_at as "scannedAt",
+      latitude,
+      longitude,
+      accuracy,
+      distance_from_venue as "distanceFromVenue",
+      is_valid as "isValid",
+      invalid_reason as "invalidReason",
+      qr_nonce as "qrNonce",
+      ip_address as "ipAddress",
+      device_fingerprint as "deviceFingerprint",
+      ${
+        includeVerificationPhoto
+          ? `verification_photo_data_url as "verificationPhotoDataUrl",
+             verification_photo_captured_at as "verificationPhotoCapturedAt",`
+          : `null::text as "verificationPhotoDataUrl",
+             null::timestamp with time zone as "verificationPhotoCapturedAt",`
+      }
+      created_at as "createdAt"
+    `;
   }
 }

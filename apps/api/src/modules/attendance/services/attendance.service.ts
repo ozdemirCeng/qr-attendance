@@ -242,7 +242,7 @@ export class AttendanceService {
         );
       }
 
-      await this.attendanceAttemptsRepository.create({
+      await this.recordAttemptSafe({
         sessionId: session.id,
         rawSessionRef: session.id,
         ip,
@@ -276,7 +276,7 @@ export class AttendanceService {
     } catch (error: unknown) {
       const errorCode = this.extractErrorCode(error);
 
-      await this.attendanceAttemptsRepository.create({
+      await this.recordAttemptSafe({
         sessionId: null,
         rawSessionRef: sessionIdForAttempt,
         ip,
@@ -289,6 +289,24 @@ export class AttendanceService {
       });
 
       throw error;
+    }
+  }
+
+  private async recordAttemptSafe(input: {
+    sessionId: string | null;
+    rawSessionRef: string | null;
+    ip: string | null;
+    userAgent: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    scannedAt: string;
+    result: 'success' | 'failed';
+    reason: string | null;
+  }) {
+    try {
+      await this.attendanceAttemptsRepository.create(input);
+    } catch {
+      // Attempt logging must never turn a controlled scan result into a 500.
     }
   }
 
