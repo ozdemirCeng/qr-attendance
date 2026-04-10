@@ -233,22 +233,22 @@ export class AuthService {
 
   private createSessionCookieHeader(token: string) {
     const cookieName = this.getSessionCookieName();
-    const secure =
-      this.configService.get<string>('NODE_ENV', 'development') === 'production'
-        ? '; Secure'
-        : '';
+    const secure = this.isProductionEnvironment() ? '; Secure' : '';
+    const sameSite = this.isProductionEnvironment() ? 'None' : 'Lax';
 
-    return `${cookieName}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${this.localSessionTtlSeconds}${secure}`;
+    return `${cookieName}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${this.localSessionTtlSeconds}${secure}`;
   }
 
   private createClearSessionCookieHeader() {
     const cookieName = this.getSessionCookieName();
-    const secure =
-      this.configService.get<string>('NODE_ENV', 'development') === 'production'
-        ? '; Secure'
-        : '';
+    const secure = this.isProductionEnvironment() ? '; Secure' : '';
+    const sameSite = this.isProductionEnvironment() ? 'None' : 'Lax';
 
-    return `${cookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+    return `${cookieName}=; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=0${secure}`;
+  }
+
+  private isProductionEnvironment() {
+    return this.configService.get<string>('NODE_ENV', 'development') === 'production';
   }
 
   private createLocalSessionToken(payload: LocalSessionPayload) {
