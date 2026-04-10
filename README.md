@@ -13,6 +13,26 @@ Onemli not:
 
 - Check-in akisinda kullanici etkinlik secmek zorunda degildir. Etkinlik/oturum bilgisi QR icerisindeki imzali token'dan cozulur.
 
+## Ekran Goruntuleri
+
+### 1) Ana Akis
+
+![Uygulama ekran goruntusu 1](images/readme/screenshot-01.png)
+
+![Uygulama ekran goruntusu 2](images/readme/screenshot-02.png)
+
+### 2) Etkinlik ve Oturum Yonetimi
+
+![Uygulama ekran goruntusu 3](images/readme/screenshot-03.png)
+
+![Uygulama ekran goruntusu 4](images/readme/screenshot-04.png)
+
+### 3) QR ve Katilim Akisi
+
+![Uygulama ekran goruntusu 5](images/readme/screenshot-05.png)
+
+![Uygulama ekran goruntusu 6](images/readme/screenshot-06.png)
+
 ## Mimari
 
 - Monorepo: Turborepo + pnpm

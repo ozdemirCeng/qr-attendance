@@ -12,6 +12,7 @@ export const ATTENDANCE_SCAN_ERROR_CODES = [
   'SESSION_INACTIVE',
   'LOCATION_OUT_OF_RANGE',
   'NO_LOCATION_DATA',
+  'PHOTO_REQUIRED',
   'ALREADY_CHECKED_IN',
   'REGISTRATION_REQUIRED',
 ] as const;
@@ -37,6 +38,8 @@ export type AttendanceRecordEntity = {
   qrNonce: string | null;
   ipAddress: string | null;
   deviceFingerprint: string | null;
+  verificationPhotoDataUrl: string | null;
+  verificationPhotoCapturedAt: string | null;
   createdAt: string;
 };
 

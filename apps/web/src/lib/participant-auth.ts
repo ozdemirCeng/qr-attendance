@@ -48,4 +48,29 @@ export async function participantLogout() {
   });
 }
 
+export type UpdateProfilePayload = {
+  name?: string;
+  email?: string;
+  phone?: string;
+};
+
+export async function participantUpdateProfile(payload: UpdateProfilePayload) {
+  return apiFetch<ParticipantAuthResponse>("/participant-auth/profile", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export async function participantChangePassword(payload: ChangePasswordPayload) {
+  return apiFetch<{ success: true }>("/participant-auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export { type ApiError };

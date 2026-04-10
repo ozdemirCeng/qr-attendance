@@ -12,7 +12,8 @@ export default function GuestFormPage() {
           Misafir Bilgileri
         </h1>
         <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Kayit bulunamadi. Check-in tamamlamak icin bilgilerini gir.
+          Kayit bulunamadi. Check-in tamamlamak icin bilgilerini ve profil
+          fotografini onayla.
         </p>
 
         <div className="mt-6">

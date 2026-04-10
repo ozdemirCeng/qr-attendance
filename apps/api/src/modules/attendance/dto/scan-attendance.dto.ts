@@ -59,4 +59,13 @@ export class ScanAttendanceDto {
   @IsOptional()
   @MaxLength(255)
   fingerprint?: string;
+
+  @ApiPropertyOptional({
+    example: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...',
+    description: 'Kamera ile alinan profil/selfie fotografi',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(600000)
+  verificationPhotoDataUrl?: string;
 }

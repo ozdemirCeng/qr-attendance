@@ -26,6 +26,7 @@ type ParticipantAuthContextValue = {
   participantSignIn: (payload: LoginPayload) => Promise<void>;
   participantSignUp: (payload: SignupPayload) => Promise<void>;
   participantSignOut: () => Promise<void>;
+  refreshParticipantSession: () => Promise<void>;
 };
 
 const ParticipantAuthContext = createContext<
@@ -37,18 +38,22 @@ export function ParticipantAuthProvider({ children }: PropsWithChildren) {
     useState<ParticipantUser | null>(null);
   const [isParticipantLoading, setIsParticipantLoading] = useState(true);
 
-  useEffect(() => {
-    participantGetMe()
-      .then((user) => {
-        setParticipantUser(user);
-      })
-      .catch(() => {
-        setParticipantUser(null);
-      })
-      .finally(() => {
-        setIsParticipantLoading(false);
-      });
+  const refreshParticipantSession = useCallback(async () => {
+    setIsParticipantLoading(true);
+
+    try {
+      const user = await participantGetMe();
+      setParticipantUser(user);
+    } catch {
+      setParticipantUser(null);
+    } finally {
+      setIsParticipantLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshParticipantSession();
+  }, [refreshParticipantSession]);
 
   const participantSignIn = useCallback(async (payload: LoginPayload) => {
     const response = await participantLogin(payload);
@@ -76,6 +81,7 @@ export function ParticipantAuthProvider({ children }: PropsWithChildren) {
       participantSignIn,
       participantSignUp,
       participantSignOut,
+      refreshParticipantSession,
     }),
     [
       participantUser,
@@ -83,6 +89,7 @@ export function ParticipantAuthProvider({ children }: PropsWithChildren) {
       participantSignIn,
       participantSignUp,
       participantSignOut,
+      refreshParticipantSession,
     ],
   );
 

@@ -15,7 +15,7 @@ type ResultPageProps = {
 
 type ErrorMeta = {
   title: string;
-  emoji: string;
+  badge: string;
   hint: string;
   toneColor: string;
   toneBg: string;
@@ -29,44 +29,192 @@ type ResultAction = {
 };
 
 const errorMetaMap: Record<string, ErrorMeta> = {
-  EXPIRED_TOKEN: { title: "QR Süresi Doldu", emoji: "⏱", hint: "Panodaki güncel kodu tekrar okutun.", toneColor: "var(--warning)", toneBg: "var(--warning-soft)" },
-  INVALID_SIGNATURE: { title: "Geçersiz QR", emoji: "🚫", hint: "QR görüntüsünü yenileyip tekrar tarayın.", toneColor: "var(--error)", toneBg: "var(--error-soft)" },
-  MALFORMED_TOKEN: { title: "Geçersiz QR", emoji: "⚠️", hint: "Kod bozuk veya eksik. Yeniden tarayın.", toneColor: "var(--error)", toneBg: "var(--error-soft)" },
-  REPLAY_ATTACK: { title: "QR Tekrar Kullanıldı", emoji: "🔄", hint: "Aynı kod ikinci kez kullanılamaz.", toneColor: "var(--error)", toneBg: "var(--error-soft)" },
-  SESSION_NOT_FOUND: { title: "Etkinlik Bulunamadı", emoji: "🔍", hint: "Etkinlik bağlantısını kontrol edip yeniden deneyin.", toneColor: "var(--text-secondary)", toneBg: "var(--surface-soft)" },
-  SESSION_INACTIVE: { title: "Oturum Aktif Değil", emoji: "⏸", hint: "Oturum saati dışında tarama yapıldı.", toneColor: "var(--primary)", toneBg: "var(--surface-soft)" },
-  LOCATION_OUT_OF_RANGE: { title: "Konum Uygun Değil", emoji: "📍", hint: "Etkinlik alanına yaklaşıp tekrar deneyin.", toneColor: "var(--error)", toneBg: "var(--error-soft)" },
-  NO_LOCATION_DATA: { title: "Konum Gerekli", emoji: "📍", hint: "Konum iznini açmadan yoklama alınmaz.", toneColor: "var(--warning)", toneBg: "var(--warning-soft)" },
-  ALREADY_CHECKED_IN: { title: "Zaten Katıldınız", emoji: "✅", hint: "Aynı oturum için ikinci yoklama alınmaz.", toneColor: "var(--success)", toneBg: "var(--success-soft)" },
-  NETWORK_ERROR: { title: "Bağlantı Hatası", emoji: "📡", hint: "Bağlantı sağlandığında tekrar tarama yapın.", toneColor: "var(--text-secondary)", toneBg: "var(--surface-soft)" },
-  UNKNOWN_ERROR: { title: "İşlem Başarısız", emoji: "❌", hint: "Tekrar deneyin; sorun devam ederse yöneticiye bildirin.", toneColor: "var(--text-secondary)", toneBg: "var(--surface-soft)" },
+  EXPIRED_TOKEN: {
+    title: "QR Suresi Doldu",
+    badge: "QR",
+    hint: "Panodaki guncel kodu tekrar okutun.",
+    toneColor: "var(--warning)",
+    toneBg: "var(--warning-soft)",
+  },
+  INVALID_SIGNATURE: {
+    title: "Gecersiz QR",
+    badge: "QR",
+    hint: "QR goruntusunu yenileyip tekrar tarayin.",
+    toneColor: "var(--error)",
+    toneBg: "var(--error-soft)",
+  },
+  MALFORMED_TOKEN: {
+    title: "Gecersiz QR",
+    badge: "QR",
+    hint: "Kod bozuk veya eksik. Yeniden tarayin.",
+    toneColor: "var(--error)",
+    toneBg: "var(--error-soft)",
+  },
+  REPLAY_ATTACK: {
+    title: "QR Tekrar Kullanildi",
+    badge: "QR",
+    hint: "Ayni kod ikinci kez kullanilamaz.",
+    toneColor: "var(--error)",
+    toneBg: "var(--error-soft)",
+  },
+  SESSION_NOT_FOUND: {
+    title: "Etkinlik Bulunamadi",
+    badge: "404",
+    hint: "Etkinlik baglantisini kontrol edip yeniden deneyin.",
+    toneColor: "var(--text-secondary)",
+    toneBg: "var(--surface-soft)",
+  },
+  SESSION_INACTIVE: {
+    title: "Oturum Aktif Degil",
+    badge: "OT",
+    hint: "Oturum saati disinda tarama yapildi.",
+    toneColor: "var(--primary)",
+    toneBg: "var(--surface-soft)",
+  },
+  LOCATION_OUT_OF_RANGE: {
+    title: "Konum Uygun Degil",
+    badge: "GPS",
+    hint: "Etkinlik alanina yaklasip tekrar deneyin.",
+    toneColor: "var(--error)",
+    toneBg: "var(--error-soft)",
+  },
+  NO_LOCATION_DATA: {
+    title: "Konum Gerekli",
+    badge: "GPS",
+    hint: "Konum iznini acmadan yoklama alinmaz.",
+    toneColor: "var(--warning)",
+    toneBg: "var(--warning-soft)",
+  },
+  PHOTO_REQUIRED: {
+    title: "Fotograf Gerekli",
+    badge: "CAM",
+    hint: "Selfie cekmeden check-in tamamlanamaz.",
+    toneColor: "var(--warning)",
+    toneBg: "var(--warning-soft)",
+  },
+  ALREADY_CHECKED_IN: {
+    title: "Zaten Katildiniz",
+    badge: "OK",
+    hint: "Ayni oturum icin ikinci yoklama alinmaz.",
+    toneColor: "var(--success)",
+    toneBg: "var(--success-soft)",
+  },
+  REGISTRATION_REQUIRED: {
+    title: "Kayit Gerekli",
+    badge: "KYT",
+    hint: "Kayit bulunamadi. Bilgilerinizi girerek devam edin.",
+    toneColor: "var(--warning)",
+    toneBg: "var(--warning-soft)",
+  },
+  BAD_REQUEST: {
+    title: "Gonderilen Bilgi Gecersiz",
+    badge: "ERR",
+    hint: "Bilgileri kontrol edip tekrar deneyin.",
+    toneColor: "var(--warning)",
+    toneBg: "var(--warning-soft)",
+  },
+  UNAUTHORIZED: {
+    title: "Yetkisiz Islem",
+    badge: "401",
+    hint: "Oturumunuz gecersiz olabilir. Tekrar deneyin.",
+    toneColor: "var(--error)",
+    toneBg: "var(--error-soft)",
+  },
+  INTERNAL_SERVER_ERROR: {
+    title: "Sunucu Hatasi",
+    badge: "500",
+    hint: "Bir sure sonra tekrar deneyin.",
+    toneColor: "var(--error)",
+    toneBg: "var(--error-soft)",
+  },
+  NETWORK_ERROR: {
+    title: "Baglanti Hatasi",
+    badge: "NET",
+    hint: "Baglanti saglandiginda tekrar tarama yapin.",
+    toneColor: "var(--text-secondary)",
+    toneBg: "var(--surface-soft)",
+  },
+  UNKNOWN_ERROR: {
+    title: "Islem Basarisiz",
+    badge: "ERR",
+    hint: "Tekrar deneyin; sorun devam ederse yoneticiye bildirin.",
+    toneColor: "var(--text-secondary)",
+    toneBg: "var(--surface-soft)",
+  },
 };
 
-function resolveAction(isSuccess: boolean, code: string, eventId: string | null): ResultAction {
+function resolveAction(
+  isSuccess: boolean,
+  code: string,
+  eventId: string | null,
+): ResultAction {
   const scanHref = eventId ? `/check-in/${eventId}` : "/check-in";
+
   if (isSuccess) {
-    return { primaryLabel: "Yeni Tarama", primaryHref: scanHref, secondaryLabel: "Ana Ekran", secondaryHref: "/scan" };
+    return {
+      primaryLabel: "Yeni Tarama",
+      primaryHref: scanHref,
+      secondaryLabel: "Ana Ekran",
+      secondaryHref: "/scan",
+    };
   }
-  if (code === "NO_LOCATION_DATA" || code === "LOCATION_OUT_OF_RANGE") {
-    return { primaryLabel: "Tekrar Dene", primaryHref: scanHref, secondaryLabel: "Tarama Listesi", secondaryHref: "/scan" };
+
+  if (
+    code === "NO_LOCATION_DATA" ||
+    code === "LOCATION_OUT_OF_RANGE" ||
+    code === "PHOTO_REQUIRED"
+  ) {
+    return {
+      primaryLabel: "Tekrar Dene",
+      primaryHref: scanHref,
+      secondaryLabel: "Tarama Ekrani",
+      secondaryHref: "/scan",
+    };
   }
+
   if (code === "ALREADY_CHECKED_IN") {
-    return { primaryLabel: "Farklı Kod Tara", primaryHref: "/check-in", secondaryLabel: "Ana Ekran", secondaryHref: "/scan" };
+    return {
+      primaryLabel: "Farkli Kod Tara",
+      primaryHref: "/check-in",
+      secondaryLabel: "Ana Ekran",
+      secondaryHref: "/scan",
+    };
   }
-  return { primaryLabel: "Tekrar Dene", primaryHref: scanHref, secondaryLabel: "Ana Ekran", secondaryHref: "/scan" };
+
+  return {
+    primaryLabel: "Tekrar Dene",
+    primaryHref: scanHref,
+    secondaryLabel: "Ana Ekran",
+    secondaryHref: "/scan",
+  };
 }
 
 export default function CheckInResultPage({ searchParams }: ResultPageProps) {
   const isSuccess = searchParams.status === "success";
-  const name = typeof searchParams.name === "string" ? decodeURIComponent(searchParams.name) : "";
-  const eventName = typeof searchParams.event === "string" ? decodeURIComponent(searchParams.event) : "";
-  const code = typeof searchParams.code === "string" ? searchParams.code : "UNKNOWN_ERROR";
-  const eventId = typeof searchParams.eventId === "string" && searchParams.eventId.trim() ? decodeURIComponent(searchParams.eventId) : null;
+  const name =
+    typeof searchParams.name === "string"
+      ? decodeURIComponent(searchParams.name)
+      : "";
+  const eventName =
+    typeof searchParams.event === "string"
+      ? decodeURIComponent(searchParams.event)
+      : "";
+  const code =
+    typeof searchParams.code === "string"
+      ? searchParams.code
+      : "UNKNOWN_ERROR";
+  const eventId =
+    typeof searchParams.eventId === "string" && searchParams.eventId.trim()
+      ? decodeURIComponent(searchParams.eventId)
+      : null;
 
   const normalizedCode = code.toUpperCase();
   const errorMeta = errorMetaMap[normalizedCode] ?? errorMetaMap.UNKNOWN_ERROR;
   const action = resolveAction(isSuccess, normalizedCode, eventId);
-  const errorMessage = resolveApiErrorMessage({ code: normalizedCode, fallbackMessage: "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin." });
+  const errorMessage = resolveApiErrorMessage({
+    code: normalizedCode,
+    fallbackMessage: "Beklenmeyen bir hata olustu. Lutfen tekrar deneyin.",
+  });
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
@@ -77,24 +225,65 @@ export default function CheckInResultPage({ searchParams }: ResultPageProps) {
       <section className="glass-elevated w-full max-w-xl animate-scale-in rounded-3xl p-8 text-center">
         {isSuccess ? (
           <>
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full text-4xl" style={{ background: "var(--success-soft)" }}>
-              ✓
+            <div
+              className="mx-auto flex h-20 w-20 items-center justify-center rounded-full text-lg font-bold"
+              style={{ background: "var(--success-soft)" }}
+            >
+              OK
             </div>
-            <h1 className="mt-4 text-3xl font-extrabold" style={{ color: "var(--text-primary)" }} data-display="true">Katılım Başarılı</h1>
-            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{name || "Katılımcı"} için yoklama alındı.</p>
-            <p className="mt-1 text-sm" style={{ color: "var(--text-tertiary)" }}>{eventName}</p>
+            <h1
+              className="mt-4 text-3xl font-extrabold"
+              style={{ color: "var(--text-primary)" }}
+              data-display="true"
+            >
+              Katilim Basarili
+            </h1>
+            <p
+              className="mt-2 text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              {(name || "Katilimci") + " icin yoklama alindi."}
+            </p>
+            <p
+              className="mt-1 text-sm"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              {eventName}
+            </p>
           </>
         ) : (
           <>
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full text-4xl" style={{ background: errorMeta.toneBg }}>
-              {errorMeta.emoji}
+            <div
+              className="mx-auto flex h-20 w-20 items-center justify-center rounded-full text-lg font-bold"
+              style={{ background: errorMeta.toneBg, color: errorMeta.toneColor }}
+            >
+              {errorMeta.badge}
             </div>
-            <h1 className="mt-4 text-3xl font-extrabold" style={{ color: errorMeta.toneColor }} data-display="true">
+            <h1
+              className="mt-4 text-3xl font-extrabold"
+              style={{ color: errorMeta.toneColor }}
+              data-display="true"
+            >
               {errorMeta.title}
             </h1>
-            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>{errorMessage}</p>
-            <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>{errorMeta.hint}</p>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Kod: {normalizedCode}</p>
+            <p
+              className="mt-2 text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              {errorMessage}
+            </p>
+            <p
+              className="mt-1 text-xs"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              {errorMeta.hint}
+            </p>
+            <p
+              className="mt-1 font-mono text-[10px] uppercase tracking-wide"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              Kod: {normalizedCode}
+            </p>
           </>
         )}
 

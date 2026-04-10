@@ -9,6 +9,7 @@ export type ScanAttendancePayload = {
   name?: string;
   phone?: string;
   fingerprint?: string;
+  verificationPhotoDataUrl?: string;
 };
 
 export type ScanAttendanceSuccessResponse = {
@@ -51,6 +52,8 @@ export type AttendanceRecordItem = {
   qrNonce: string | null;
   ipAddress: string | null;
   deviceFingerprint: string | null;
+  verificationPhotoDataUrl: string | null;
+  verificationPhotoCapturedAt: string | null;
   createdAt: string;
   registrationType: AttendanceRegistrationType;
 };

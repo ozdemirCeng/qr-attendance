@@ -385,15 +385,21 @@ export class AuthService {
       );
     }
 
-    const response = await fetch(`${this.neonAuthBaseUrl}${path}`, {
-      method: options.method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.cookieHeader ? { Cookie: options.cookieHeader } : {}),
-      },
-      body:
-        options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(`${this.neonAuthBaseUrl}${path}`, {
+        method: options.method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.cookieHeader ? { Cookie: options.cookieHeader } : {}),
+        },
+        body:
+          options.body === undefined ? undefined : JSON.stringify(options.body),
+      });
+    } catch {
+      throw new UnauthorizedException('Kimlik dogrulama servisine ulasilamadi.');
+    }
 
     const setCookieHeaders = this.extractSetCookieHeaders(response);
     const payload = (await response.json().catch(() => ({}))) as {

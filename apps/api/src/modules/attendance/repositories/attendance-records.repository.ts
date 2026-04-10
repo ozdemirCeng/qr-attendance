@@ -5,6 +5,7 @@ import {
   getSql,
   isUuidLike,
   toIsoString,
+  toNullableIsoString,
 } from '../../../common/database/neon';
 import { AttendanceRecordEntity } from '../attendance.types';
 
@@ -27,6 +28,30 @@ type UpdateAttendanceRecordInput = Partial<
 >;
 
 type AttendanceRecordRow = AttendanceRecordEntity;
+
+const ATTENDANCE_RECORD_SELECT = `
+  select
+    id,
+    event_id as "eventId",
+    session_id as "sessionId",
+    participant_id as "participantId",
+    full_name as "fullName",
+    email,
+    phone,
+    scanned_at as "scannedAt",
+    latitude,
+    longitude,
+    accuracy,
+    distance_from_venue as "distanceFromVenue",
+    is_valid as "isValid",
+    invalid_reason as "invalidReason",
+    qr_nonce as "qrNonce",
+    ip_address as "ipAddress",
+    device_fingerprint as "deviceFingerprint",
+    verification_photo_data_url as "verificationPhotoDataUrl",
+    verification_photo_captured_at as "verificationPhotoCapturedAt",
+    created_at as "createdAt"
+`;
 
 @Injectable()
 export class AttendanceRecordsRepository {
@@ -52,11 +77,13 @@ export class AttendanceRecordsRepository {
           invalid_reason,
           qr_nonce,
           ip_address,
-          device_fingerprint
+          device_fingerprint,
+          verification_photo_data_url,
+          verification_photo_captured_at
         )
         values (
           $1, $2, $3, $4, $5, $6, $7, $8, $9,
-          $10, $11, $12, $13, $14, $15, $16
+          $10, $11, $12, $13, $14, $15, $16, $17, $18
         )
         returning
           id,
@@ -76,6 +103,8 @@ export class AttendanceRecordsRepository {
           qr_nonce as "qrNonce",
           ip_address as "ipAddress",
           device_fingerprint as "deviceFingerprint",
+          verification_photo_data_url as "verificationPhotoDataUrl",
+          verification_photo_captured_at as "verificationPhotoCapturedAt",
           created_at as "createdAt"
       `,
       [
@@ -95,6 +124,8 @@ export class AttendanceRecordsRepository {
         input.qrNonce,
         input.ipAddress,
         input.deviceFingerprint,
+        input.verificationPhotoDataUrl,
+        input.verificationPhotoCapturedAt,
       ],
     )) as AttendanceRecordRow[];
 
@@ -105,25 +136,7 @@ export class AttendanceRecordsRepository {
     const sql = getSql();
     const rows = (await sql.query(
       `
-        select
-          id,
-          event_id as "eventId",
-          session_id as "sessionId",
-          participant_id as "participantId",
-          full_name as "fullName",
-          email,
-          phone,
-          scanned_at as "scannedAt",
-          latitude,
-          longitude,
-          accuracy,
-          distance_from_venue as "distanceFromVenue",
-          is_valid as "isValid",
-          invalid_reason as "invalidReason",
-          qr_nonce as "qrNonce",
-          ip_address as "ipAddress",
-          device_fingerprint as "deviceFingerprint",
-          created_at as "createdAt"
+        ${ATTENDANCE_RECORD_SELECT}
         from attendance_records
         where participant_id = $1
           and session_id = $2
@@ -139,25 +152,7 @@ export class AttendanceRecordsRepository {
     const sql = getSql();
     const rows = (await sql.query(
       `
-        select
-          id,
-          event_id as "eventId",
-          session_id as "sessionId",
-          participant_id as "participantId",
-          full_name as "fullName",
-          email,
-          phone,
-          scanned_at as "scannedAt",
-          latitude,
-          longitude,
-          accuracy,
-          distance_from_venue as "distanceFromVenue",
-          is_valid as "isValid",
-          invalid_reason as "invalidReason",
-          qr_nonce as "qrNonce",
-          ip_address as "ipAddress",
-          device_fingerprint as "deviceFingerprint",
-          created_at as "createdAt"
+        ${ATTENDANCE_RECORD_SELECT}
         from attendance_records
         where session_id = $1
         order by scanned_at desc
@@ -172,25 +167,7 @@ export class AttendanceRecordsRepository {
     const sql = getSql();
     const rows = (await sql.query(
       `
-        select
-          id,
-          event_id as "eventId",
-          session_id as "sessionId",
-          participant_id as "participantId",
-          full_name as "fullName",
-          email,
-          phone,
-          scanned_at as "scannedAt",
-          latitude,
-          longitude,
-          accuracy,
-          distance_from_venue as "distanceFromVenue",
-          is_valid as "isValid",
-          invalid_reason as "invalidReason",
-          qr_nonce as "qrNonce",
-          ip_address as "ipAddress",
-          device_fingerprint as "deviceFingerprint",
-          created_at as "createdAt"
+        ${ATTENDANCE_RECORD_SELECT}
         from attendance_records
         where event_id = $1
         order by scanned_at desc
@@ -245,25 +222,7 @@ export class AttendanceRecordsRepository {
     const [itemRows, countRows] = await Promise.all([
       sql.query(
         `
-          select
-            id,
-            event_id as "eventId",
-            session_id as "sessionId",
-            participant_id as "participantId",
-            full_name as "fullName",
-            email,
-            phone,
-            scanned_at as "scannedAt",
-            latitude,
-            longitude,
-            accuracy,
-            distance_from_venue as "distanceFromVenue",
-            is_valid as "isValid",
-            invalid_reason as "invalidReason",
-            qr_nonce as "qrNonce",
-            ip_address as "ipAddress",
-            device_fingerprint as "deviceFingerprint",
-            created_at as "createdAt"
+          ${ATTENDANCE_RECORD_SELECT}
           from attendance_records
           ${whereClause}
           order by scanned_at desc
@@ -302,25 +261,7 @@ export class AttendanceRecordsRepository {
     const sql = getSql();
     const rows = (await sql.query(
       `
-        select
-          id,
-          event_id as "eventId",
-          session_id as "sessionId",
-          participant_id as "participantId",
-          full_name as "fullName",
-          email,
-          phone,
-          scanned_at as "scannedAt",
-          latitude,
-          longitude,
-          accuracy,
-          distance_from_venue as "distanceFromVenue",
-          is_valid as "isValid",
-          invalid_reason as "invalidReason",
-          qr_nonce as "qrNonce",
-          ip_address as "ipAddress",
-          device_fingerprint as "deviceFingerprint",
-          created_at as "createdAt"
+        ${ATTENDANCE_RECORD_SELECT}
         from attendance_records
         where id = $1
         limit 1
@@ -367,6 +308,8 @@ export class AttendanceRecordsRepository {
           qr_nonce as "qrNonce",
           ip_address as "ipAddress",
           device_fingerprint as "deviceFingerprint",
+          verification_photo_data_url as "verificationPhotoDataUrl",
+          verification_photo_captured_at as "verificationPhotoCapturedAt",
           created_at as "createdAt"
       `,
       [
@@ -383,6 +326,9 @@ export class AttendanceRecordsRepository {
     return {
       ...row,
       scannedAt: toIsoString(row.scannedAt),
+      verificationPhotoCapturedAt: toNullableIsoString(
+        row.verificationPhotoCapturedAt,
+      ),
       createdAt: toIsoString(row.createdAt),
     };
   }

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Post,
   Req,
   Res,
@@ -20,6 +21,10 @@ import {
   ParticipantLoginDto,
   ParticipantSignupDto,
 } from '../dto/participant-auth.dto';
+import {
+  ChangePasswordDto,
+  UpdateParticipantProfileDto,
+} from '../dto/update-profile.dto';
 import { ParticipantAuthService } from '../services/participant-auth.service';
 
 @ApiTags('Participant Auth')
@@ -83,6 +88,52 @@ export class ParticipantAuthController {
       email: session.email,
       phone: session.phone,
     };
+  }
+
+  @ApiOperation({ summary: 'Katilimci profilini gunceller' })
+  @ApiBody({ type: UpdateParticipantProfileDto })
+  @ApiOkResponse({ description: 'Profil guncellendi.' })
+  @Patch('profile')
+  async updateProfile(
+    @Body() payload: UpdateParticipantProfileDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const session = this.participantAuthService.resolveSessionFromCookie(
+      req.headers.cookie,
+    );
+    if (!session) {
+      throw new UnauthorizedException('Oturum bulunamadi.');
+    }
+
+    const result = await this.participantAuthService.updateProfile(
+      session.id,
+      payload,
+    );
+
+    if (result.setCookieHeaders.length > 0) {
+      res.setHeader('set-cookie', result.setCookieHeaders);
+    }
+
+    return { success: true, data: result.data };
+  }
+
+  @ApiOperation({ summary: 'Katilimci sifresini degistirir' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiOkResponse({ description: 'Sifre degistirildi.' })
+  @Post('change-password')
+  async changePassword(
+    @Body() payload: ChangePasswordDto,
+    @Req() req: Request,
+  ) {
+    const session = this.participantAuthService.resolveSessionFromCookie(
+      req.headers.cookie,
+    );
+    if (!session) {
+      throw new UnauthorizedException('Oturum bulunamadi.');
+    }
+
+    return this.participantAuthService.changePassword(session.id, payload);
   }
 
   @ApiOperation({ summary: 'Katilimci cikis yapar' })

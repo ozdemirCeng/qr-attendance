@@ -13,6 +13,7 @@ export type ApiErrorCode =
   | "SESSION_INACTIVE"
   | "LOCATION_OUT_OF_RANGE"
   | "NO_LOCATION_DATA"
+  | "PHOTO_REQUIRED"
   | "ALREADY_CHECKED_IN"
   | "MALFORMED_TOKEN"
   | "REGISTRATION_REQUIRED"
@@ -34,6 +35,8 @@ const errorMessageMap: Partial<Record<ApiErrorCode, string>> = {
   SESSION_INACTIVE: "Bu oturum henuz baslamadi veya sona erdi.",
   LOCATION_OUT_OF_RANGE: "Etkinlik alaninin disindasiniz.",
   NO_LOCATION_DATA: "Konum bilgisi alinamadi. Izin verip tekrar deneyin.",
+  PHOTO_REQUIRED:
+    "Profil dogrulama fotografi gerekli. Lutfen kameradan selfie cekin.",
   ALREADY_CHECKED_IN: "Bu etkinlige zaten katildiniz.",
   REGISTRATION_REQUIRED: "Kayit bulunamadi. Lutfen bilgilerinizi girin.",
   UNAUTHORIZED: "Oturumunuz gecersiz. Lutfen tekrar giris yapin.",

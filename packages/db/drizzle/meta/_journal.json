@@ -36,6 +36,13 @@
       "when": 1775819941236,
       "tag": "0004_free_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775827200000,
+      "tag": "0005_brief_gauntlet",
+      "breakpoints": true
     }
   ]
 }

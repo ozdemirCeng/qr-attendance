@@ -12,6 +12,10 @@ import {
   ParticipantLoginDto,
   ParticipantSignupDto,
 } from '../dto/participant-auth.dto';
+import {
+  ChangePasswordDto,
+  UpdateParticipantProfileDto,
+} from '../dto/update-profile.dto';
 import { ParticipantUsersRepository } from '../repositories/participant-users.repository';
 
 const scryptAsync = promisify(scrypt);
@@ -130,6 +134,77 @@ export class ParticipantAuthService {
       },
       setCookieHeaders: [this.createCookieHeader(token)],
     };
+  }
+
+  async updateProfile(
+    userId: string,
+    payload: UpdateParticipantProfileDto,
+  ) {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Kullanici bulunamadi.');
+    }
+
+    const normalizedName = payload.name?.trim();
+    const normalizedEmail = payload.email?.trim().toLowerCase();
+    const normalizedPhone = payload.phone?.trim() || undefined;
+
+    if (normalizedEmail && normalizedEmail !== user.email) {
+      const existing = await this.usersRepository.findByEmail(normalizedEmail);
+      if (existing) {
+        throw new BadRequestException('Bu e-posta zaten kullaniliyor.');
+      }
+    }
+
+    const updated = await this.usersRepository.update(userId, {
+      name: normalizedName,
+      email: normalizedEmail,
+      phone: normalizedPhone,
+    });
+
+    if (!updated) {
+      throw new BadRequestException('Profil guncellenemedi.');
+    }
+
+    const token = this.createSessionToken({
+      kind: 'participant',
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      phone: updated.phone,
+      exp: Date.now() + this.sessionTtlSeconds * 1000,
+    });
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+      },
+      setCookieHeaders: [this.createCookieHeader(token)],
+    };
+  }
+
+  async changePassword(userId: string, payload: ChangePasswordDto) {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Kullanici bulunamadi.');
+    }
+
+    const isValid = await this.verifyPassword(
+      payload.currentPassword,
+      user.passwordHash,
+    );
+    if (!isValid) {
+      throw new BadRequestException('Mevcut sifre hatali.');
+    }
+
+    const newHash = await this.hashPassword(payload.newPassword);
+    await this.usersRepository.updatePasswordHash(userId, newHash);
+
+    return { success: true };
   }
 
   resolveSessionFromCookie(

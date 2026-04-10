@@ -85,6 +85,69 @@ export class ParticipantUsersRepository {
     return rows[0] ? this.mapRow(rows[0]) : null;
   }
 
+  async update(
+    id: string,
+    patch: { name?: string; email?: string; phone?: string | null },
+  ): Promise<ParticipantUserEntity | null> {
+    if (!isUuidLike(id)) return null;
+
+    const sets: string[] = [];
+    const params: unknown[] = [id];
+    let paramIndex = 2;
+
+    if (patch.name !== undefined) {
+      sets.push(`name = $${paramIndex}`);
+      params.push(patch.name);
+      paramIndex++;
+    }
+    if (patch.email !== undefined) {
+      sets.push(`email = $${paramIndex}`);
+      params.push(patch.email.toLowerCase());
+      paramIndex++;
+    }
+    if (patch.phone !== undefined) {
+      sets.push(`phone = $${paramIndex}`);
+      params.push(patch.phone);
+      paramIndex++;
+      sets.push(`phone_normalized = $${paramIndex}`);
+      params.push(this.normalizePhone(patch.phone));
+      paramIndex++;
+    }
+
+    if (sets.length === 0) return this.findById(id);
+
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        UPDATE participant_users
+        SET ${sets.join(', ')}
+        WHERE id = $1
+        RETURNING
+          id, name, email, phone,
+          password_hash AS "passwordHash",
+          created_at AS "createdAt"
+      `,
+      params,
+    )) as UserRow[];
+
+    return rows[0] ? this.mapRow(rows[0]) : null;
+  }
+
+  async updatePasswordHash(
+    id: string,
+    passwordHash: string,
+  ): Promise<boolean> {
+    if (!isUuidLike(id)) return false;
+
+    const sql = getSql();
+    const rows = (await sql.query(
+      `UPDATE participant_users SET password_hash = $2 WHERE id = $1 RETURNING id`,
+      [id, passwordHash],
+    )) as Array<{ id: string }>;
+
+    return rows.length > 0;
+  }
+
   private mapRow(row: UserRow): ParticipantUserEntity {
     return {
       ...row,

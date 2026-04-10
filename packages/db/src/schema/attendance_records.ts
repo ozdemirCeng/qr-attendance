@@ -42,6 +42,10 @@ export const attendanceRecords = pgTable(
     qrNonce: varchar("qr_nonce", { length: 120 }),
     ipAddress: varchar("ip_address", { length: 64 }),
     deviceFingerprint: varchar("device_fingerprint", { length: 255 }),
+    verificationPhotoDataUrl: text("verification_photo_data_url"),
+    verificationPhotoCapturedAt: timestamp("verification_photo_captured_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

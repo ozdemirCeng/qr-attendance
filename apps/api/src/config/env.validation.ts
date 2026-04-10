@@ -22,6 +22,7 @@ const envSchema = z.object({
   NEON_AUTH_BASE_URL: optionalUrl,
   SENTRY_DSN: optionalUrl,
   AUTH_COOKIE_NAME: z.string().default('session'),
+  PARTICIPANT_COOKIE_NAME: z.string().default('participant_session'),
   DEMO_ADMIN_NAME: z.string().min(1).optional(),
   DEMO_ADMIN_USERNAME: z.string().min(1).optional(),
   DEMO_ADMIN_EMAIL: z.string().email().optional(),

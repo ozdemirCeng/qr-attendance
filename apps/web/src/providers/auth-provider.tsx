@@ -33,6 +33,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: PropsWithChildren) {
   const router = useRouter();
   const pathname = usePathname();
+  const shouldCheckAdminSession =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/events") ||
+    pathname.startsWith("/audit") ||
+    pathname.startsWith("/login");
   const [user, setUser] = useState<AdminSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -48,7 +53,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         error.statusCode === 401 &&
         (pathname.startsWith("/dashboard") || pathname.startsWith("/events"))
       ) {
-        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+        router.replace(
+          `/login?role=admin&next=${encodeURIComponent(pathname)}`,
+        );
       }
     } finally {
       setIsLoading(false);
@@ -56,8 +63,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [pathname, router]);
 
   useEffect(() => {
+    if (!shouldCheckAdminSession) {
+      setIsLoading(false);
+      return;
+    }
+
     void refreshSession();
-  }, [refreshSession]);
+  }, [refreshSession, shouldCheckAdminSession]);
 
   const signIn = useCallback(
     async (payload: LoginPayload) => {

@@ -3,6 +3,7 @@ export type StoredScanContext = {
   lat?: number;
   lng?: number;
   locationAccuracy?: number;
+  verificationPhotoDataUrl?: string;
   savedAt: string;
 };
 
@@ -55,6 +56,10 @@ export function loadScanContext(): StoredScanContext | null {
       locationAccuracy:
         typeof parsed.locationAccuracy === "number"
           ? parsed.locationAccuracy
+          : undefined,
+      verificationPhotoDataUrl:
+        typeof parsed.verificationPhotoDataUrl === "string"
+          ? parsed.verificationPhotoDataUrl
           : undefined,
       savedAt,
     };

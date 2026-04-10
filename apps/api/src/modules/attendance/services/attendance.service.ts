@@ -127,6 +127,17 @@ export class AttendanceService {
         );
       }
 
+      const verificationPhotoDataUrl = this.normalizeVerificationPhoto(
+        payload.verificationPhotoDataUrl,
+      );
+
+      if (!verificationPhotoDataUrl) {
+        throw this.scanError(
+          'PHOTO_REQUIRED',
+          'Profil dogrulama fotografi zorunludur.',
+        );
+      }
+
       const participant = await this.resolveParticipant(event.id, payload);
 
       if (!participant) {
@@ -180,6 +191,8 @@ export class AttendanceService {
           qrNonce: verification.nonce,
           ipAddress: ip,
           deviceFingerprint: this.normalizeNullable(payload.fingerprint),
+          verificationPhotoDataUrl,
+          verificationPhotoCapturedAt: scannedAt,
         });
       } catch (error) {
         if (!isDatabaseUniqueViolation(error)) {
@@ -417,6 +430,8 @@ export class AttendanceService {
       qrNonce: null,
       ipAddress: null,
       deviceFingerprint: 'manual-admin',
+      verificationPhotoDataUrl: null,
+      verificationPhotoCapturedAt: null,
     });
 
     return {
@@ -623,8 +638,35 @@ export class AttendanceService {
     return map[code];
   }
 
+  private normalizeVerificationPhoto(value: string | undefined) {
+    const normalized = this.normalizeNullable(value);
+
+    if (!normalized) {
+      return null;
+    }
+
+    if (
+      !normalized.startsWith('data:image/') ||
+      !normalized.includes(';base64,')
+    ) {
+      throw this.scanError(
+        'BAD_REQUEST',
+        'Profil fotografi formati gecersiz.',
+      );
+    }
+
+    if (normalized.length > 500_000) {
+      throw this.scanError(
+        'BAD_REQUEST',
+        'Profil fotografi boyutu cok buyuk.',
+      );
+    }
+
+    return normalized;
+  }
+
   private scanError(
-    code: AttendanceScanErrorCode,
+    code: AttendanceScanErrorCode | 'BAD_REQUEST',
     message: string,
     statusCode = 400,
   ): HttpException {

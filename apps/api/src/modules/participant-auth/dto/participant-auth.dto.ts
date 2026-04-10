@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 
 export class ParticipantSignupDto {
-  @ApiProperty({ example: 'Ayşe Yılmaz', maxLength: 160 })
+  @ApiProperty({ example: 'Ayse Yilmaz', maxLength: 160 })
   @IsString()
   @MinLength(2)
   @MaxLength(160)
