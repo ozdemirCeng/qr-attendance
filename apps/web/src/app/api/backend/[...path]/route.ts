@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const HOP_BY_HOP_HEADERS = new Set([
+  "accept-encoding",
   "connection",
   "content-length",
   "host",
@@ -67,9 +68,11 @@ function buildProxyResponseHeaders(response: Response) {
   const headers = new Headers();
 
   for (const [key, value] of response.headers.entries()) {
+    const lowerKey = key.toLowerCase();
     if (
-      key.toLowerCase() === "set-cookie" ||
-      HOP_BY_HOP_HEADERS.has(key.toLowerCase())
+      lowerKey === "set-cookie" ||
+      lowerKey === "content-encoding" ||
+      HOP_BY_HOP_HEADERS.has(lowerKey)
     ) {
       continue;
     }
