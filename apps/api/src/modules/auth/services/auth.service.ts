@@ -233,22 +233,51 @@ export class AuthService {
 
   private createSessionCookieHeader(token: string) {
     const cookieName = this.getSessionCookieName();
-    const secure = this.isProductionEnvironment() ? '; Secure' : '';
-    const sameSite = this.isProductionEnvironment() ? 'None' : 'Lax';
+    const secure = this.shouldUseSecureCookies() ? '; Secure' : '';
+    const sameSite = this.shouldUseCrossSiteCookiePolicy() ? 'None' : 'Lax';
 
     return `${cookieName}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${this.localSessionTtlSeconds}${secure}`;
   }
 
   private createClearSessionCookieHeader() {
     const cookieName = this.getSessionCookieName();
-    const secure = this.isProductionEnvironment() ? '; Secure' : '';
-    const sameSite = this.isProductionEnvironment() ? 'None' : 'Lax';
+    const secure = this.shouldUseSecureCookies() ? '; Secure' : '';
+    const sameSite = this.shouldUseCrossSiteCookiePolicy() ? 'None' : 'Lax';
 
     return `${cookieName}=; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=0${secure}`;
   }
 
+  private shouldUseSecureCookies() {
+    if (this.isProductionEnvironment()) {
+      return true;
+    }
+
+    const corsOrigin = this.configService
+      .get<string>('CORS_ORIGIN', '')
+      .trim()
+      .toLowerCase();
+
+    return corsOrigin.startsWith('https://');
+  }
+
+  private shouldUseCrossSiteCookiePolicy() {
+    if (this.isProductionEnvironment()) {
+      return true;
+    }
+
+    const corsOrigin = this.configService
+      .get<string>('CORS_ORIGIN', '')
+      .trim()
+      .toLowerCase();
+
+    return corsOrigin.startsWith('https://');
+  }
+
   private isProductionEnvironment() {
-    return this.configService.get<string>('NODE_ENV', 'development') === 'production';
+    return (
+      this.configService.get<string>('NODE_ENV', 'development') ===
+      'production'
+    );
   }
 
   private createLocalSessionToken(payload: LocalSessionPayload) {
