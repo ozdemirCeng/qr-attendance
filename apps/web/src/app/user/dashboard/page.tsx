@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -25,11 +25,14 @@ export default function UserDashboardPage() {
     queryFn: participantGetDashboard,
   });
 
-  const events = dashboardQuery.data?.data.events ?? [];
+  const [referenceNow] = useState(() => Date.now());
+  const events = dashboardQuery.data?.data.events;
   const upcomingEvents = useMemo(
     () =>
-      events.filter((event) => new Date(event.startsAt).getTime() >= Date.now()),
-    [events],
+      (events ?? []).filter(
+        (event) => new Date(event.startsAt).getTime() >= referenceNow,
+      ),
+    [events, referenceNow],
   );
 
   return (
@@ -40,18 +43,18 @@ export default function UserDashboardPage() {
             className="text-[11px] font-semibold uppercase tracking-[0.2em]"
             style={{ color: "var(--text-secondary)" }}
           >
-            Kullanici Dashboard
+            Kullanıcı Paneli
           </p>
           <h1
             className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl"
             style={{ color: "var(--text-primary)" }}
             data-display="true"
           >
-            Etkinliklerin ve hesabin tek yerde.
+            Etkinliklerin ve hesabın tek yerde
           </h1>
-          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Kayitli oldugun etkinlikleri, yoklama durumunu ve profil bilgilerini
-            buradan yonetebilirsin.
+          <p className="mt-2 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
+            Kayıtlı olduğun etkinlikleri, yoklama durumunu ve profil bilgilerini
+            buradan yönetebilirsin.
           </p>
         </div>
 
@@ -68,14 +71,14 @@ export default function UserDashboardPage() {
             <p className="text-sm" style={{ color: "var(--error)" }}>
               {dashboardQuery.error instanceof ApiError &&
               dashboardQuery.error.statusCode === 401
-                ? "Oturumun sonlandi. Devam etmek icin yeniden giris yap."
-                : "Kullanici paneli yuklenemedi."}
+                ? "Oturumun sonlandı. Yeniden giriş yap."
+                : "Kullanıcı paneli yüklenemedi."}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/login?next=/user/dashboard" className="btn-primary text-sm">
-                Giris Ekrani
+                Giriş Ekranı
               </Link>
-              <Link href="/scan" className="btn-secondary text-sm">
+              <Link href="/user/scan" className="btn-secondary text-sm">
                 QR Tara
               </Link>
             </div>
@@ -87,15 +90,15 @@ export default function UserDashboardPage() {
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 {
-                  label: "Kayitli Etkinlik",
+                  label: "Kayıtlı Etkinlik",
                   value: dashboardQuery.data?.data.summary.registeredEvents ?? 0,
                 },
                 {
-                  label: "Yoklama Alinan",
+                  label: "Yoklama Alınan",
                   value: dashboardQuery.data?.data.summary.attendedEvents ?? 0,
                 },
                 {
-                  label: "Yaklasan",
+                  label: "Yaklaşan",
                   value: dashboardQuery.data?.data.summary.upcomingEvents ?? 0,
                 },
                 {
@@ -103,10 +106,7 @@ export default function UserDashboardPage() {
                   value: dashboardQuery.data?.data.summary.completedEvents ?? 0,
                 },
               ].map((item) => (
-                <article
-                  key={item.label}
-                  className="glass rounded-2xl p-5"
-                >
+                <article key={item.label} className="glass rounded-2xl p-5">
                   <p
                     className="text-[10px] font-semibold uppercase tracking-[0.14em]"
                     style={{ color: "var(--text-tertiary)" }}
@@ -136,42 +136,39 @@ export default function UserDashboardPage() {
                       style={{ color: "var(--text-primary)" }}
                       data-display="true"
                     >
-                      Etkinlik Gecmisi
+                      Etkinlik Geçmişi
                     </h2>
                     <p
                       className="mt-1 text-sm"
                       style={{ color: "var(--text-secondary)" }}
                     >
-                      Kayitli oldugun veya yoklama aldigin etkinlikler.
+                      Kayıtlı olduğun veya yoklama aldığın etkinlikler.
                     </p>
                   </div>
-                  <Link href="/scan" className="btn-primary text-sm">
+                  <Link href="/user/scan" className="btn-primary text-sm">
                     QR Tara
                   </Link>
                 </div>
 
-                {events.length === 0 ? (
+                {(events ?? []).length === 0 ? (
                   <EmptyState
                     iconLabel="EV"
-                    title="Henuz etkinlik baglantin yok"
-                    message="Bir etkinlige kayit oldugunda veya yoklama aldiginda burada listelenecek."
+                    title="Henüz etkinlik kaydın yok"
+                    message="Bir etkinliğe katıldığında burada listelenecek."
                     ctaLabel="QR Taramaya Git"
-                    ctaHref="/scan"
+                    ctaHref="/user/scan"
                   />
                 ) : (
                   <div className="space-y-3">
-                    {events.map((event) => {
+                    {(events ?? []).map((event) => {
                       const statusLabel = event.isAttended
-                        ? "Yoklama Alindi"
+                        ? "Yoklama Alındı"
                         : event.isRegistered
-                          ? "Kayitli"
+                          ? "Kayıtlı"
                           : "Takipte";
 
                       return (
-                        <article
-                          key={event.id}
-                          className="glass rounded-2xl p-5"
-                        >
+                        <article key={event.id} className="glass rounded-2xl p-5">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
                               <h3
@@ -211,7 +208,7 @@ export default function UserDashboardPage() {
                                 className="text-[10px] font-semibold uppercase tracking-[0.12em]"
                                 style={{ color: "var(--text-tertiary)" }}
                               >
-                                Etkinlik Zamani
+                                Etkinlik Zamanı
                               </p>
                               <p
                                 className="mt-2 text-sm font-semibold"
@@ -223,7 +220,7 @@ export default function UserDashboardPage() {
                                 className="mt-1 text-xs"
                                 style={{ color: "var(--text-secondary)" }}
                               >
-                                Bitis: {formatDate(event.endsAt)}
+                                Bitiş: {formatDate(event.endsAt)}
                               </p>
                             </div>
                             <div
@@ -234,15 +231,15 @@ export default function UserDashboardPage() {
                                 className="text-[10px] font-semibold uppercase tracking-[0.12em]"
                                 style={{ color: "var(--text-tertiary)" }}
                               >
-                                Kayit Durumu
+                                Kayıt Durumu
                               </p>
                               <p
                                 className="mt-2 text-sm font-semibold"
                                 style={{ color: "var(--text-primary)" }}
                               >
                                 {event.registeredAt
-                                  ? `Kayit: ${formatDate(event.registeredAt)}`
-                                  : "Dogrudan kayit kaydi yok"}
+                                  ? `Kayıt: ${formatDate(event.registeredAt)}`
+                                  : "Doğrudan kayıt kaydı yok"}
                               </p>
                               <p
                                 className="mt-1 text-xs"
@@ -250,7 +247,7 @@ export default function UserDashboardPage() {
                               >
                                 {event.attendedAt
                                   ? `Yoklama: ${formatDate(event.attendedAt)}`
-                                  : "Henuz yoklama alinmadi"}
+                                  : "Henüz yoklama alınmadı"}
                               </p>
                             </div>
                           </div>
@@ -268,7 +265,7 @@ export default function UserDashboardPage() {
                     style={{ color: "var(--text-primary)" }}
                     data-display="true"
                   >
-                    Yaklasan Etkinlikler
+                    Yaklaşan Etkinlikler
                   </h2>
                   <div className="mt-4 space-y-3">
                     {upcomingEvents.length === 0 ? (
@@ -276,7 +273,7 @@ export default function UserDashboardPage() {
                         className="text-sm"
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        Planlanmis bir etkinlik gorunmuyor.
+                        Planlanmış bir etkinlik görünmüyor.
                       </p>
                     ) : (
                       upcomingEvents.slice(0, 4).map((event) => (
@@ -309,14 +306,14 @@ export default function UserDashboardPage() {
                     style={{ color: "var(--text-primary)" }}
                     data-display="true"
                   >
-                    Hızlı Islemler
+                    Hızlı İşlemler
                   </h2>
                   <div className="mt-4 grid gap-2">
-                    <Link href="/scan" className="btn-primary text-sm">
-                      QR Tarama Baslat
+                    <Link href="/user/scan" className="btn-primary text-sm">
+                      QR Taramayı Başlat
                     </Link>
                     <Link href="/user/profile" className="btn-secondary text-sm">
-                      Profili Duzenle
+                      Profili Düzenle
                     </Link>
                   </div>
                 </article>

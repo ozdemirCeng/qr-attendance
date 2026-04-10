@@ -52,7 +52,7 @@ const navigationItems = [
   },
   {
     href: "/events/new",
-    label: "Olustur",
+    label: "Oluştur",
     icon: (
       <svg
         width="18"
@@ -93,10 +93,10 @@ const navigationItems = [
 
 function resolvePageTitle(pathname: string) {
   if (pathname.startsWith("/dashboard/profile")) return "Profil";
-  if (pathname.startsWith("/dashboard/audit")) return "Denetim Kayitlari";
+  if (pathname.startsWith("/dashboard/audit")) return "Denetim Kayıtları";
   if (pathname.startsWith("/events/new")) return "Yeni Etkinlik";
-  if (pathname.startsWith("/events/")) return "Etkinlik Detayi";
-  if (pathname.startsWith("/scan")) return "QR Tarayici";
+  if (pathname.startsWith("/events/")) return "Etkinlik Detayı";
+  if (pathname.startsWith("/scan")) return "QR Tarama";
   return "Kontrol Paneli";
 }
 
@@ -217,7 +217,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 className="btn-ghost text-xs"
                 style={{ color: "var(--text-secondary)" }}
               >
-                {isSigningOut ? "Cikis..." : "Cikis"}
+                {isSigningOut ? "Çıkış..." : "Çıkış"}
               </button>
             </div>
 

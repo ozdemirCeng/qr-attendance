@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { PropsWithChildren, useState } from "react";
@@ -8,22 +9,15 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useParticipantAuth } from "@/providers/participant-auth-provider";
 
 const navigationItems = [
-  {
-    href: "/user/dashboard",
-    label: "Dashboard",
-  },
-  {
-    href: "/user/profile",
-    label: "Profil",
-  },
-  {
-    href: "/scan",
-    label: "QR Tara",
-  },
+  { href: "/user/dashboard", label: "Panel" },
+  { href: "/user/profile", label: "Profil" },
+  { href: "/user/scan", label: "QR Tara" },
 ] as const;
 
 function getInitials(name: string | undefined) {
-  if (!name) return "U";
+  if (!name) {
+    return "U";
+  }
 
   const parts = name
     .split(" ")
@@ -31,7 +25,9 @@ function getInitials(name: string | undefined) {
     .filter(Boolean)
     .slice(0, 2);
 
-  if (parts.length === 0) return "U";
+  if (parts.length === 0) {
+    return "U";
+  }
 
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
@@ -60,17 +56,20 @@ export function UserShell({ children }: PropsWithChildren) {
         <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between px-5">
           <div className="flex items-center gap-3">
             <div
-              className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl"
+              className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl"
               style={{
                 background:
                   "linear-gradient(135deg, var(--primary-gradient-from), var(--primary-gradient-to))",
               }}
             >
               {participantUser?.avatarDataUrl ? (
-                <img
+                <Image
                   src={participantUser.avatarDataUrl}
-                  alt={`${participantUser.name} profil fotografi`}
-                  className="h-full w-full object-cover"
+                  alt={`${participantUser.name} profil fotoğrafı`}
+                  fill
+                  unoptimized
+                  sizes="40px"
+                  className="object-cover"
                 />
               ) : (
                 <span className="text-sm font-bold text-white">
@@ -83,13 +82,13 @@ export function UserShell({ children }: PropsWithChildren) {
                 className="text-[10px] font-semibold uppercase tracking-[0.2em]"
                 style={{ color: "var(--primary)" }}
               >
-                Kullanici Paneli
+                Kullanıcı Paneli
               </p>
               <p
                 className="text-sm font-semibold"
                 style={{ color: "var(--text-primary)" }}
               >
-                {participantUser?.name ?? "Uye"}
+                {participantUser?.name ?? "Üye"}
               </p>
             </div>
           </div>
@@ -130,7 +129,7 @@ export function UserShell({ children }: PropsWithChildren) {
               className="btn-ghost hidden text-xs md:inline-flex"
               style={{ color: "var(--text-secondary)" }}
             >
-              {isSigningOut ? "Cikis..." : "Cikis"}
+              {isSigningOut ? "Çıkış..." : "Çıkış"}
             </button>
           </div>
         </div>

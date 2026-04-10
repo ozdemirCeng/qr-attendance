@@ -1,17 +1,20 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 
-import { UserShell } from "@/components/layout/user-shell";
+import { VerificationSelfieCapture } from "@/features/scan/components/verification-selfie-capture";
 import { ApiError } from "@/lib/api";
 import {
   participantChangePassword,
   participantUpdateProfile,
 } from "@/lib/participant-auth";
 import { useParticipantAuth } from "@/providers/participant-auth-provider";
-import { VerificationSelfieCapture } from "@/features/scan/components/verification-selfie-capture";
+
+import { UserShell } from "@/components/layout/user-shell";
 
 type ProfileValues = {
   name: string;
@@ -41,7 +44,6 @@ export default function ParticipantProfilePage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
-  const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
 
   const profileForm = useForm<ProfileValues>({
     defaultValues: {
@@ -57,6 +59,10 @@ export default function ParticipantProfilePage() {
       newPassword: "",
       confirmPassword: "",
     },
+  });
+  const avatarDataUrl = useWatch({
+    control: profileForm.control,
+    name: "avatarDataUrl",
   });
 
   useEffect(() => {
@@ -76,7 +82,6 @@ export default function ParticipantProfilePage() {
       phone: participantUser.phone ?? "",
       avatarDataUrl: participantUser.avatarDataUrl,
     });
-    setAvatarDataUrl(participantUser.avatarDataUrl);
   }, [participantUser, profileForm]);
 
   async function onProfileSubmit(values: ProfileValues) {
@@ -87,7 +92,7 @@ export default function ParticipantProfilePage() {
         name: values.name.trim() || undefined,
         email: values.email.trim() || undefined,
         phone: values.phone.trim() || undefined,
-        avatarDataUrl,
+        avatarDataUrl: values.avatarDataUrl,
       });
 
       profileForm.reset({
@@ -96,16 +101,15 @@ export default function ParticipantProfilePage() {
         phone: result.data.phone ?? "",
         avatarDataUrl: result.data.avatarDataUrl,
       });
-      setAvatarDataUrl(result.data.avatarDataUrl);
       await refreshParticipantSession();
       setProfileMessage({
         type: "success",
-        text: "Profil guncellendi.",
+        text: "Profil güncellendi.",
       });
     } catch (error) {
       setProfileMessage({
         type: "error",
-        text: error instanceof ApiError ? error.message : "Bir hata olustu.",
+        text: error instanceof ApiError ? error.message : "Bir hata oluştu.",
       });
     }
   }
@@ -116,7 +120,7 @@ export default function ParticipantProfilePage() {
     if (values.newPassword !== values.confirmPassword) {
       setPasswordMessage({
         type: "error",
-        text: "Yeni sifreler eslesmiyor.",
+        text: "Yeni şifreler eşleşmiyor.",
       });
       return;
     }
@@ -124,7 +128,7 @@ export default function ParticipantProfilePage() {
     if (values.newPassword.length < 6) {
       setPasswordMessage({
         type: "error",
-        text: "Yeni sifre en az 6 karakter olmali.",
+        text: "Yeni şifre en az 6 karakter olmalı.",
       });
       return;
     }
@@ -138,12 +142,12 @@ export default function ParticipantProfilePage() {
       passwordForm.reset();
       setPasswordMessage({
         type: "success",
-        text: "Sifre basariyla degistirildi.",
+        text: "Şifre başarıyla değiştirildi.",
       });
     } catch (error) {
       setPasswordMessage({
         type: "error",
-        text: error instanceof ApiError ? error.message : "Bir hata olustu.",
+        text: error instanceof ApiError ? error.message : "Bir hata oluştu.",
       });
     }
   }
@@ -154,8 +158,8 @@ export default function ParticipantProfilePage() {
 
   return (
     <UserShell>
-      <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="space-y-6">
+      <section className="mx-auto grid w-full max-w-6xl items-start gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <div className="space-y-5">
           <div>
             <p
               className="text-[11px] font-semibold uppercase tracking-[0.2em]"
@@ -168,24 +172,27 @@ export default function ParticipantProfilePage() {
               style={{ color: "var(--text-primary)" }}
               data-display="true"
             >
-              Hesap bilgilerini guncelle.
+              Hesap bilgilerini güncelle
             </h1>
           </div>
 
           <article className="glass rounded-2xl p-6">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <div
-                className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl"
+                className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl"
                 style={{
                   background:
                     "linear-gradient(135deg, var(--primary-gradient-from), var(--primary-gradient-to))",
                 }}
               >
                 {avatarDataUrl ? (
-                  <img
+                  <Image
                     src={avatarDataUrl}
-                    alt={`${participantUser.name} avatar`}
-                    className="h-full w-full object-cover"
+                    alt={`${participantUser.name} profil fotoğrafı`}
+                    fill
+                    unoptimized
+                    sizes="64px"
+                    className="object-cover"
                   />
                 ) : (
                   <span className="text-xl font-bold text-white">
@@ -220,16 +227,13 @@ export default function ParticipantProfilePage() {
             </h2>
             <form
               className="mt-4 space-y-4"
-              onSubmit={profileForm.handleSubmit((values) => {
-                void onProfileSubmit(values);
-              })}
+              onSubmit={profileForm.handleSubmit(onProfileSubmit)}
             >
               <VerificationSelfieCapture
-                title="Profil Fotografi"
-                description="Kullanici panelinde gorunen fotografini ayarlayabilirsin."
+                title="Profil Fotoğrafı"
+                description="Panelde görünen fotoğrafı burada güncelleyebilirsiniz."
                 value={avatarDataUrl}
                 onChange={(value) => {
-                  setAvatarDataUrl(value);
                   profileForm.setValue("avatarDataUrl", value, {
                     shouldDirty: true,
                   });
@@ -285,17 +289,25 @@ export default function ParticipantProfilePage() {
               </div>
 
               {profileMessage ? (
-                <p
-                  className="text-sm"
+                <div
+                  className="rounded-xl border px-3 py-2 text-sm"
                   style={{
                     color:
+                      profileMessage.type === "success"
+                        ? "var(--success)"
+                        : "var(--error)",
+                    background:
+                      profileMessage.type === "success"
+                        ? "var(--success-soft)"
+                        : "var(--error-soft)",
+                    borderColor:
                       profileMessage.type === "success"
                         ? "var(--success)"
                         : "var(--error)",
                   }}
                 >
                   {profileMessage.text}
-                </p>
+                </div>
               ) : null}
 
               <button
@@ -311,20 +323,18 @@ export default function ParticipantProfilePage() {
           </article>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5 xl:sticky xl:top-24">
           <article className="glass rounded-2xl p-6">
             <h2
               className="text-lg font-bold"
               style={{ color: "var(--text-primary)" }}
               data-display="true"
             >
-              Sifreyi Guncelle
+              Şifreyi Güncelle
             </h2>
             <form
               className="mt-4 space-y-4"
-              onSubmit={passwordForm.handleSubmit((values) => {
-                void onPasswordSubmit(values);
-              })}
+              onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
             >
               <div className="space-y-1.5">
                 <label
@@ -332,7 +342,7 @@ export default function ParticipantProfilePage() {
                   className="text-xs font-semibold uppercase tracking-wide"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Mevcut Sifre
+                  Mevcut Şifre
                 </label>
                 <input
                   id="currentPassword"
@@ -349,7 +359,7 @@ export default function ParticipantProfilePage() {
                   className="text-xs font-semibold uppercase tracking-wide"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Yeni Sifre
+                  Yeni Şifre
                 </label>
                 <input
                   id="newPassword"
@@ -366,7 +376,7 @@ export default function ParticipantProfilePage() {
                   className="text-xs font-semibold uppercase tracking-wide"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Yeni Sifre Tekrar
+                  Yeni Şifre Tekrar
                 </label>
                 <input
                   id="confirmPassword"
@@ -378,17 +388,25 @@ export default function ParticipantProfilePage() {
               </div>
 
               {passwordMessage ? (
-                <p
-                  className="text-sm"
+                <div
+                  className="rounded-xl border px-3 py-2 text-sm"
                   style={{
                     color:
+                      passwordMessage.type === "success"
+                        ? "var(--success)"
+                        : "var(--error)",
+                    background:
+                      passwordMessage.type === "success"
+                        ? "var(--success-soft)"
+                        : "var(--error-soft)",
+                    borderColor:
                       passwordMessage.type === "success"
                         ? "var(--success)"
                         : "var(--error)",
                   }}
                 >
                   {passwordMessage.text}
-                </p>
+                </div>
               ) : null}
 
               <button
@@ -397,8 +415,8 @@ export default function ParticipantProfilePage() {
                 className="btn-secondary w-full py-3 text-sm"
               >
                 {passwordForm.formState.isSubmitting
-                  ? "Guncelleniyor..."
-                  : "Sifreyi Degistir"}
+                  ? "Güncelleniyor..."
+                  : "Şifreyi Değiştir"}
               </button>
             </form>
           </article>
@@ -409,15 +427,15 @@ export default function ParticipantProfilePage() {
               style={{ color: "var(--text-primary)" }}
               data-display="true"
             >
-              Panel Kısayollari
+              Kısayollar
             </h2>
             <div className="mt-4 grid gap-2">
-              <a href="/user/dashboard" className="btn-secondary text-sm">
-                Dashboarda Don
-              </a>
-              <a href="/scan" className="btn-primary text-sm">
+              <Link href="/user/dashboard" className="btn-secondary text-sm">
+                Panele Dön
+              </Link>
+              <Link href="/user/scan" className="btn-primary text-sm">
                 QR Taramaya Git
-              </a>
+              </Link>
             </div>
           </article>
         </div>

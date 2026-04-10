@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ForgotPasswordPage() {
-
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="absolute right-5 top-5">
@@ -15,18 +14,18 @@ export default function ForgotPasswordPage() {
           className="text-[11px] font-semibold uppercase tracking-[0.2em]"
           style={{ color: "var(--primary)" }}
         >
-          Hesap Yardimi
+          Hesap Yardımı
         </p>
         <h1
           className="mt-3 text-3xl font-extrabold"
           style={{ color: "var(--text-primary)" }}
           data-display="true"
         >
-          Sifre yardimi
+          Şifre yardımı
         </h1>
         <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Bu projede otomatik e-posta sifre sifirlama akisi yok. Tek giris
-          modeli kullanilir; admin ve uye hesaplari ayni ekrandan oturum acar.
+          Bu sürümde otomatik şifre sıfırlama e-postası yok. Admin ve kullanıcı
+          hesapları aynı giriş ekranından oturum açar.
         </p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -35,17 +34,26 @@ export default function ForgotPasswordPage() {
               className="text-sm font-semibold"
               style={{ color: "var(--text-primary)" }}
             >
-              Uye Hesabi
+              Kullanıcı hesabı
             </p>
             <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Oturumun aciksa <Link href="/user/profile" className="font-semibold" style={{ color: "var(--primary)" }}>profil</Link> ekranindan sifreni degistirebilirsin. Oturumun yoksa etkinlik yoneticisi ile iletisime gecmen gerekir.
+              Oturumun açıksa{" "}
+              <Link
+                href="/user/profile"
+                className="font-semibold"
+                style={{ color: "var(--primary)" }}
+              >
+                profil
+              </Link>{" "}
+              ekranından şifreni değiştirebilirsin. Oturumun yoksa etkinlik
+              yöneticisi ile iletişime geçmen gerekir.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/login" className="btn-primary text-sm">
-                Giris Ekrani
+                Giriş Ekranı
               </Link>
               <Link href="/auth/signup" className="btn-secondary text-sm">
-                Yeni Hesap Ac
+                Yeni Hesap Aç
               </Link>
             </div>
           </article>
@@ -55,16 +63,16 @@ export default function ForgotPasswordPage() {
               className="text-sm font-semibold"
               style={{ color: "var(--text-primary)" }}
             >
-              Yonetici Hesabi
+              Admin hesabı
             </p>
             <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Yonetici sifreleri sistem yoneticisi tarafindan yonetilir. Yerel
-              demo kurulumu kullaniyorsan ayni giris ekranindan demo admin
-              kimligi ile oturum acabilirsin.
+              Admin parolaları sistem yöneticisi tarafından yönetilir. Demo
+              ortamındaysan aynı giriş ekranından demo admin bilgileri ile devam
+              edebilirsin.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/login" className="btn-primary text-sm">
-                Tek Giris Ekrani
+                Tek Giriş
               </Link>
               <Link href="/scan" className="btn-secondary text-sm">
                 QR Tara
@@ -78,9 +86,8 @@ export default function ForgotPasswordPage() {
           style={{ background: "var(--surface-soft)" }}
         >
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Uye hesaplari profil ekranindan kendi bilgilerini ve parolalarini
-            gunceller. Admin hesaplari ise tek giris uzerinden admin paneline
-            yonlendirilir.
+            Profil, parola ve etkinlik geçmişi kullanıcı panelinde; yönetim ve
+            etkinlik işlemleri admin panelinde yer alır.
           </p>
         </div>
       </section>

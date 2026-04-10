@@ -27,25 +27,24 @@ export type ApiErrorCode =
   | "HTTP_EXCEPTION";
 
 const errorMessageMap: Partial<Record<ApiErrorCode, string>> = {
-  EXPIRED_TOKEN: "QR kodun suresi dolmus. Yeni kodu tarayin.",
-  INVALID_SIGNATURE: "Gecersiz QR kodu.",
-  MALFORMED_TOKEN: "Gecersiz QR kodu.",
-  REPLAY_ATTACK: "Bu QR zaten kullanilmis.",
-  SESSION_NOT_FOUND: "Etkinlik bulunamadi.",
-  SESSION_INACTIVE: "Bu oturum henuz baslamadi veya sona erdi.",
-  LOCATION_OUT_OF_RANGE: "Etkinlik alaninin disindasiniz.",
-  NO_LOCATION_DATA: "Konum bilgisi alinamadi. Izin verip tekrar deneyin.",
-  PHOTO_REQUIRED:
-    "Profil dogrulama fotografi gerekli. Lutfen kameradan selfie cekin.",
-  ALREADY_CHECKED_IN: "Bu etkinlige zaten katildiniz.",
-  REGISTRATION_REQUIRED: "Kayit bulunamadi. Lutfen bilgilerinizi girin.",
-  UNAUTHORIZED: "Oturumunuz gecersiz. Lutfen tekrar giris yapin.",
-  FORBIDDEN: "Bu islem icin yetkiniz yok.",
-  NOT_FOUND: "Istenen kaynak bulunamadi.",
-  TOO_MANY_REQUESTS: "Cok fazla istek gonderdiniz. Lutfen biraz bekleyin.",
-  BAD_REQUEST: "Gonderilen bilgiler gecersiz.",
-  INTERNAL_SERVER_ERROR: "Sunucuda beklenmeyen bir hata olustu.",
-  NETWORK_ERROR: "Baglanti sorunu. Internet baglantinizi kontrol edin.",
+  EXPIRED_TOKEN: "QR kodun süresi doldu. Yeni kodu tarayın.",
+  INVALID_SIGNATURE: "Geçersiz QR kodu.",
+  MALFORMED_TOKEN: "Geçersiz QR kodu.",
+  REPLAY_ATTACK: "Bu QR kod daha önce kullanıldı.",
+  SESSION_NOT_FOUND: "Etkinlik veya oturum bulunamadı.",
+  SESSION_INACTIVE: "Bu oturum henüz başlamadı veya sona erdi.",
+  LOCATION_OUT_OF_RANGE: "Etkinlik alanının dışındasınız.",
+  NO_LOCATION_DATA: "Konum bilgisi alınamadı. İzin verip tekrar deneyin.",
+  PHOTO_REQUIRED: "Selfie gerekli. Lütfen fotoğraf çekin.",
+  ALREADY_CHECKED_IN: "Bu oturum için yoklamanız zaten alınmış.",
+  REGISTRATION_REQUIRED: "Kayıt bulunamadı. Bilgilerinizi girerek devam edin.",
+  UNAUTHORIZED: "Oturumunuz geçersiz. Tekrar giriş yapın.",
+  FORBIDDEN: "Bu işlem için yetkiniz yok.",
+  NOT_FOUND: "İstenen kaynak bulunamadı.",
+  TOO_MANY_REQUESTS: "Çok fazla istek gönderdiniz. Biraz bekleyip tekrar deneyin.",
+  BAD_REQUEST: "Gönderilen bilgiler geçersiz.",
+  INTERNAL_SERVER_ERROR: "Sunucuda beklenmeyen bir hata oluştu.",
+  NETWORK_ERROR: "Bağlantı sorunu. İnternet bağlantınızı kontrol edin.",
 };
 
 const statusCodeToFallbackCode: Partial<Record<number, ApiErrorCode>> = {
@@ -91,12 +90,13 @@ export function resolveApiErrorMessage(input: {
 
   if (normalizedCode && errorMessageMap[normalizedCode as ApiErrorCode]) {
     return (
-      errorMessageMap[normalizedCode as ApiErrorCode] ?? "Istek basarisiz oldu."
+      errorMessageMap[normalizedCode as ApiErrorCode] ??
+      "İstek başarısız oldu."
     );
   }
 
   if (input.statusCode === 0) {
-    return errorMessageMap.NETWORK_ERROR ?? "Baglanti sorunu olustu.";
+    return errorMessageMap.NETWORK_ERROR ?? "Bağlantı sorunu oluştu.";
   }
 
   if (input.fallbackMessage?.trim()) {
@@ -109,10 +109,10 @@ export function resolveApiErrorMessage(input: {
       : undefined;
 
   if (fallbackCode && errorMessageMap[fallbackCode]) {
-    return errorMessageMap[fallbackCode] ?? "Istek basarisiz oldu.";
+    return errorMessageMap[fallbackCode] ?? "İstek başarısız oldu.";
   }
 
-  return "Istek basarisiz oldu.";
+  return "İstek başarısız oldu.";
 }
 
 export async function apiFetch<T>(

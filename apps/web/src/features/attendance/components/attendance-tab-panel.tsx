@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -549,9 +550,12 @@ export function AttendanceTabPanel({
                 className="mt-4 overflow-hidden rounded-2xl border"
                 style={{ borderColor: "var(--border)" }}
               >
-                <img
+                <Image
                   src={previewRecord.verificationPhotoDataUrl}
                   alt={`${previewRecord.fullName} dogrulama fotografi`}
+                  width={1200}
+                  height={1200}
+                  unoptimized
                   className="max-h-[65vh] w-full object-contain"
                 />
               </div>

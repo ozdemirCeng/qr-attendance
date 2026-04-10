@@ -12,14 +12,14 @@ import { useParticipantAuth } from "@/providers/participant-auth-provider";
 
 const signupSchema = z
   .object({
-    name: z.string().trim().min(2, "Ad Soyad en az 2 karakter"),
-    email: z.string().trim().email("Gecerli bir e-posta girin"),
+    name: z.string().trim().min(2, "Ad soyad en az 2 karakter olmalı."),
+    email: z.string().trim().email("Geçerli bir e-posta girin."),
     phone: z.string().trim().optional().or(z.literal("")),
-    password: z.string().min(6, "Sifre en az 6 karakter"),
-    passwordConfirm: z.string().min(6, "Sifreyi tekrar girin"),
+    password: z.string().min(6, "Şifre en az 6 karakter olmalı."),
+    passwordConfirm: z.string().min(6, "Şifreyi tekrar girin."),
   })
   .refine((value) => value.password === value.passwordConfirm, {
-    message: "Sifreler eslesmiyor",
+    message: "Şifreler eşleşmiyor.",
     path: ["passwordConfirm"],
   });
 
@@ -85,7 +85,7 @@ export default function ParticipantSignupPage() {
         return;
       }
 
-      setFormError("Bir hata olustu. Lutfen tekrar deneyin.");
+      setFormError("Bir hata oluştu. Lütfen tekrar deneyin.");
     }
   }
 
@@ -95,7 +95,7 @@ export default function ParticipantSignupPage() {
         <ThemeToggle />
       </div>
 
-      <div className="glass-elevated w-full max-w-md animate-scale-in rounded-3xl p-8 md:p-10">
+      <div className="glass-elevated w-full max-w-md rounded-3xl p-8 md:p-10">
         <div className="mb-8 text-center">
           <div
             className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -126,19 +126,14 @@ export default function ParticipantSignupPage() {
             style={{ color: "var(--text-primary)" }}
             data-display="true"
           >
-            Hesap Olustur
+            Hesap Oluştur
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Katilimci hesabi olusturarak etkinliklere hizli giris yap.
+            Kullanıcı hesabı oluşturarak panele ve tarama akışına hızlı giriş yap.
           </p>
         </div>
 
-        <form
-          className="space-y-4"
-          onSubmit={form.handleSubmit((values) => {
-            void onSubmit(values);
-          })}
-        >
+        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="space-y-1.5">
             <label
               htmlFor="signupName"
@@ -209,7 +204,7 @@ export default function ParticipantSignupPage() {
               className="text-xs font-semibold uppercase tracking-wide"
               style={{ color: "var(--text-secondary)" }}
             >
-              Sifre
+              Şifre
             </label>
             <div className="relative">
               <input
@@ -228,7 +223,7 @@ export default function ParticipantSignupPage() {
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-semibold"
                 style={{ color: "var(--text-tertiary)" }}
               >
-                {showPassword ? "Gizle" : "Goster"}
+                {showPassword ? "Gizle" : "Göster"}
               </button>
             </div>
             {form.formState.errors.password ? (
@@ -244,14 +239,14 @@ export default function ParticipantSignupPage() {
               className="text-xs font-semibold uppercase tracking-wide"
               style={{ color: "var(--text-secondary)" }}
             >
-              Sifre Tekrar
+              Şifre Tekrar
             </label>
             <input
               id="signupPasswordConfirm"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               className="glass-input w-full"
-              placeholder="Sifreyi tekrar girin"
+              placeholder="Şifreyi tekrar girin"
               {...form.register("passwordConfirm")}
             />
             {form.formState.errors.passwordConfirm ? (
@@ -272,38 +267,20 @@ export default function ParticipantSignupPage() {
             disabled={form.formState.isSubmitting}
             className="btn-primary w-full py-3 text-sm"
           >
-            {form.formState.isSubmitting
-              ? "Hesap olusturuluyor..."
-              : "Kayit Ol"}
+            {form.formState.isSubmitting ? "Hesap oluşturuluyor..." : "Kayıt Ol"}
           </button>
         </form>
 
         <p className="mt-5 text-center text-sm" style={{ color: "var(--text-secondary)" }}>
-          Zaten hesabin var mi?{" "}
+          Zaten hesabın var mı?{" "}
           <Link
             href="/login"
             className="font-semibold"
             style={{ color: "var(--primary)" }}
           >
-            Giris Yap
+            Giriş Yap
           </Link>
         </p>
-
-        <div
-          className="mt-4 rounded-xl p-3 text-center"
-          style={{ background: "var(--surface-soft)" }}
-        >
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Yonetici veya uye fark etmeksizin tek giris ekrani kullanilir.{" "}
-            <Link
-              href="/login"
-              className="font-semibold"
-              style={{ color: "var(--primary)" }}
-            >
-              Giris ekranina don
-            </Link>
-          </p>
-        </div>
       </div>
     </main>
   );
