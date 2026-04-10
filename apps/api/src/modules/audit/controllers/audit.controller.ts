@@ -24,12 +24,12 @@ export class AuditController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiOkResponse({ description: 'Audit kayitlari donuldu.' })
   @Get()
-  list(@Query('limit') limit?: string) {
+  async list(@Query('limit') limit?: string) {
     const parsedLimit = Number.parseInt(limit ?? '100', 10);
 
     return {
       success: true,
-      data: this.auditService.listLatest(
+      data: await this.auditService.listLatest(
         Number.isNaN(parsedLimit) ? 100 : parsedLimit,
       ),
     };

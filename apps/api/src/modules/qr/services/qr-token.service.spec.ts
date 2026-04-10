@@ -47,6 +47,15 @@ describe('QrTokenService', () => {
     if (verification.valid) {
       expect(verification.sessionId).toBe('session-valid');
     }
+    expect(nonceStore.markUsed).not.toHaveBeenCalled();
+
+    const consumed = await service.consumeNonce(
+      'session-valid',
+      verification.valid ? verification.nonce : 'invalid',
+      60,
+    );
+
+    expect(consumed).toBe(true);
     expect(nonceStore.markUsed).toHaveBeenCalledWith(
       'session-valid',
       expect.any(String),

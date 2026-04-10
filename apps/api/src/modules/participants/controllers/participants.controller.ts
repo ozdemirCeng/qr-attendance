@@ -48,7 +48,7 @@ export class ParticipantsController {
     entityIdResponsePath: 'data.id',
   })
   @Post('manual')
-  createManual(
+  async createManual(
     @Param('eventId') eventId: string,
     @Body() payload: CreateParticipantDto,
   ) {
@@ -62,7 +62,7 @@ export class ParticipantsController {
   @ApiOkResponse({ description: 'Katilimci listesi donuldu.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
   @Get()
-  list(
+  async list(
     @Param('eventId') eventId: string,
     @Query() query: ListParticipantsQueryDto,
   ) {
@@ -92,7 +92,7 @@ export class ParticipantsController {
   })
   @Post('import-csv')
   @UseInterceptors(FileInterceptor('file'))
-  importCsv(
+  async importCsv(
     @Param('eventId') eventId: string,
     @UploadedFile() file: UploadedCsvFile | undefined,
   ) {
@@ -104,7 +104,7 @@ export class ParticipantsController {
   @ApiNotFoundResponse({ description: 'Etkinlik veya katilimci bulunamadi.' })
   @Roles('admin')
   @Delete(':participantId')
-  remove(
+  async remove(
     @Param('eventId') eventId: string,
     @Param('participantId') participantId: string,
   ) {

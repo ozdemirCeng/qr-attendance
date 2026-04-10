@@ -24,7 +24,7 @@ export class ExportsController {
   constructor(private readonly exportsService: ExportsService) {}
 
   @ApiOperation({ summary: 'Etkinlik katilim export islemini baslatir' })
-  @ApiOkResponse({ description: 'Export istegi kuyruga eklendi.' })
+  @ApiOkResponse({ description: 'Export istegi alindi.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
   @Audit({
     action: 'export.requested',
@@ -32,7 +32,7 @@ export class ExportsController {
     entityIdResponsePath: 'data.exportId',
   })
   @Post('events/:eventId/attendance/export')
-  requestExport(@Param('eventId') eventId: string) {
+  async requestExport(@Param('eventId') eventId: string) {
     return this.exportsService.requestAttendanceExport(eventId);
   }
 
@@ -40,7 +40,7 @@ export class ExportsController {
   @ApiOkResponse({ description: 'Export durumu donuldu.' })
   @ApiNotFoundResponse({ description: 'Export kaydi bulunamadi.' })
   @Get('exports/:id/status')
-  status(@Param('id') exportId: string) {
+  async status(@Param('id') exportId: string) {
     return this.exportsService.getStatus(exportId);
   }
 
@@ -53,8 +53,8 @@ export class ExportsController {
     entityIdParam: 'id',
   })
   @Get('exports/:id/download')
-  download(@Param('id') exportId: string, @Res() response: Response) {
-    const filePath = this.exportsService.getDownloadFilePath(exportId);
+  async download(@Param('id') exportId: string, @Res() response: Response) {
+    const filePath = await this.exportsService.getDownloadFilePath(exportId);
 
     return response.download(filePath, basename(filePath));
   }

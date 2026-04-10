@@ -29,6 +29,13 @@
       "when": 1775652600000,
       "tag": "0003_alert_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775819941236,
+      "tag": "0004_free_hobgoblin",
+      "breakpoints": true
     }
   ]
 }

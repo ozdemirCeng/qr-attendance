@@ -42,7 +42,7 @@ export class AttendanceEventsController {
   @ApiOkResponse({ description: 'Katilim listesi donuldu.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
   @Get()
-  list(
+  async list(
     @Param('eventId') eventId: string,
     @Query() query: ListAttendanceQueryDto,
   ) {
@@ -53,7 +53,7 @@ export class AttendanceEventsController {
   @ApiOkResponse({ description: 'Katilim istatistikleri donuldu.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
   @Get('stats')
-  stats(@Param('eventId') eventId: string) {
+  async stats(@Param('eventId') eventId: string) {
     return this.attendanceService.statsByEvent(eventId);
   }
 
@@ -70,7 +70,7 @@ export class AttendanceEventsController {
     entityIdResponsePath: 'data.id',
   })
   @Post('manual-upsert')
-  manualUpsert(
+  async manualUpsert(
     @Param('eventId') eventId: string,
     @Body() payload: ManualAttendanceUpsertDto,
   ) {

@@ -51,7 +51,7 @@ pnpm dev
 
 Yerel gelistirme notu:
 
-- `NEXT_PUBLIC_API_URL` degerini yerelde `http://localhost:3001` olarak kullanin.
+- Web uygulamasi backend'e same-origin proxy ile erisir. Bu nedenle `API_INTERNAL_URL` veya `NEXT_PUBLIC_API_URL` degerlerinden en az birini yerelde `http://localhost:3001` olarak ayarlayin.
 - `localhost:3000` (veya dev server'in actigi port) uzerinden web arayuzunu acin.
 
 ## Demo Seed
@@ -93,6 +93,11 @@ Vercel env template dosyalari:
 - API project (`apps/api`): `.env.vercel.api.example`
 - Web project (`apps/web`): `.env.vercel.web.example`
 
+Web projesinde onerilen ayar:
+
+- `API_INTERNAL_URL`: server-side proxy hedefi
+- `NEXT_PUBLIC_API_URL`: istemci tarafinda expose edilmesi gereken durumlar icin geriye uyumluluk
+
 Yerel hazir Vercel env dosyalari (gitignore):
 
 - API: `.env.vercel.api`
@@ -101,9 +106,9 @@ Yerel hazir Vercel env dosyalari (gitignore):
 ## Demo Akisi Kontrol Listesi
 
 1. Kayitli katilimci happy path:
-	 QR okut, konum izni ver, katilim kaydinin olustugunu `Katilim` sekmesinde dogrula.
+   QR okut, konum izni ver, katilim kaydinin olustugunu `Katilim` sekmesinde dogrula.
 2. Walk-in katilimci happy path:
-	 Kayitsiz kullanici ile QR okut, formu doldur, katilim kaydinin olustugunu dogrula.
+   Kayitsiz kullanici ile QR okut, formu doldur, katilim kaydinin olustugunu dogrula.
 
 ## Kalite Komutlari
 

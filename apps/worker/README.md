@@ -5,7 +5,6 @@ Bu paket asenkron isleri kuyruk uzerinden calistirir.
 ## Sorumluluklar
 
 - Export queue islemleri
-- Import queue islemleri
 - Uzun sureli arka plan gorevleri
 
 ## Gelistirme Komutlari
@@ -20,4 +19,5 @@ pnpm --filter @qr-attendance/worker typecheck
 ## Teknik Notlar
 
 - BullMQ ve ioredis kullanilir.
-- REDIS_URL konfigurasyonu zorunludur.
+- Varsayilan Redis adresi `redis://127.0.0.1:6379` olarak kabul edilir.
+- Aktif olarak sadece `export.queue` worker tarafinda islenir.

@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
 
+import {
+  escapeLikePattern,
+  getSql,
+  isUuidLike,
+  toIsoString,
+} from '../../../common/database/neon';
 import { AttendanceRecordEntity } from '../attendance.types';
 
 type CreateAttendanceRecordInput = Omit<
@@ -20,45 +26,182 @@ type UpdateAttendanceRecordInput = Partial<
   Pick<AttendanceRecordEntity, 'isValid' | 'invalidReason'>
 >;
 
+type AttendanceRecordRow = AttendanceRecordEntity;
+
 @Injectable()
 export class AttendanceRecordsRepository {
-  private readonly records = new Map<string, AttendanceRecordEntity>();
+  async create(
+    input: CreateAttendanceRecordInput,
+  ): Promise<AttendanceRecordEntity> {
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        insert into attendance_records (
+          event_id,
+          session_id,
+          participant_id,
+          full_name,
+          email,
+          phone,
+          scanned_at,
+          latitude,
+          longitude,
+          accuracy,
+          distance_from_venue,
+          is_valid,
+          invalid_reason,
+          qr_nonce,
+          ip_address,
+          device_fingerprint
+        )
+        values (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9,
+          $10, $11, $12, $13, $14, $15, $16
+        )
+        returning
+          id,
+          event_id as "eventId",
+          session_id as "sessionId",
+          participant_id as "participantId",
+          full_name as "fullName",
+          email,
+          phone,
+          scanned_at as "scannedAt",
+          latitude,
+          longitude,
+          accuracy,
+          distance_from_venue as "distanceFromVenue",
+          is_valid as "isValid",
+          invalid_reason as "invalidReason",
+          qr_nonce as "qrNonce",
+          ip_address as "ipAddress",
+          device_fingerprint as "deviceFingerprint",
+          created_at as "createdAt"
+      `,
+      [
+        input.eventId,
+        input.sessionId,
+        input.participantId,
+        input.fullName,
+        input.email,
+        input.phone,
+        input.scannedAt,
+        input.latitude,
+        input.longitude,
+        input.accuracy,
+        input.distanceFromVenue,
+        input.isValid,
+        input.invalidReason,
+        input.qrNonce,
+        input.ipAddress,
+        input.deviceFingerprint,
+      ],
+    )) as AttendanceRecordRow[];
 
-  create(input: CreateAttendanceRecordInput): AttendanceRecordEntity {
-    const record: AttendanceRecordEntity = {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      ...input,
-    };
-
-    this.records.set(record.id, record);
-
-    return record;
+    return this.mapRow(rows[0]);
   }
 
-  findByParticipantAndSession(participantId: string, sessionId: string) {
-    return (
-      [...this.records.values()].find(
-        (record) =>
-          record.participantId === participantId &&
-          record.sessionId === sessionId,
-      ) ?? null
-    );
+  async findByParticipantAndSession(participantId: string, sessionId: string) {
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        select
+          id,
+          event_id as "eventId",
+          session_id as "sessionId",
+          participant_id as "participantId",
+          full_name as "fullName",
+          email,
+          phone,
+          scanned_at as "scannedAt",
+          latitude,
+          longitude,
+          accuracy,
+          distance_from_venue as "distanceFromVenue",
+          is_valid as "isValid",
+          invalid_reason as "invalidReason",
+          qr_nonce as "qrNonce",
+          ip_address as "ipAddress",
+          device_fingerprint as "deviceFingerprint",
+          created_at as "createdAt"
+        from attendance_records
+        where participant_id = $1
+          and session_id = $2
+        limit 1
+      `,
+      [participantId, sessionId],
+    )) as AttendanceRecordRow[];
+
+    return rows[0] ? this.mapRow(rows[0]) : null;
   }
 
-  findBySessionId(sessionId: string) {
-    return [...this.records.values()].filter(
-      (record) => record.sessionId === sessionId,
-    );
+  async findBySessionId(sessionId: string) {
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        select
+          id,
+          event_id as "eventId",
+          session_id as "sessionId",
+          participant_id as "participantId",
+          full_name as "fullName",
+          email,
+          phone,
+          scanned_at as "scannedAt",
+          latitude,
+          longitude,
+          accuracy,
+          distance_from_venue as "distanceFromVenue",
+          is_valid as "isValid",
+          invalid_reason as "invalidReason",
+          qr_nonce as "qrNonce",
+          ip_address as "ipAddress",
+          device_fingerprint as "deviceFingerprint",
+          created_at as "createdAt"
+        from attendance_records
+        where session_id = $1
+        order by scanned_at desc
+      `,
+      [sessionId],
+    )) as AttendanceRecordRow[];
+
+    return rows.map((row) => this.mapRow(row));
   }
 
-  findByEventId(eventId: string) {
-    return [...this.records.values()]
-      .filter((record) => record.eventId === eventId)
-      .sort((a, b) => b.scannedAt.localeCompare(a.scannedAt));
+  async findByEventId(eventId: string) {
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        select
+          id,
+          event_id as "eventId",
+          session_id as "sessionId",
+          participant_id as "participantId",
+          full_name as "fullName",
+          email,
+          phone,
+          scanned_at as "scannedAt",
+          latitude,
+          longitude,
+          accuracy,
+          distance_from_venue as "distanceFromVenue",
+          is_valid as "isValid",
+          invalid_reason as "invalidReason",
+          qr_nonce as "qrNonce",
+          ip_address as "ipAddress",
+          device_fingerprint as "deviceFingerprint",
+          created_at as "createdAt"
+        from attendance_records
+        where event_id = $1
+        order by scanned_at desc
+      `,
+      [eventId],
+    )) as AttendanceRecordRow[];
+
+    return rows.map((row) => this.mapRow(row));
   }
 
-  findAllByEvent({
+  async findAllByEvent({
     eventId,
     sessionId,
     search,
@@ -66,43 +209,84 @@ export class AttendanceRecordsRepository {
     page,
     limit,
   }: ListAttendanceRecordsInput) {
-    const normalizedSearch = search?.trim().toLowerCase();
+    const sql = getSql();
+    const params: unknown[] = [eventId];
+    const conditions = ['event_id = $1'];
 
-    const filtered = this.findByEventId(eventId)
-      .filter((record) => {
-        if (!sessionId) {
-          return true;
-        }
+    if (sessionId) {
+      params.push(sessionId);
+      conditions.push(`session_id = $${params.length}`);
+    }
 
-        return record.sessionId === sessionId;
-      })
-      .filter((record) => {
-        if (typeof isValid !== 'boolean') {
-          return true;
-        }
+    if (typeof isValid === 'boolean') {
+      params.push(isValid);
+      conditions.push(`is_valid = $${params.length}`);
+    }
 
-        return record.isValid === isValid;
-      })
-      .filter((record) => {
-        if (!normalizedSearch) {
-          return true;
-        }
+    if (search?.trim()) {
+      params.push(`%${escapeLikePattern(search.trim().toLowerCase())}%`);
+      conditions.push(`
+        lower(
+          concat_ws(
+            ' ',
+            full_name,
+            coalesce(email, ''),
+            coalesce(phone, '')
+          )
+        ) like $${params.length} escape '\\'
+      `);
+    }
 
-        const haystack = [record.fullName, record.email, record.phone]
-          .filter((value): value is string => Boolean(value))
-          .join(' ')
-          .toLowerCase();
+    const whereClause = `where ${conditions.join(' and ')}`;
+    const offset = (page - 1) * limit;
+    const limitIndex = params.length + 1;
+    const offsetIndex = params.length + 2;
 
-        return haystack.includes(normalizedSearch);
-      });
+    const [itemRows, countRows] = await Promise.all([
+      sql.query(
+        `
+          select
+            id,
+            event_id as "eventId",
+            session_id as "sessionId",
+            participant_id as "participantId",
+            full_name as "fullName",
+            email,
+            phone,
+            scanned_at as "scannedAt",
+            latitude,
+            longitude,
+            accuracy,
+            distance_from_venue as "distanceFromVenue",
+            is_valid as "isValid",
+            invalid_reason as "invalidReason",
+            qr_nonce as "qrNonce",
+            ip_address as "ipAddress",
+            device_fingerprint as "deviceFingerprint",
+            created_at as "createdAt"
+          from attendance_records
+          ${whereClause}
+          order by scanned_at desc
+          limit $${limitIndex}
+          offset $${offsetIndex}
+        `,
+        [...params, limit, offset],
+      ) as unknown as Promise<AttendanceRecordRow[]>,
+      sql.query(
+        `
+          select count(*)::int as total
+          from attendance_records
+          ${whereClause}
+        `,
+        params,
+      ) as unknown as Promise<Array<{ total: number }>>,
+    ]);
 
-    const total = filtered.length;
+    const total = countRows[0]?.total ?? 0;
     const totalPages = Math.max(1, Math.ceil(total / limit));
-    const startIndex = (page - 1) * limit;
-    const items = filtered.slice(startIndex, startIndex + limit);
 
     return {
-      items,
+      items: itemRows.map((row) => this.mapRow(row)),
       page,
       limit,
       total,
@@ -110,27 +294,96 @@ export class AttendanceRecordsRepository {
     };
   }
 
-  findById(id: string): AttendanceRecordEntity | null {
-    return this.records.get(id) ?? null;
+  async findById(id: string): Promise<AttendanceRecordEntity | null> {
+    if (!isUuidLike(id)) {
+      return null;
+    }
+
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        select
+          id,
+          event_id as "eventId",
+          session_id as "sessionId",
+          participant_id as "participantId",
+          full_name as "fullName",
+          email,
+          phone,
+          scanned_at as "scannedAt",
+          latitude,
+          longitude,
+          accuracy,
+          distance_from_venue as "distanceFromVenue",
+          is_valid as "isValid",
+          invalid_reason as "invalidReason",
+          qr_nonce as "qrNonce",
+          ip_address as "ipAddress",
+          device_fingerprint as "deviceFingerprint",
+          created_at as "createdAt"
+        from attendance_records
+        where id = $1
+        limit 1
+      `,
+      [id],
+    )) as AttendanceRecordRow[];
+
+    return rows[0] ? this.mapRow(rows[0]) : null;
   }
 
-  update(
+  async update(
     id: string,
     patch: UpdateAttendanceRecordInput,
-  ): AttendanceRecordEntity | null {
-    const current = this.findById(id);
+  ): Promise<AttendanceRecordEntity | null> {
+    const current = await this.findById(id);
 
     if (!current) {
       return null;
     }
 
-    const updated: AttendanceRecordEntity = {
-      ...current,
-      ...patch,
+    const sql = getSql();
+    const rows = (await sql.query(
+      `
+        update attendance_records
+        set
+          is_valid = $2,
+          invalid_reason = $3
+        where id = $1
+        returning
+          id,
+          event_id as "eventId",
+          session_id as "sessionId",
+          participant_id as "participantId",
+          full_name as "fullName",
+          email,
+          phone,
+          scanned_at as "scannedAt",
+          latitude,
+          longitude,
+          accuracy,
+          distance_from_venue as "distanceFromVenue",
+          is_valid as "isValid",
+          invalid_reason as "invalidReason",
+          qr_nonce as "qrNonce",
+          ip_address as "ipAddress",
+          device_fingerprint as "deviceFingerprint",
+          created_at as "createdAt"
+      `,
+      [
+        id,
+        patch.isValid ?? current.isValid,
+        patch.invalidReason ?? current.invalidReason,
+      ],
+    )) as AttendanceRecordRow[];
+
+    return rows[0] ? this.mapRow(rows[0]) : null;
+  }
+
+  private mapRow(row: AttendanceRecordRow): AttendanceRecordEntity {
+    return {
+      ...row,
+      scannedAt: toIsoString(row.scannedAt),
+      createdAt: toIsoString(row.createdAt),
     };
-
-    this.records.set(id, updated);
-
-    return updated;
   }
 }

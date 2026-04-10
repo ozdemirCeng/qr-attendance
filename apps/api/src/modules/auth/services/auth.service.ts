@@ -275,8 +275,7 @@ export class AuthService {
 
   private isProductionEnvironment() {
     return (
-      this.configService.get<string>('NODE_ENV', 'development') ===
-      'production'
+      this.configService.get<string>('NODE_ENV', 'development') === 'production'
     );
   }
 

@@ -41,7 +41,7 @@ export class AttendanceController {
     },
   })
   @Post('scan')
-  scan(@Body() payload: ScanAttendanceDto, @Req() request: Request) {
+  async scan(@Body() payload: ScanAttendanceDto, @Req() request: Request) {
     return this.attendanceService.scan(payload, {
       ip: request.ip ?? null,
       userAgent: request.headers['user-agent'] ?? null,
@@ -63,7 +63,7 @@ export class AttendanceController {
     entityIdParam: 'id',
   })
   @Patch(':id/manual-status')
-  updateManualStatus(
+  async updateManualStatus(
     @Param('id') id: string,
     @Body() payload: UpdateManualStatusDto,
   ) {

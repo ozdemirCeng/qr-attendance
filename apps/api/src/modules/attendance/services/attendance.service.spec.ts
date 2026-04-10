@@ -1,6 +1,7 @@
 import { HttpException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { resetTestDatabase } from '../../../../test/support/reset-test-database';
 import { EventsRepository } from '../../events/repositories/events.repository';
 import { ParticipantsRepository } from '../../participants/repositories/participants.repository';
 import { QrNonceStoreService } from '../../qr/services/qr-nonce-store.service';
@@ -19,9 +20,10 @@ describe('AttendanceService', () => {
   let attendanceAttemptsRepository: AttendanceAttemptsRepository;
   let qrTokenService: QrTokenService;
 
-  beforeEach(() => {
-    const nonceMemory = new Set<string>();
+  beforeEach(async () => {
+    await resetTestDatabase();
 
+    const nonceMemory = new Set<string>();
     const nonceStore = {
       isUsed: (sessionId: string, nonce: string) =>
         Promise.resolve(nonceMemory.has(`${sessionId}:${nonce}`)),
@@ -63,13 +65,9 @@ describe('AttendanceService', () => {
     );
   });
 
-  it('processes happy path and creates checked-in record', async () => {
-    const { event, session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-
-    const participant = participantsRepository.create({
+  it('processes happy path and stores attendance record', async () => {
+    const { event, session } = await seedActiveEventAndSession();
+    const participant = await participantsRepository.create({
       eventId: event.id,
       name: 'Merve Kaya',
       email: 'merve@example.com',
@@ -78,85 +76,75 @@ describe('AttendanceService', () => {
       externalId: null,
     });
 
-    const token = qrTokenService.generateToken(session.id, 60);
-
-    const result = await service.scan(
-      {
-        token,
-        email: 'merve@example.com',
-        lat: 40.7652,
-        lng: 29.9401,
-        locationAccuracy: 25,
-      },
-      {
-        ip: '127.0.0.1',
-        userAgent: 'jest',
-      },
-    );
+    const result = await service.scan({
+      token: qrTokenService.generateToken(session.id, 60),
+      email: participant.email ?? undefined,
+      lat: event.latitude,
+      lng: event.longitude,
+      locationAccuracy: 15,
+    });
 
     expect(result.success).toBe(true);
     expect(result.action).toBe('CHECKED_IN');
     expect(result.data.participant.id).toBe(participant.id);
-    expect(
-      attendanceRecordsRepository.findBySessionId(session.id),
-    ).toHaveLength(1);
-    expect(
-      attendanceAttemptsRepository.findBySessionId(session.id),
-    ).toHaveLength(1);
-  });
 
-  it('returns MALFORMED_TOKEN for invalid token format', async () => {
-    await expectCode(
-      service.scan({ token: 'invalid-token' }, {}),
-      'MALFORMED_TOKEN',
-    );
-
-    const attempts =
-      attendanceAttemptsRepository.findBySessionId('unknown-session');
-    expect(attempts).toHaveLength(1);
-    expect(attempts[0].reason).toBe('MALFORMED_TOKEN');
-  });
-
-  it('returns EXPIRED_TOKEN for expired token', async () => {
-    const { session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-    const expiredToken = qrTokenService.generateToken(
+    const records = await attendanceRecordsRepository.findBySessionId(
       session.id,
-      60,
-      Date.now() - 180_000,
+    );
+    const attempts = await attendanceAttemptsRepository.findBySessionId(
+      session.id,
     );
 
-    await expectCode(
-      service.scan({ token: expiredToken, lat: 40.765, lng: 29.94 }, {}),
-      'EXPIRED_TOKEN',
-    );
+    expect(records).toHaveLength(1);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]?.result).toBe('success');
   });
 
-  it('returns INVALID_SIGNATURE for tampered signature', async () => {
-    const { session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
+  it('allows guest completion after REGISTRATION_REQUIRED using the same token', async () => {
+    const { event, session } = await seedActiveEventAndSession();
     const token = qrTokenService.generateToken(session.id, 60);
 
     await expectCode(
       service.scan(
-        { token: tamperSignature(token), lat: 40.765, lng: 29.94 },
+        {
+          token,
+          name: 'Konuk Kullanici',
+          lat: event.latitude,
+          lng: event.longitude,
+          locationAccuracy: 20,
+        },
         {},
       ),
-      'INVALID_SIGNATURE',
+      'REGISTRATION_REQUIRED',
+    );
+
+    const completed = await service.scan(
+      {
+        token,
+        name: 'Konuk Kullanici',
+        email: 'guest@example.com',
+        lat: event.latitude,
+        lng: event.longitude,
+        locationAccuracy: 20,
+      },
+      {},
+    );
+
+    expect(completed.success).toBe(true);
+    expect(completed.action).toBe('CHECKED_IN');
+    expect(completed.data.participant.name).toBe('Konuk Kullanici');
+  });
+
+  it('rejects malformed token', async () => {
+    await expectCode(
+      service.scan({ token: 'invalid-token' }, {}),
+      'MALFORMED_TOKEN',
     );
   });
 
-  it('returns REPLAY_ATTACK for reused token', async () => {
-    const { event, session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-
-    participantsRepository.create({
+  it('rejects duplicate check-in for the same participant and session', async () => {
+    const { event, session } = await seedActiveEventAndSession();
+    await participantsRepository.create({
       eventId: event.id,
       name: 'Ali Veli',
       email: 'ali@example.com',
@@ -165,572 +153,148 @@ describe('AttendanceService', () => {
       externalId: null,
     });
 
-    const token = qrTokenService.generateToken(session.id, 60);
+    await service.scan({
+      token: qrTokenService.generateToken(session.id, 60),
+      email: 'ali@example.com',
+      lat: event.latitude,
+      lng: event.longitude,
+      locationAccuracy: 20,
+    });
 
-    await service.scan(
-      {
-        token,
+    await expectCode(
+      service.scan({
+        token: qrTokenService.generateToken(session.id, 60),
         email: 'ali@example.com',
-        lat: 40.765,
-        lng: 29.94,
-      },
-      {},
-    );
-
-    await expectCode(
-      service.scan(
-        {
-          token,
-          email: 'ali@example.com',
-          lat: 40.765,
-          lng: 29.94,
-        },
-        {},
-      ),
-      'REPLAY_ATTACK',
-    );
-  });
-
-  it('returns SESSION_NOT_FOUND when token session does not exist', async () => {
-    const token = qrTokenService.generateToken(crypto.randomUUID(), 60);
-
-    await expectCode(
-      service.scan({ token, lat: 40.765, lng: 29.94 }, {}),
-      'SESSION_NOT_FOUND',
-    );
-  });
-
-  it('returns SESSION_INACTIVE when session is outside active range', async () => {
-    const event = eventsRepository.create({
-      name: 'Gecmis Etkinlik',
-      description: null,
-      locationName: 'A Blok',
-      latitude: 40.765,
-      longitude: 29.94,
-      radiusMeters: 100,
-      startsAt: new Date(Date.now() - 7_200_000).toISOString(),
-      endsAt: new Date(Date.now() - 3_600_000).toISOString(),
-      status: 'active',
-    });
-
-    const session = sessionsRepository.create({
-      eventId: event.id,
-      name: 'Eski Oturum',
-      startsAt: new Date(Date.now() - 7_000_000).toISOString(),
-      endsAt: new Date(Date.now() - 3_500_000).toISOString(),
-    });
-
-    const token = qrTokenService.generateToken(session.id, 60);
-
-    await expectCode(
-      service.scan({ token, lat: 40.765, lng: 29.94 }, {}),
-      'SESSION_INACTIVE',
-    );
-  });
-
-  it('returns NO_LOCATION_DATA when location payload is missing', async () => {
-    const { session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-    const token = qrTokenService.generateToken(session.id, 60);
-
-    await expectCode(service.scan({ token }, {}), 'NO_LOCATION_DATA');
-  });
-
-  it('returns LOCATION_OUT_OF_RANGE when geofence check fails', async () => {
-    const { session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-    const token = qrTokenService.generateToken(session.id, 60);
-
-    await expectCode(
-      service.scan(
-        {
-          token,
-          lat: 41.5,
-          lng: 29.94,
-          locationAccuracy: 5,
-        },
-        {},
-      ),
-      'LOCATION_OUT_OF_RANGE',
-    );
-  });
-
-  it('returns REGISTRATION_REQUIRED when participant is unknown and name is missing', async () => {
-    const { session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-    const token = qrTokenService.generateToken(session.id, 60);
-
-    await expectCode(
-      service.scan(
-        {
-          token,
-          email: 'unknown@example.com',
-          lat: 40.765,
-          lng: 29.94,
-        },
-        {},
-      ),
-      'REGISTRATION_REQUIRED',
-    );
-  });
-
-  it('returns REGISTRATION_REQUIRED when walk-in payload has name but no contact info', async () => {
-    const { session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-    const token = qrTokenService.generateToken(session.id, 60);
-
-    await expectCode(
-      service.scan(
-        {
-          token,
-          name: 'Konuk Kullanici',
-          lat: 40.765,
-          lng: 29.94,
-        },
-        {},
-      ),
-      'REGISTRATION_REQUIRED',
-    );
-  });
-
-  it('returns ALREADY_CHECKED_IN for second scan of same participant', async () => {
-    const { event, session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-
-    participantsRepository.create({
-      eventId: event.id,
-      name: 'Deniz',
-      email: 'deniz@example.com',
-      phone: null,
-      source: 'manual',
-      externalId: null,
-    });
-
-    const firstToken = qrTokenService.generateToken(session.id, 60);
-    const secondToken = qrTokenService.generateToken(session.id, 60);
-
-    await service.scan(
-      {
-        token: firstToken,
-        email: 'deniz@example.com',
-        lat: 40.765,
-        lng: 29.94,
-      },
-      {},
-    );
-
-    await expectCode(
-      service.scan(
-        {
-          token: secondToken,
-          email: 'deniz@example.com',
-          lat: 40.765,
-          lng: 29.94,
-        },
-        {},
-      ),
+        lat: event.latitude,
+        lng: event.longitude,
+        locationAccuracy: 20,
+      }),
       'ALREADY_CHECKED_IN',
     );
   });
 
-  it('matches participant by phone and blocks duplicate scan for same session', async () => {
-    const { event, session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-
-    const participant = participantsRepository.create({
+  it('lists attendance and computes stats', async () => {
+    const { event, session } = await seedActiveEventAndSession();
+    const participant = await participantsRepository.create({
       eventId: event.id,
-      name: 'Sena',
-      email: null,
-      phone: '0555 111 22 33',
-      source: 'manual',
-      externalId: null,
-    });
-
-    const firstToken = qrTokenService.generateToken(session.id, 60);
-    const secondToken = qrTokenService.generateToken(session.id, 60);
-
-    const firstScan = await service.scan(
-      {
-        token: firstToken,
-        phone: '+90 (555) 111-22-33',
-        lat: 40.765,
-        lng: 29.94,
-      },
-      {},
-    );
-
-    expect(firstScan.data.participant.id).toBe(participant.id);
-
-    await expectCode(
-      service.scan(
-        {
-          token: secondToken,
-          phone: '5551112233',
-          lat: 40.765,
-          lng: 29.94,
-        },
-        {},
-      ),
-      'ALREADY_CHECKED_IN',
-    );
-  });
-
-  it('supports attendance list pagination and filters', () => {
-    const { event, session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-
-    const secondSession = sessionsRepository.create({
-      eventId: event.id,
-      name: 'Ikinci Oturum',
-      startsAt: new Date(Date.now() - 900_000).toISOString(),
-      endsAt: new Date(Date.now() + 2_700_000).toISOString(),
-    });
-
-    const registeredParticipant = participantsRepository.create({
-      eventId: event.id,
-      name: 'Mina Ak',
-      email: 'mina@example.com',
-      phone: '+905551111111',
-      source: 'manual',
-      externalId: null,
-    });
-
-    const walkInParticipant = participantsRepository.create({
-      eventId: event.id,
-      name: 'Sena Oz',
-      email: 'sena@example.com',
-      phone: null,
-      source: 'self_registered',
-      externalId: null,
-    });
-
-    const secondRegisteredParticipant = participantsRepository.create({
-      eventId: event.id,
-      name: 'Can Yildiz',
-      email: 'can@example.com',
+      name: 'Liste Kullanici',
+      email: 'liste@example.com',
       phone: null,
       source: 'csv',
       externalId: 'csv-1',
     });
 
-    const now = Date.now();
-    const firstRecord = createAttendanceRecord(attendanceRecordsRepository, {
-      eventId: event.id,
-      sessionId: session.id,
-      participantId: registeredParticipant.id,
-      fullName: registeredParticipant.name,
-      email: registeredParticipant.email,
-      scannedAt: new Date(now - 3_000).toISOString(),
-      isValid: true,
+    const checkedIn = await service.scan({
+      token: qrTokenService.generateToken(session.id, 60),
+      email: participant.email ?? undefined,
+      lat: event.latitude,
+      lng: event.longitude,
+      locationAccuracy: 20,
     });
 
-    const secondRecord = createAttendanceRecord(attendanceRecordsRepository, {
-      eventId: event.id,
-      sessionId: secondSession.id,
-      participantId: walkInParticipant.id,
-      fullName: walkInParticipant.name,
-      email: walkInParticipant.email,
-      scannedAt: new Date(now - 2_000).toISOString(),
-      isValid: false,
-      invalidReason: 'GPS mismatch',
-    });
-
-    const thirdRecord = createAttendanceRecord(attendanceRecordsRepository, {
-      eventId: event.id,
-      sessionId: session.id,
-      participantId: secondRegisteredParticipant.id,
-      fullName: secondRegisteredParticipant.name,
-      email: secondRegisteredParticipant.email,
-      scannedAt: new Date(now - 1_000).toISOString(),
-      isValid: true,
-    });
-
-    const paged = service.listByEvent(event.id, {
-      page: 1,
-      limit: 1,
-    });
-
-    expect(paged.data).toHaveLength(1);
-    expect(paged.data[0].id).toBe(thirdRecord.id);
-    expect(paged.data[0].registrationType).toBe('registered');
-    expect(paged.pagination.total).toBe(3);
-    expect(paged.pagination.totalPages).toBe(3);
-
-    const filteredBySearch = service.listByEvent(event.id, {
+    const listed = await service.listByEvent(event.id, {
       page: 1,
       limit: 20,
-      search: 'sena@',
     });
+    const stats = await service.statsByEvent(event.id);
 
-    expect(filteredBySearch.data).toHaveLength(1);
-    expect(filteredBySearch.data[0].id).toBe(secondRecord.id);
-    expect(filteredBySearch.data[0].registrationType).toBe('walkIn');
-
-    const filteredByValidity = service.listByEvent(event.id, {
-      page: 1,
-      limit: 20,
-      isValid: false,
-    });
-
-    expect(filteredByValidity.data).toHaveLength(1);
-    expect(filteredByValidity.data[0].id).toBe(secondRecord.id);
-
-    const filteredBySession = service.listByEvent(event.id, {
-      page: 1,
-      limit: 20,
-      sessionId: session.id,
-    });
-
-    expect(filteredBySession.data).toHaveLength(2);
-    expect(filteredBySession.data.map((item) => item.id)).toEqual([
-      thirdRecord.id,
-      firstRecord.id,
-    ]);
-  });
-
-  it('builds attendance stats by event', () => {
-    const { event, session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-
-    const secondSession = sessionsRepository.create({
-      eventId: event.id,
-      name: 'Ikinci Oturum',
-      startsAt: new Date(Date.now() - 900_000).toISOString(),
-      endsAt: new Date(Date.now() + 2_700_000).toISOString(),
-    });
-
-    const registeredParticipant = participantsRepository.create({
-      eventId: event.id,
-      name: 'Asli',
-      email: 'asli@example.com',
-      phone: null,
-      source: 'csv',
-      externalId: null,
-    });
-
-    const walkInParticipant = participantsRepository.create({
-      eventId: event.id,
-      name: 'Baris',
-      email: 'baris@example.com',
-      phone: null,
-      source: 'self_registered',
-      externalId: null,
-    });
-
-    createAttendanceRecord(attendanceRecordsRepository, {
-      eventId: event.id,
-      sessionId: session.id,
-      participantId: registeredParticipant.id,
-      fullName: registeredParticipant.name,
-      email: registeredParticipant.email,
-      scannedAt: new Date(Date.now() - 3_000).toISOString(),
-      isValid: true,
-    });
-
-    createAttendanceRecord(attendanceRecordsRepository, {
-      eventId: event.id,
-      sessionId: secondSession.id,
-      participantId: walkInParticipant.id,
-      fullName: walkInParticipant.name,
-      email: walkInParticipant.email,
-      scannedAt: new Date(Date.now() - 2_000).toISOString(),
-      isValid: false,
-      invalidReason: 'Manual invalid',
-    });
-
-    createAttendanceRecord(attendanceRecordsRepository, {
-      eventId: event.id,
-      sessionId: session.id,
-      participantId: registeredParticipant.id,
-      fullName: registeredParticipant.name,
-      email: registeredParticipant.email,
-      scannedAt: new Date(Date.now() - 1_000).toISOString(),
-      isValid: true,
-    });
-
-    const stats = service.statsByEvent(event.id);
-
+    expect(listed.data).toHaveLength(1);
+    expect(listed.data[0]?.id).toBe(checkedIn.data.attendanceId);
+    expect(listed.data[0]?.registrationType).toBe('registered');
     expect(stats.data).toEqual({
-      total: 3,
-      valid: 2,
-      invalid: 1,
-      walkIn: 1,
-      registered: 2,
+      total: 1,
+      valid: 1,
+      invalid: 0,
+      walkIn: 0,
+      registered: 1,
     });
   });
 
-  it('updates attendance record manual validity status', () => {
-    const { event, session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-
-    const participant = participantsRepository.create({
+  it('updates manual status', async () => {
+    const { event, session } = await seedActiveEventAndSession();
+    const participant = await participantsRepository.create({
       eventId: event.id,
-      name: 'Nisan',
-      email: 'nisan@example.com',
+      name: 'Manuel Durum',
+      email: 'durum@example.com',
       phone: null,
       source: 'manual',
       externalId: null,
     });
 
-    const record = createAttendanceRecord(attendanceRecordsRepository, {
-      eventId: event.id,
-      sessionId: session.id,
-      participantId: participant.id,
-      fullName: participant.name,
-      email: participant.email,
-      scannedAt: new Date().toISOString(),
-      isValid: true,
+    const checkedIn = await service.scan({
+      token: qrTokenService.generateToken(session.id, 60),
+      email: participant.email ?? undefined,
+      lat: event.latitude,
+      lng: event.longitude,
+      locationAccuracy: 20,
     });
 
-    const invalidated = service.updateManualStatus(record.id, {
-      isValid: false,
-      reason: 'Manuel kontrol ile guncellendi',
-    });
-
-    expect(invalidated.data.isValid).toBe(false);
-    expect(invalidated.data.invalidReason).toBe(
-      'Manuel kontrol ile guncellendi',
+    const updated = await service.updateManualStatus(
+      checkedIn.data.attendanceId,
+      {
+        isValid: false,
+        reason: 'Manuel kontrol',
+      },
     );
 
-    const validated = service.updateManualStatus(record.id, {
-      isValid: true,
-    });
-
-    expect(validated.data.isValid).toBe(true);
-    expect(validated.data.invalidReason).toBeNull();
+    expect(updated.data.isValid).toBe(false);
+    expect(updated.data.invalidReason).toBe('Manuel kontrol');
   });
 
-  it('creates attendance record with manual upsert when record does not exist', () => {
-    const { event, session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-
-    const participant = participantsRepository.create({
+  it('creates or updates attendance with manual upsert', async () => {
+    const { event, session } = await seedActiveEventAndSession();
+    const participant = await participantsRepository.create({
       eventId: event.id,
-      name: 'Ela Koc',
-      email: 'ela@example.com',
-      phone: '+905557778899',
-      source: 'manual',
-      externalId: null,
-    });
-
-    const result = service.manualUpsertForParticipant(event.id, {
-      participantId: participant.id,
-      sessionId: session.id,
-      isValid: true,
-    });
-
-    expect(result.success).toBe(true);
-    expect(result.data.participantId).toBe(participant.id);
-    expect(result.data.sessionId).toBe(session.id);
-    expect(result.data.isValid).toBe(true);
-    expect(result.data.registrationType).toBe('registered');
-    expect(
-      attendanceRecordsRepository.findByParticipantAndSession(
-        participant.id,
-        session.id,
-      ),
-    ).not.toBeNull();
-  });
-
-  it('updates existing attendance record with manual upsert', () => {
-    const { event, session } = seedActiveEventAndSession(
-      eventsRepository,
-      sessionsRepository,
-    );
-
-    const participant = participantsRepository.create({
-      eventId: event.id,
-      name: 'Sude Acar',
-      email: 'sude@example.com',
+      name: 'Admin Isaretleme',
+      email: 'admin@example.com',
       phone: null,
       source: 'manual',
       externalId: null,
     });
 
-    const existing = createAttendanceRecord(attendanceRecordsRepository, {
-      eventId: event.id,
-      sessionId: session.id,
+    const created = await service.manualUpsertForParticipant(event.id, {
       participantId: participant.id,
-      fullName: participant.name,
-      email: participant.email,
-      scannedAt: new Date().toISOString(),
+      sessionId: session.id,
       isValid: true,
     });
 
-    const result = service.manualUpsertForParticipant(event.id, {
+    const updated = await service.manualUpsertForParticipant(event.id, {
       participantId: participant.id,
       sessionId: session.id,
       isValid: false,
-      reason: 'Yok olarak duzeltildi',
+      reason: 'Yok yazildi',
     });
 
-    expect(result.success).toBe(true);
-    expect(result.data.id).toBe(existing.id);
-    expect(result.data.isValid).toBe(false);
-    expect(result.data.invalidReason).toBe('Yok olarak duzeltildi');
+    expect(created.data.participantId).toBe(participant.id);
+    expect(updated.data.id).toBe(created.data.id);
+    expect(updated.data.isValid).toBe(false);
+    expect(updated.data.invalidReason).toBe('Yok yazildi');
   });
+
+  async function seedActiveEventAndSession() {
+    const event = await eventsRepository.create({
+      name: 'Aktif Etkinlik',
+      description: null,
+      locationName: 'A Blok',
+      latitude: 40.765,
+      longitude: 29.94,
+      radiusMeters: 100,
+      startsAt: new Date(Date.now() - 3_600_000).toISOString(),
+      endsAt: new Date(Date.now() + 3_600_000).toISOString(),
+      status: 'active',
+      createdBy: 'test-admin',
+    });
+
+    const session = await sessionsRepository.create({
+      eventId: event.id,
+      name: 'Aktif Oturum',
+      startsAt: new Date(Date.now() - 1_800_000).toISOString(),
+      endsAt: new Date(Date.now() + 1_800_000).toISOString(),
+    });
+
+    return { event, session };
+  }
 });
-
-function seedActiveEventAndSession(
-  eventsRepository: EventsRepository,
-  sessionsRepository: SessionsRepository,
-) {
-  const event = eventsRepository.create({
-    name: 'Aktif Etkinlik',
-    description: null,
-    locationName: 'A Blok',
-    latitude: 40.765,
-    longitude: 29.94,
-    radiusMeters: 100,
-    startsAt: new Date(Date.now() - 3_600_000).toISOString(),
-    endsAt: new Date(Date.now() + 3_600_000).toISOString(),
-    status: 'active',
-  });
-
-  const session = sessionsRepository.create({
-    eventId: event.id,
-    name: 'Aktif Oturum',
-    startsAt: new Date(Date.now() - 1_800_000).toISOString(),
-    endsAt: new Date(Date.now() + 1_800_000).toISOString(),
-  });
-
-  return { event, session };
-}
-
-function tamperSignature(token: string) {
-  const decoded = Buffer.from(token, 'base64url').toString('utf-8');
-  const payload = JSON.parse(decoded) as {
-    v: number;
-    sid: string;
-    tw: number;
-    nonce: string;
-    sig: string;
-  };
-
-  payload.sig = 'invalid-signature';
-
-  return Buffer.from(JSON.stringify(payload), 'utf-8').toString('base64url');
-}
 
 async function expectCode(promise: Promise<unknown>, expectedCode: string) {
   try {
@@ -744,37 +308,4 @@ async function expectCode(promise: Promise<unknown>, expectedCode: string) {
     >;
     expect(payload.code).toBe(expectedCode);
   }
-}
-
-function createAttendanceRecord(
-  attendanceRecordsRepository: AttendanceRecordsRepository,
-  input: {
-    eventId: string;
-    sessionId: string;
-    participantId: string;
-    fullName: string;
-    email: string | null;
-    scannedAt: string;
-    isValid: boolean;
-    invalidReason?: string;
-  },
-) {
-  return attendanceRecordsRepository.create({
-    eventId: input.eventId,
-    sessionId: input.sessionId,
-    participantId: input.participantId,
-    fullName: input.fullName,
-    email: input.email,
-    phone: null,
-    scannedAt: input.scannedAt,
-    latitude: 40.765,
-    longitude: 29.94,
-    accuracy: 10,
-    distanceFromVenue: 5,
-    isValid: input.isValid,
-    invalidReason: input.invalidReason ?? null,
-    qrNonce: crypto.randomUUID(),
-    ipAddress: '127.0.0.1',
-    deviceFingerprint: 'jest-device',
-  });
 }

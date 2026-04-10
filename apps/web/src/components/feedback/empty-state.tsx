@@ -9,39 +9,28 @@ type EmptyStateProps = {
   onCtaClick?: () => void;
 };
 
-export function EmptyState({
-  iconLabel,
-  title,
-  message,
-  ctaLabel,
-  ctaHref,
-  onCtaClick,
-}: EmptyStateProps) {
+export function EmptyState({ iconLabel, title, message, ctaLabel, ctaHref, onCtaClick }: EmptyStateProps) {
   return (
-    <article className="kp-card p-6 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600">
+    <article className="glass animate-scale-in rounded-2xl p-10 text-center">
+      <div
+        className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-2xl"
+        style={{ background: "var(--surface-soft)" }}
+      >
         {iconLabel}
       </div>
-      <h4 className="mt-3 text-base font-bold text-zinc-900" data-display="true">
+      <h4 className="mt-4 text-lg font-bold" style={{ color: "var(--text-primary)" }} data-display="true">
         {title}
       </h4>
-      <p className="mt-1 text-sm text-zinc-600">{message}</p>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{message}</p>
 
       {ctaLabel ? (
-        <div className="mt-4 flex justify-center">
+        <div className="mt-5">
           {ctaHref ? (
-            <Link
-              href={ctaHref}
-              className="kp-btn-primary px-4 py-2 text-sm font-semibold"
-            >
+            <Link href={ctaHref} className="btn-primary px-6 py-2.5 text-sm">
               {ctaLabel}
             </Link>
           ) : (
-            <button
-              type="button"
-              onClick={onCtaClick}
-              className="kp-btn-primary px-4 py-2 text-sm font-semibold"
-            >
+            <button type="button" onClick={onCtaClick} className="btn-primary px-6 py-2.5 text-sm">
               {ctaLabel}
             </button>
           )}

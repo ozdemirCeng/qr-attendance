@@ -15,6 +15,7 @@ const envSchema = z.object({
     .default('development'),
   API_PORT: z.coerce.number().default(3001),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  DATABASE_URL: z.string().url(),
   REDIS_URL: optionalUrl,
   QR_SECRET: z.string().min(16),
   QR_ROTATION_SECONDS: z.coerce.number().int().min(15).max(300).default(60),

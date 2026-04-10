@@ -7,18 +7,14 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-import { admins } from "./admins";
-
 export const auditLogs = pgTable(
   "audit_logs",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    adminId: uuid("admin_id").references(() => admins.id, {
-      onDelete: "set null",
-    }),
+    adminId: varchar("admin_id", { length: 255 }),
     action: varchar("action", { length: 120 }).notNull(),
     entityType: varchar("entity_type", { length: 120 }).notNull(),
-    entityId: uuid("entity_id"),
+    entityId: varchar("entity_id", { length: 255 }),
     metadataJson: jsonb("metadata_json"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

@@ -66,6 +66,8 @@ export class ApiError extends Error {
   }
 }
 
+export const WEB_API_PROXY_PREFIX = "/api/backend";
+
 export function resolveApiErrorCode(statusCode: number, code?: string): string {
   if (typeof code === "string" && code.trim()) {
     return code;
@@ -85,7 +87,9 @@ export function resolveApiErrorMessage(input: {
       : undefined;
 
   if (normalizedCode && errorMessageMap[normalizedCode as ApiErrorCode]) {
-    return errorMessageMap[normalizedCode as ApiErrorCode] ?? "Istek basarisiz oldu.";
+    return (
+      errorMessageMap[normalizedCode as ApiErrorCode] ?? "Istek basarisiz oldu."
+    );
   }
 
   if (input.statusCode === 0) {
@@ -97,7 +101,9 @@ export function resolveApiErrorMessage(input: {
   }
 
   const fallbackCode =
-    input.statusCode !== undefined ? statusCodeToFallbackCode[input.statusCode] : undefined;
+    input.statusCode !== undefined
+      ? statusCodeToFallbackCode[input.statusCode]
+      : undefined;
 
   if (fallbackCode && errorMessageMap[fallbackCode]) {
     return errorMessageMap[fallbackCode] ?? "Istek basarisiz oldu.";
@@ -106,20 +112,19 @@ export function resolveApiErrorMessage(input: {
   return "Istek basarisiz oldu.";
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_API_URL is required");
-  }
-
+export async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   let response: Response;
 
   try {
-    response = await fetch(`${baseUrl}${path}`, {
+    response = await fetch(`${WEB_API_PROXY_PREFIX}${path}`, {
       ...init,
       headers: {
-        "Content-Type": "application/json",
+        ...(init?.body instanceof FormData
+          ? {}
+          : { "Content-Type": "application/json" }),
         ...(init?.headers ?? {}),
       },
       credentials: "include",
@@ -134,7 +139,9 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as ApiErrorPayload;
+    const payload = (await response
+      .json()
+      .catch(() => ({}))) as ApiErrorPayload;
     const code = resolveApiErrorCode(response.status, payload.code);
     const message = resolveApiErrorMessage({
       code,

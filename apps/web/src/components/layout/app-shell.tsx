@@ -4,21 +4,73 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { PropsWithChildren, useState } from "react";
 
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/providers/auth-provider";
 
 const navigationItems = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/dashboard/audit", label: "Audit" },
-  { href: "/events/new", label: "Yeni Etkinlik" },
-  { href: "/scan", label: "Scan" },
+  {
+    href: "/dashboard",
+    label: "Panel",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/audit",
+    label: "Denetim",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    href: "/events/new",
+    label: "Oluştur",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    href: "/scan",
+    label: "Tara",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+        <circle cx="12" cy="13" r="4" />
+      </svg>
+    ),
+  },
 ] as const;
+
+function resolvePageTitle(pathname: string) {
+  if (pathname.startsWith("/dashboard/audit")) return "Denetim Kayıtları";
+  if (pathname.startsWith("/events/new")) return "Yeni Etkinlik";
+  if (pathname.startsWith("/events/")) return "Etkinlik Detayı";
+  if (pathname.startsWith("/scan")) return "QR Tarayıcı";
+  return "Kontrol Paneli";
+}
+
+function getInitials(name: string | undefined) {
+  if (!name) return "AU";
+  const parts = name.split(" ").map((p) => p.trim()).filter(Boolean).slice(0, 2);
+  if (parts.length === 0) return "AU";
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("");
+}
 
 export function AppShell({ children }: PropsWithChildren) {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const pageTitle = resolvePageTitle(pathname);
+  const initials = getInitials(user?.name);
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -28,117 +80,107 @@ export function AppShell({ children }: PropsWithChildren) {
       router.refresh();
     } finally {
       setIsSigningOut(false);
-      setIsMobileMenuOpen(false);
     }
   }
 
   return (
-    <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-6xl space-y-6">
-        <header className="kp-card p-6">
-          <div className="flex items-center justify-between gap-3 md:hidden">
-            <h1 className="text-xl font-extrabold tracking-tight" data-display="true">
-              QR Yoklama Paneli
-            </h1>
-            <button
-              type="button"
-              onClick={() => {
-                setIsMobileMenuOpen((current) => !current);
-              }}
-              className="kp-btn-secondary min-h-11 px-4 text-sm font-semibold"
-              aria-label="Menuyu ac veya kapat"
-            >
-              {isMobileMenuOpen ? "Kapat" : "Menu"}
-            </button>
-          </div>
-
-          <div className="mt-3 hidden items-start justify-between gap-4 md:flex md:flex-wrap md:items-center">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-600">
-                Management Console
-              </p>
-              <h1 className="mt-2 text-3xl font-extrabold tracking-tight" data-display="true">
-                QR Yoklama Paneli
-              </h1>
-              <p className="mt-1 text-sm text-zinc-600">
-                Hos geldin{user?.name ? `, ${user.name}` : ""}. Etkinliklerini buradan
-                yonetebilirsin.
-              </p>
+    <div className="min-h-screen">
+      {/* ─── Glassmorphic Header ─── */}
+      <header className="glass-nav fixed inset-x-0 top-0 z-50 h-16">
+        <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between px-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "linear-gradient(135deg, var(--primary-gradient-from), var(--primary-gradient-to))" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                void handleSignOut();
-              }}
-              disabled={isSigningOut}
-              className="kp-btn-secondary px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSigningOut ? "Cikis yapiliyor..." : "Cikis"}
-            </button>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--primary)" }}>
+                QR Yoklama
+              </p>
+              <h1 className="text-sm font-bold" style={{ color: "var(--text-primary)" }} data-display="true">
+                {pageTitle}
+              </h1>
+            </div>
           </div>
 
-          <nav className="mt-6 hidden flex-wrap gap-2 md:flex">
+          {/* Desktop Nav */}
+          <nav className="hidden items-center gap-1 md:flex">
             {navigationItems.map((item) => {
-              const isActive = pathname === item.href;
-
+              const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`min-h-11 rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                    isActive
-                      ? "bg-zinc-900 text-white shadow-[0_16px_24px_-18px_rgba(0,88,190,0.5)]"
-                      : "kp-btn-secondary"
-                  }`}
+                  className="relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all"
+                  style={{
+                    color: isActive ? "var(--primary)" : "var(--text-secondary)",
+                    background: isActive ? "var(--surface-hover)" : "transparent",
+                  }}
                 >
+                  {item.icon}
                   {item.label}
                 </Link>
               );
             })}
           </nav>
 
-          {isMobileMenuOpen ? (
-            <div className="kp-soft-panel mt-4 rounded-2xl p-3 md:hidden">
-              <p className="text-xs text-zinc-500">
-                Hos geldin{user?.name ? `, ${user.name}` : ""}
-              </p>
-              <nav className="mt-3 grid gap-2">
-                {navigationItems.map((item) => {
-                  const isActive = pathname === item.href;
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => {
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={`min-h-11 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                        isActive
-                          ? "bg-zinc-900 text-white"
-                          : "kp-btn-secondary"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleSignOut();
-                  }}
-                  disabled={isSigningOut}
-                  className="kp-btn-secondary min-h-11 px-4 py-3 text-left text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSigningOut ? "Cikis yapiliyor..." : "Cikis"}
-                </button>
-              </nav>
+            <div className="hidden items-center gap-2 md:flex">
+              <button
+                type="button"
+                onClick={() => { void handleSignOut(); }}
+                disabled={isSigningOut}
+                className="btn-ghost text-xs"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {isSigningOut ? "Çıkış..." : "Çıkış"}
+              </button>
             </div>
-          ) : null}
-        </header>
+
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold"
+              style={{
+                background: "linear-gradient(135deg, var(--primary-gradient-from), var(--primary-gradient-to))",
+                color: "white",
+                boxShadow: "var(--shadow-glow)",
+              }}
+            >
+              {initials}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* ─── Main Content ─── */}
+      <main className="mx-auto w-full max-w-7xl px-5 pb-28 pt-24">
         {children}
-      </div>
-    </main>
+      </main>
+
+      {/* ─── Mobile Bottom Nav (iOS-style) ─── */}
+      <nav
+        className="glass-elevated fixed inset-x-0 bottom-0 z-50 flex items-center justify-around rounded-t-3xl px-2 pb-7 pt-2 md:hidden"
+      >
+        {navigationItems.map((item) => {
+          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex flex-col items-center gap-1 rounded-2xl px-4 py-2 transition-all"
+              style={{
+                color: isActive ? "var(--primary)" : "var(--text-tertiary)",
+              }}
+            >
+              {item.icon}
+              <span className="text-[10px] font-semibold">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
   );
 }

@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ScanLandingPage() {
   const router = useRouter();
@@ -11,139 +14,102 @@ export default function ScanLandingPage() {
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
 
   async function requestPermissions() {
-    if (!window.isSecureContext) {
-      setErrorMessage("Kamera ve konum izinleri icin HTTPS veya localhost gerekir.");
-      return false;
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setErrorMessage("Bu tarayici kamera erisimini desteklemiyor.");
-      return false;
-    }
-
+    if (!window.isSecureContext) { setErrorMessage("Kamera ve konum izinleri için HTTPS veya localhost gerekir."); return false; }
+    if (!navigator.mediaDevices?.getUserMedia) { setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor."); return false; }
     setIsRequestingPermissions(true);
     setErrorMessage(null);
     setPermissionMessage(null);
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false,
-      });
-
-      for (const track of stream.getTracks()) {
-        track.stop();
-      }
-
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      for (const track of stream.getTracks()) { track.stop(); }
       const locationGranted = await new Promise<boolean>((resolve) => {
-        if (!navigator.geolocation) {
-          resolve(false);
-          return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-          () => {
-            resolve(true);
-          },
-          () => {
-            resolve(false);
-          },
-          {
-            timeout: 10_000,
-            maximumAge: 30_000,
-            enableHighAccuracy: true,
-          },
-        );
+        if (!navigator.geolocation) { resolve(false); return; }
+        navigator.geolocation.getCurrentPosition(() => { resolve(true); }, () => { resolve(false); }, { timeout: 10_000, maximumAge: 30_000, enableHighAccuracy: true });
       });
-
-      if (locationGranted) {
-        setPermissionMessage("Kamera ve konum izinleri hazir.");
-      } else {
-        setPermissionMessage("Kamera izni alindi, konum izni verilmedi veya alinamadi.");
-      }
-
+      if (locationGranted) { setPermissionMessage("Kamera ve konum izinleri hazır."); } else { setPermissionMessage("Kamera izni alındı, konum izni verilmedi veya alınamadı."); }
       return true;
-    } catch {
-      setErrorMessage("Kamera izni verilmedi. Tarayicidan izin verip tekrar deneyin.");
-      return false;
-    } finally {
-      setIsRequestingPermissions(false);
-    }
+    } catch { setErrorMessage("Kamera izni verilmedi. Tarayıcıdan izin verip tekrar deneyin."); return false; } finally { setIsRequestingPermissions(false); }
   }
 
   async function onStart() {
     const normalizedEventId = eventId.trim();
-
-    if (!normalizedEventId) {
-      setErrorMessage("Devam etmek icin bir etkinlik ID girin.");
-      return;
-    }
-
+    if (!normalizedEventId) { setErrorMessage("Devam etmek için bir etkinlik ID girin."); return; }
     const hasPermissions = await requestPermissions();
-    if (!hasPermissions) {
-      return;
-    }
-
+    if (!hasPermissions) { return; }
     router.push(`/check-in/${normalizedEventId}`);
   }
 
   return (
-    <main className="min-h-screen px-4 py-10 text-zinc-900 sm:px-6">
-      <section className="kp-card mx-auto max-w-2xl rounded-3xl p-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-600">
-          Public Scanner
-        </p>
-        <h1 className="mt-2 text-4xl font-extrabold tracking-tight" data-display="true">
-          QR Tara
-        </h1>
-        <p className="mt-3 text-sm text-zinc-600">
-          Kamera ve konum izinlerini vererek hizli check-in islemini baslatabilirsin.
-        </p>
+    <main className="flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="absolute right-5 top-5"><ThemeToggle /></div>
 
-        <div className="kp-soft-panel mt-6 space-y-3 rounded-2xl p-4 text-sm text-zinc-700">
-          <p>Kamera izni: QR kodu okumak icin zorunludur.</p>
-          <p>Konum izni: Etkinlik alaninda oldugunun dogrulanmasi icin kullanilir.</p>
-        </div>
+      <section className="mx-auto w-full max-w-lg">
+        <article className="glass-elevated animate-slide-up rounded-3xl p-8">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "linear-gradient(135deg, var(--primary-gradient-from), var(--primary-gradient-to))", boxShadow: "var(--shadow-glow)" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }} data-display="true">QR Yoklama</h1>
+            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+              QR kodunu tarayarak etkinliğe giriş yap
+            </p>
+          </div>
 
-        <div className="mt-6 space-y-2">
-          <label htmlFor="eventId" className="text-sm font-medium text-zinc-700">
-            Etkinlik ID
-          </label>
-          <input
-            id="eventId"
-            value={eventId}
-            onChange={(event) => {
-              setEventId(event.target.value);
-            }}
-            placeholder="ornek: 0fd1f8c0-..."
-            className="kp-input w-full px-3 py-2 text-sm"
-          />
-          {errorMessage ? <p className="text-xs text-rose-600">{errorMessage}</p> : null}
-          {permissionMessage ? <p className="text-xs text-emerald-700">{permissionMessage}</p> : null}
-        </div>
+          {/* Event ID Input */}
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="scanEventId" className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
+                Etkinlik Kodu
+              </label>
+              <input
+                id="scanEventId"
+                type="text"
+                value={eventId}
+                onChange={(e) => { setEventId(e.target.value); setErrorMessage(null); }}
+                placeholder="Etkinlik ID'sini girin"
+                className="glass-input w-full py-3 text-base"
+                onKeyDown={(e) => { if (e.key === "Enter") { void onStart(); } }}
+              />
+            </div>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              void requestPermissions();
-            }}
-            disabled={isRequestingPermissions}
-            className="kp-btn-secondary px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
-          >
-            {isRequestingPermissions ? "Izinler kontrol ediliyor..." : "Izinleri Simdi Iste"}
-          </button>
+            {errorMessage ? <p className="text-sm" style={{ color: "var(--error)" }}>{errorMessage}</p> : null}
+            {permissionMessage ? <p className="text-sm" style={{ color: "var(--success)" }}>{permissionMessage}</p> : null}
 
-          <button
-            type="button"
-            onClick={() => {
-              void onStart();
-            }}
-            disabled={isRequestingPermissions}
-            className="kp-btn-primary px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
-          >
-            Taramaya Basla
-          </button>
+            <button
+              type="button"
+              onClick={() => { void onStart(); }}
+              disabled={isRequestingPermissions}
+              className="btn-primary w-full py-3 text-base"
+            >
+              {isRequestingPermissions ? "İzinler kontrol ediliyor..." : "Taramayı Başlat"}
+            </button>
+          </div>
+
+          <div className="mt-6 space-y-2 text-center">
+            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              Etkinlik ID, yönetici tarafından paylaşılır veya QR kodunun içinde bulunur.
+            </p>
+          </div>
+        </article>
+
+        {/* Info Cards */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="glass rounded-2xl p-4">
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>📲 QR Tara</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
+              Kamera ile QR kodu okutun, kimliğinizi doğrulayın.
+            </p>
+          </div>
+          <div className="glass rounded-2xl p-4">
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>📋 Ön Kayıt</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
+              Etkinlik ID ile{" "}
+              <Link href={eventId.trim() ? `/register/${eventId.trim()}` : "#"} className="font-semibold" style={{ color: "var(--primary)" }}>önceden kayıt olun</Link>.
+            </p>
+          </div>
         </div>
       </section>
     </main>

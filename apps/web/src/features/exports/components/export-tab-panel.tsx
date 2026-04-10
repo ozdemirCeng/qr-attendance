@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { ApiError } from "@/lib/api";
@@ -17,21 +17,31 @@ type ExportTabPanelProps = {
 };
 
 const statusLabel: Record<AttendanceExportStatus, string> = {
-  pending: "Hazirlaniyor...",
-  processing: "Isleniyor...",
-  ready: "Hazir",
-  failed: "Basarisiz",
+  pending: "Hazırlanıyor...",
+  processing: "İşleniyor...",
+  ready: "Hazır",
+  failed: "Başarısız",
 };
 
-const statusToneClass: Record<AttendanceExportStatus, string> = {
-  pending: "text-amber-700",
-  processing: "text-indigo-700",
-  ready: "text-emerald-700",
-  failed: "text-rose-700",
-};
+function resolveStatusColor(status: AttendanceExportStatus) {
+  if (status === "ready") return "var(--success)";
+  if (status === "failed") return "var(--error)";
+  if (status === "processing") return "var(--primary)";
+  return "var(--warning)";
+}
 
 export function ExportTabPanel({ eventId, onToast }: ExportTabPanelProps) {
-  const [activeExportId, setActiveExportId] = useState<string | null>(null);
+  const storageKey = `attendance-export:${eventId}`;
+  const [activeExportId, setActiveExportId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.sessionStorage.getItem(storageKey);
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!activeExportId) { window.sessionStorage.removeItem(storageKey); return; }
+    window.sessionStorage.setItem(storageKey, activeExportId);
+  }, [activeExportId, storageKey]);
 
   const requestExportMutation = useMutation({
     mutationFn: () => requestAttendanceExport(eventId),
@@ -40,12 +50,8 @@ export function ExportTabPanel({ eventId, onToast }: ExportTabPanelProps) {
       onToast({ tone: "success", message: result.data.message });
     },
     onError: (error) => {
-      if (error instanceof ApiError) {
-        onToast({ tone: "error", message: error.message });
-        return;
-      }
-
-      onToast({ tone: "error", message: "Export islemi baslatilamadi." });
+      if (error instanceof ApiError) { onToast({ tone: "error", message: error.message }); return; }
+      onToast({ tone: "error", message: "Dışa aktarma işlemi başlatılamadı." });
     },
   });
 
@@ -54,94 +60,52 @@ export function ExportTabPanel({ eventId, onToast }: ExportTabPanelProps) {
     queryFn: () => getAttendanceExportStatus(activeExportId ?? ""),
     enabled: Boolean(activeExportId),
     refetchInterval: (query) => {
-      const data = query.state.data as
-        | {
-            data?: {
-              status?: AttendanceExportStatus;
-            };
-          }
-        | undefined;
+      const data = query.state.data as { data?: { status?: AttendanceExportStatus } } | undefined;
       const status = data?.data?.status;
-
-      if (!status || status === "pending" || status === "processing") {
-        return 3_000;
-      }
-
+      if (!status || status === "pending" || status === "processing") return 3_000;
       return false;
     },
   });
 
   const statusData = exportStatusQuery.data?.data;
-  const showInlineSpinner =
-    exportStatusQuery.isFetching ||
-    statusData?.status === "pending" ||
-    statusData?.status === "processing";
+  const showInlineSpinner = exportStatusQuery.isFetching || statusData?.status === "pending" || statusData?.status === "processing";
 
   const progress = useMemo(() => {
-    if (!statusData) {
-      return 0;
-    }
-
-    if (typeof statusData.progress === "number") {
-      return Math.min(100, Math.max(0, Math.round(statusData.progress)));
-    }
-
-    if (statusData.status === "ready") {
-      return 100;
-    }
-
-    if (statusData.status === "processing") {
-      return 60;
-    }
-
-    if (statusData.status === "pending") {
-      return 20;
-    }
-
+    if (!statusData) return 0;
+    if (typeof statusData.progress === "number") return Math.min(100, Math.max(0, Math.round(statusData.progress)));
+    if (statusData.status === "ready") return 100;
+    if (statusData.status === "processing") return 60;
+    if (statusData.status === "pending") return 20;
     return 0;
   }, [statusData]);
 
   const downloadHref = useMemo(() => {
-    if (!statusData?.downloadUrl) {
-      return null;
-    }
-
-    try {
-      return resolveAttendanceExportDownloadUrl(statusData.downloadUrl);
-    } catch {
-      return null;
-    }
+    if (!statusData?.downloadUrl) return null;
+    try { return resolveAttendanceExportDownloadUrl(statusData.downloadUrl); } catch { return null; }
   }, [statusData]);
 
   return (
-    <section className="space-y-4">
-      <article className="rounded-2xl bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-zinc-900">Excel Export</h3>
-        <p className="mt-1 text-sm text-zinc-600">
-          Katilim kayitlarini Excel dosyasi olarak hazirlayip indirebilirsin.
+    <section className="space-y-6">
+      <article className="glass rounded-2xl p-6">
+        <h3 className="text-xl font-extrabold" style={{ color: "var(--text-primary)" }} data-display="true">
+          Excel Dışa Aktarma
+        </h3>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Katılım kayıtlarını Excel dosyası olarak hazırlayıp indirebilirsin.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"
             disabled={requestExportMutation.isPending}
-            onClick={() => {
-              requestExportMutation.reset();
-              void requestExportMutation.mutateAsync();
-            }}
-            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+            onClick={() => { requestExportMutation.reset(); void requestExportMutation.mutateAsync(); }}
+            className="btn-primary text-sm"
           >
-            {requestExportMutation.isPending ? "Hazirlaniyor..." : "Export Baslat"}
+            {requestExportMutation.isPending ? "Hazırlanıyor..." : "Dışa Aktarmayı Başlat"}
           </button>
 
           {activeExportId ? (
-            <button
-              type="button"
-              onClick={() => {
-                void exportStatusQuery.refetch();
-              }}
-              className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-            >
+            <button type="button" onClick={() => { void exportStatusQuery.refetch(); }} className="btn-secondary text-sm">
               Durumu Yenile
             </button>
           ) : null}
@@ -149,59 +113,56 @@ export function ExportTabPanel({ eventId, onToast }: ExportTabPanelProps) {
       </article>
 
       {activeExportId ? (
-        <article className="rounded-2xl bg-white p-6 shadow-sm">
+        <article className="glass rounded-2xl p-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-zinc-600">Export ID: {activeExportId}</p>
+            <p className="font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>İşlem ID: {activeExportId}</p>
             <div className="inline-flex items-center gap-2">
               {showInlineSpinner ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: "var(--border-strong)", borderTopColor: "var(--primary)" }} />
               ) : null}
-              <p className={`text-sm font-semibold ${statusToneClass[statusData?.status ?? "pending"]}`}>
+              <p className="text-sm font-semibold" style={{ color: resolveStatusColor(statusData?.status ?? "pending") }}>
                 {statusLabel[statusData?.status ?? "pending"]}
               </p>
             </div>
           </div>
 
-          <div className="mt-4 h-2 w-full rounded-full bg-zinc-200">
+          <div className="mt-4 h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--surface-soft)" }}>
             <div
-              className="h-full rounded-full bg-zinc-900 transition-all"
-              style={{ width: `${progress}%` }}
+              className="h-full rounded-full transition-all"
+              style={{ width: `${progress}%`, background: "linear-gradient(90deg, var(--primary-gradient-from), var(--primary-gradient-to))" }}
             />
           </div>
-          <p className="mt-2 text-xs text-zinc-600">Ilerleme: %{progress}</p>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-tertiary)" }}>İlerleme: %{progress}</p>
 
           {exportStatusQuery.isPending ? (
-            <p className="mt-4 text-sm text-zinc-600">Export durumu kontrol ediliyor...</p>
+            <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>Dışa aktarma durumu kontrol ediliyor...</p>
           ) : null}
 
           {exportStatusQuery.isError ? (
-            <p className="mt-4 text-sm text-rose-700">Export durumu alinamadi.</p>
+            <p className="mt-4 text-sm" style={{ color: "var(--error)" }}>Dışa aktarma durumu alınamadı.</p>
           ) : null}
 
           {statusData?.status === "failed" ? (
-            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-              {statusData.errorMessage ?? "Export basarisiz, tekrar dene"}
+            <div className="mt-4 rounded-xl p-4 text-sm" style={{ background: "var(--error-soft)", color: "var(--error)" }}>
+              {statusData.errorMessage ?? "Dışa aktarma başarısız, tekrar deneyin"}
             </div>
           ) : null}
 
           {statusData?.status === "ready" ? (
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {downloadHref ? (
-                <a
-                  href={downloadHref}
-                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
-                >
-                  Indir
+                <a href={downloadHref} className="btn-primary text-sm" style={{ background: "var(--success)" }}>
+                  📥 İndir
                 </a>
               ) : (
-                <p className="text-sm text-rose-700">Indirme linki olusturulamadi.</p>
+                <p className="text-sm" style={{ color: "var(--error)" }}>İndirme linki oluşturulamadı.</p>
               )}
             </div>
           ) : null}
         </article>
       ) : (
-        <article className="rounded-2xl bg-white p-6 text-sm text-zinc-600 shadow-sm">
-          Export baslatildiginda durum bu alanda her 3 saniyede bir guncellenecektir.
+        <article className="glass rounded-2xl p-6 text-sm" style={{ color: "var(--text-tertiary)" }}>
+          Dışa aktarma başlatıldığında durum bu alanda her 3 saniyede bir güncellenecektir.
         </article>
       )}
     </section>

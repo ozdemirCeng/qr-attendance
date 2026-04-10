@@ -5,4 +5,5 @@ export type SessionEntity = {
   startsAt: string;
   endsAt: string;
   createdAt: string;
+  deletedAt: string | null;
 };

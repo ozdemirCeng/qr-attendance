@@ -27,57 +27,40 @@ export default function AuditPage() {
 
   return (
     <AppShell>
-      <section className="space-y-4">
+      <section className="space-y-6 animate-fade-in">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-semibold text-zinc-900">Audit Log</h2>
-            <p className="text-sm text-zinc-600">Son 100 islem kaydini listeler.</p>
+            <h2 className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }} data-display="true">
+              Denetim Kayıtları
+            </h2>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Son 100 işlem kaydını listeler.</p>
           </div>
-          <Link
-            href="/dashboard"
-            className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-          >
-            Dashboarda Don
+          <Link href="/dashboard" className="btn-secondary text-sm">
+            ← Panele Dön
           </Link>
         </div>
 
-        <article className="rounded-2xl bg-white p-6 shadow-sm">
+        <article className="glass rounded-2xl p-6">
           {auditQuery.isPending ? (
-            <div className="overflow-x-auto rounded-xl border border-zinc-200">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
-                  <tr>
-                    <th className="px-3 py-2">Tarih</th>
-                    <th className="px-3 py-2">Aksiyon</th>
-                    <th className="px-3 py-2">Varlik</th>
-                    <th className="px-3 py-2">Varlik ID</th>
-                    <th className="px-3 py-2">Admin ID</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <tr key={index} className="border-t border-zinc-100">
-                      <td className="px-3 py-2"><div className="h-4 w-32 animate-pulse rounded bg-zinc-200" /></td>
-                      <td className="px-3 py-2"><div className="h-4 w-24 animate-pulse rounded bg-zinc-200" /></td>
-                      <td className="px-3 py-2"><div className="h-4 w-20 animate-pulse rounded bg-zinc-200" /></td>
-                      <td className="px-3 py-2"><div className="h-4 w-28 animate-pulse rounded bg-zinc-200" /></td>
-                      <td className="px-3 py-2"><div className="h-4 w-28 animate-pulse rounded bg-zinc-200" /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="skeleton h-4 w-32" />
+                  <div className="skeleton h-4 w-24" />
+                  <div className="skeleton h-4 w-20" />
+                  <div className="skeleton h-4 w-28" />
+                </div>
+              ))}
             </div>
           ) : null}
 
           {auditQuery.isError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-              Audit kayitlari yuklenemedi.
+            <div className="rounded-xl p-4 text-sm" style={{ background: "var(--error-soft)", color: "var(--error)" }}>
+              Denetim kayıtları yüklenemedi.
               <button
                 type="button"
-                onClick={() => {
-                  void auditQuery.refetch();
-                }}
-                className="ml-3 rounded-lg border border-rose-300 px-3 py-1 font-semibold"
+                onClick={() => { void auditQuery.refetch(); }}
+                className="btn-ghost ml-3 text-xs"
               >
                 Tekrar Dene
               </button>
@@ -86,32 +69,32 @@ export default function AuditPage() {
 
           {!auditQuery.isPending && !auditQuery.isError && auditQuery.data.data.length === 0 ? (
             <EmptyState
-              iconLabel="AL"
-              title="Henuz audit kaydi yok"
-              message="Islemler gerceklestikce bu listede gorunecek."
+              iconLabel="📋"
+              title="Henüz denetim kaydı yok"
+              message="İşlemler gerçekleştikçe bu listede görünecek."
             />
           ) : null}
 
           {!auditQuery.isPending && !auditQuery.isError && auditQuery.data.data.length > 0 ? (
-            <div className="overflow-x-auto rounded-xl border border-zinc-200">
+            <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid var(--border)" }}>
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+                <thead>
                   <tr>
-                    <th className="px-3 py-2">Tarih</th>
-                    <th className="px-3 py-2">Aksiyon</th>
-                    <th className="px-3 py-2">Varlik</th>
-                    <th className="px-3 py-2">Varlik ID</th>
-                    <th className="px-3 py-2">Admin ID</th>
+                    <th className="px-4 py-3">Tarih</th>
+                    <th className="px-4 py-3">İşlem</th>
+                    <th className="px-4 py-3">Varlık</th>
+                    <th className="px-4 py-3">Varlık ID</th>
+                    <th className="px-4 py-3">Admin ID</th>
                   </tr>
                 </thead>
                 <tbody>
                   {auditQuery.data.data.map((log) => (
-                    <tr key={log.id} className="border-t border-zinc-100">
-                      <td className="px-3 py-2 text-zinc-700">{formatDate(log.createdAt)}</td>
-                      <td className="px-3 py-2 font-medium text-zinc-900">{log.action}</td>
-                      <td className="px-3 py-2 text-zinc-700">{log.entityType}</td>
-                      <td className="px-3 py-2 text-zinc-700">{log.entityId ?? "-"}</td>
-                      <td className="px-3 py-2 text-zinc-700">{log.adminId ?? "-"}</td>
+                    <tr key={log.id}>
+                      <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{formatDate(log.createdAt)}</td>
+                      <td className="px-4 py-3 font-medium" style={{ color: "var(--text-primary)" }}>{log.action}</td>
+                      <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{log.entityType}</td>
+                      <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>{log.entityId ?? "-"}</td>
+                      <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text-tertiary)" }}>{log.adminId ?? "-"}</td>
                     </tr>
                   ))}
                 </tbody>

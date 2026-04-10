@@ -8,6 +8,7 @@ import Papa from 'papaparse';
 
 import { EventsRepository } from '../../events/repositories/events.repository';
 import { CreateParticipantDto } from '../dto/create-participant.dto';
+import { SelfRegisterParticipantDto } from '../dto/self-register-participant.dto';
 import { ListParticipantsQueryDto } from '../dto/list-participants-query.dto';
 import { UploadedCsvFile } from '../participants.types';
 import { ParticipantsRepository } from '../repositories/participants.repository';
@@ -28,14 +29,40 @@ export class ParticipantsService {
     private readonly eventsRepository: EventsRepository,
   ) {}
 
-  createManual(eventId: string, payload: CreateParticipantDto) {
-    this.ensureEventExists(eventId);
+  async createManual(eventId: string, payload: CreateParticipantDto) {
+    await this.ensureEventExists(eventId);
+    const normalizedEmail = this.normalizeEmail(payload.email);
+    const normalizedPhone = this.normalizeNullable(payload.phone);
 
-    const participant = this.participantsRepository.create({
+    if (
+      normalizedEmail &&
+      (await this.participantsRepository.findByEventAndEmail(
+        eventId,
+        normalizedEmail,
+      ))
+    ) {
+      throw new BadRequestException(
+        'Bu e-posta ile kayitli bir katilimci zaten bulunuyor.',
+      );
+    }
+
+    if (
+      normalizedPhone &&
+      (await this.participantsRepository.findByEventAndPhone(
+        eventId,
+        normalizedPhone,
+      ))
+    ) {
+      throw new BadRequestException(
+        'Bu telefon ile kayitli bir katilimci zaten bulunuyor.',
+      );
+    }
+
+    const participant = await this.participantsRepository.create({
       eventId,
       name: payload.name.trim(),
-      email: this.normalizeEmail(payload.email),
-      phone: this.normalizeNullable(payload.phone),
+      email: normalizedEmail,
+      phone: normalizedPhone,
       source: 'manual',
       externalId: null,
     });
@@ -46,10 +73,61 @@ export class ParticipantsService {
     };
   }
 
-  list(eventId: string, query: ListParticipantsQueryDto) {
-    this.ensureEventExists(eventId);
+  async selfRegister(payload: SelfRegisterParticipantDto) {
+    await this.ensureEventExists(payload.eventId);
 
-    const result = this.participantsRepository.findAllByEvent({
+    const normalizedEmail = this.normalizeEmail(payload.email);
+    const normalizedPhone = this.normalizeNullable(payload.phone);
+
+    if (!normalizedEmail && !normalizedPhone) {
+      throw new BadRequestException(
+        'En az bir iletisim bilgisi (e-posta veya telefon) gereklidir.',
+      );
+    }
+
+    if (
+      normalizedEmail &&
+      (await this.participantsRepository.findByEventAndEmail(
+        payload.eventId,
+        normalizedEmail,
+      ))
+    ) {
+      throw new BadRequestException(
+        'Bu e-posta ile zaten kayit olunmus.',
+      );
+    }
+
+    if (
+      normalizedPhone &&
+      (await this.participantsRepository.findByEventAndPhone(
+        payload.eventId,
+        normalizedPhone,
+      ))
+    ) {
+      throw new BadRequestException(
+        'Bu telefon ile zaten kayit olunmus.',
+      );
+    }
+
+    const participant = await this.participantsRepository.create({
+      eventId: payload.eventId,
+      name: payload.name.trim(),
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      source: 'self_registered',
+      externalId: null,
+    });
+
+    return {
+      success: true,
+      data: participant,
+    };
+  }
+
+  async list(eventId: string, query: ListParticipantsQueryDto) {
+    await this.ensureEventExists(eventId);
+
+    const result = await this.participantsRepository.findAllByEvent({
       eventId,
       page: query.page,
       limit: query.limit,
@@ -68,8 +146,8 @@ export class ParticipantsService {
     };
   }
 
-  importCsv(eventId: string, file: UploadedCsvFile | undefined) {
-    this.ensureEventExists(eventId);
+  async importCsv(eventId: string, file: UploadedCsvFile | undefined) {
+    await this.ensureEventExists(eventId);
 
     if (!file || !file.buffer || file.buffer.length === 0) {
       throw new BadRequestException('CSV dosyasi gerekli.');
@@ -132,7 +210,7 @@ export class ParticipantsService {
       });
     });
 
-    const imported = this.participantsRepository.bulkUpsertFromCsv(
+    const imported = await this.participantsRepository.bulkUpsertFromCsv(
       eventId,
       validRows,
     );
@@ -155,10 +233,13 @@ export class ParticipantsService {
     };
   }
 
-  remove(eventId: string, participantId: string) {
-    this.ensureEventExists(eventId);
+  async remove(eventId: string, participantId: string) {
+    await this.ensureEventExists(eventId);
 
-    const removed = this.participantsRepository.remove(eventId, participantId);
+    const removed = await this.participantsRepository.remove(
+      eventId,
+      participantId,
+    );
 
     if (!removed) {
       throw new NotFoundException('Katilimci bulunamadi.');
@@ -172,8 +253,8 @@ export class ParticipantsService {
     };
   }
 
-  private ensureEventExists(eventId: string) {
-    const event = this.eventsRepository.findById(eventId);
+  private async ensureEventExists(eventId: string) {
+    const event = await this.eventsRepository.findById(eventId);
 
     if (!event) {
       throw new NotFoundException('Etkinlik bulunamadi.');

@@ -35,7 +35,10 @@ export class SessionsController {
   @ApiOkResponse({ description: 'Oturum olusturuldu.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
   @Post()
-  create(@Param('eventId') eventId: string, @Body() payload: CreateSessionDto) {
+  async create(
+    @Param('eventId') eventId: string,
+    @Body() payload: CreateSessionDto,
+  ) {
     return this.sessionsService.create(eventId, payload);
   }
 
@@ -43,7 +46,7 @@ export class SessionsController {
   @ApiOkResponse({ description: 'Oturum listesi donuldu.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
   @Get()
-  list(@Param('eventId') eventId: string) {
+  async list(@Param('eventId') eventId: string) {
     return this.sessionsService.list(eventId);
   }
 
@@ -51,7 +54,7 @@ export class SessionsController {
   @ApiOkResponse({ description: 'Oturum guncellendi.' })
   @ApiNotFoundResponse({ description: 'Etkinlik veya oturum bulunamadi.' })
   @Patch(':sessionId')
-  update(
+  async update(
     @Param('eventId') eventId: string,
     @Param('sessionId') sessionId: string,
     @Body() payload: UpdateSessionDto,
@@ -64,7 +67,7 @@ export class SessionsController {
   @ApiNotFoundResponse({ description: 'Etkinlik veya oturum bulunamadi.' })
   @Roles('admin')
   @Delete(':sessionId')
-  remove(
+  async remove(
     @Param('eventId') eventId: string,
     @Param('sessionId') sessionId: string,
   ) {

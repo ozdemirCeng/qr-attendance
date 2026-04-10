@@ -2,7 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Queue } from 'bullmq';
 import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import * as XLSX from 'xlsx';
@@ -10,8 +13,11 @@ import * as XLSX from 'xlsx';
 import { AttendanceRecordsRepository } from '../../attendance/repositories/attendance-records.repository';
 import { EventsRepository } from '../../events/repositories/events.repository';
 import { ParticipantsRepository } from '../../participants/repositories/participants.repository';
+import {
+  ExportJobRecord,
+  ExportJobsRepository,
+} from '../repositories/export-jobs.repository';
 
-type ExportStatus = 'pending' | 'processing' | 'ready' | 'failed';
 type RegistrationType = 'walkIn' | 'registered';
 
 type ExportJobRow = {
@@ -36,18 +42,8 @@ type ExportJobResult = {
   downloadUrl: string;
 };
 
-type ExportJobRecord = {
-  exportId: string;
-  status: ExportStatus;
-  progress: number;
-  filePath: string | null;
-  downloadUrl: string | null;
-  errorMessage: string | null;
-};
-
 @Injectable()
-export class ExportsService {
-  private readonly jobs = new Map<string, ExportJobRecord>();
+export class ExportsService implements OnModuleDestroy {
   private readonly dateFormatter = new Intl.DateTimeFormat('tr-TR', {
     day: '2-digit',
     month: '2-digit',
@@ -57,60 +53,82 @@ export class ExportsService {
     hour: '2-digit',
     minute: '2-digit',
   });
+  private exportQueue:
+    | Queue<ExportJobPayload, ExportJobResult>
+    | null
+    | undefined;
 
   constructor(
     private readonly eventsRepository: EventsRepository,
     private readonly attendanceRecordsRepository: AttendanceRecordsRepository,
     private readonly participantsRepository: ParticipantsRepository,
+    private readonly exportJobsRepository: ExportJobsRepository,
+    private readonly configService: ConfigService,
   ) {}
 
-  requestAttendanceExport(eventId: string) {
-    const event = this.eventsRepository.findById(eventId);
+  async onModuleDestroy() {
+    if (this.exportQueue) {
+      await this.exportQueue.close();
+    }
+  }
+
+  async requestAttendanceExport(eventId: string) {
+    const event = await this.eventsRepository.findById(eventId);
 
     if (!event) {
       throw new NotFoundException('Etkinlik bulunamadi.');
     }
 
-    const exportId = crypto.randomUUID();
-    const rows = this.attendanceRecordsRepository
-      .findByEventId(eventId)
-      .map((record) => ({
-        fullName: record.fullName,
-        email: record.email,
-        phone: record.phone,
-        scannedAt: record.scannedAt,
-        distanceFromVenue: record.distanceFromVenue,
-        registrationType: this.resolveRegistrationType(record.participantId),
-      }));
-
-    this.jobs.set(exportId, {
-      exportId,
-      status: 'pending',
-      progress: 5,
-      filePath: null,
-      downloadUrl: null,
-      errorMessage: null,
-    });
-
-    void this.processExportJob(exportId, {
-      exportId,
+    const exportJob = await this.exportJobsRepository.create(eventId);
+    const rows = (
+      await this.attendanceRecordsRepository.findByEventId(eventId)
+    ).map(async (record) => ({
+      fullName: record.fullName,
+      email: record.email,
+      phone: record.phone,
+      scannedAt: record.scannedAt,
+      distanceFromVenue: record.distanceFromVenue,
+      registrationType: await this.resolveRegistrationType(
+        record.participantId,
+      ),
+    }));
+    const payload: ExportJobPayload = {
+      exportId: exportJob.exportId,
       eventId,
       eventName: event.name,
       requestedAt: new Date().toISOString(),
-      rows,
-    });
+      rows: await Promise.all(rows),
+    };
+    const queue = this.getExportQueue();
+
+    if (queue) {
+      try {
+        await queue.add('attendance-export', payload, {
+          jobId: exportJob.exportId,
+          removeOnComplete: false,
+          removeOnFail: false,
+        });
+      } catch {
+        await this.disableExportQueue();
+        void this.processExportJob(exportJob.exportId, payload);
+      }
+    } else {
+      void this.processExportJob(exportJob.exportId, payload);
+    }
 
     return {
       success: true,
       data: {
-        exportId,
+        exportId: exportJob.exportId,
         message: 'Hazirlaniyor...',
       },
     };
   }
 
-  getStatus(exportId: string) {
-    const job = this.getJobOrThrow(exportId);
+  async getStatus(exportId: string) {
+    const job = await this.synchronizeQueuedJob(
+      await this.getJobOrThrow(exportId),
+    );
 
     return {
       success: true,
@@ -124,8 +142,10 @@ export class ExportsService {
     };
   }
 
-  getDownloadFilePath(exportId: string) {
-    const job = this.getJobOrThrow(exportId);
+  async getDownloadFilePath(exportId: string) {
+    const job = await this.synchronizeQueuedJob(
+      await this.getJobOrThrow(exportId),
+    );
 
     if (job.status !== 'ready') {
       throw new BadRequestException('Export henuz hazir degil.');
@@ -138,8 +158,42 @@ export class ExportsService {
     return job.filePath;
   }
 
-  private getJobOrThrow(exportId: string) {
-    const job = this.jobs.get(exportId) ?? null;
+  private getExportQueue() {
+    if (this.exportQueue !== undefined) {
+      return this.exportQueue;
+    }
+
+    const redisUrl = this.configService.get<string>('REDIS_URL');
+
+    if (!redisUrl) {
+      this.exportQueue = null;
+      return this.exportQueue;
+    }
+
+    const parsed = new URL(redisUrl);
+    this.exportQueue = new Queue('export.queue', {
+      connection: {
+        host: parsed.hostname,
+        port: Number(parsed.port || '6379'),
+        username: parsed.username || undefined,
+        password: parsed.password || undefined,
+        tls: parsed.protocol === 'rediss:' ? {} : undefined,
+      },
+    });
+
+    return this.exportQueue;
+  }
+
+  private async disableExportQueue() {
+    if (this.exportQueue) {
+      await this.exportQueue.close();
+    }
+
+    this.exportQueue = null;
+  }
+
+  private async getJobOrThrow(exportId: string) {
+    const job = await this.exportJobsRepository.findById(exportId);
 
     if (!job) {
       throw new NotFoundException('Export kaydi bulunamadi.');
@@ -148,8 +202,90 @@ export class ExportsService {
     return job;
   }
 
+  private async synchronizeQueuedJob(jobRecord: ExportJobRecord) {
+    const queue = this.getExportQueue();
+
+    if (!queue) {
+      return jobRecord;
+    }
+
+    try {
+      const queuedJob = await queue.getJob(jobRecord.exportId);
+
+      if (!queuedJob) {
+        return jobRecord;
+      }
+
+      const state = await queuedJob.getState();
+      const progress = this.normalizeProgress(
+        queuedJob.progress,
+        jobRecord.progress,
+      );
+
+      if (state === 'completed') {
+        const result = queuedJob.returnvalue as ExportJobResult | undefined;
+
+        if (!result?.filePath) {
+          return jobRecord;
+        }
+
+        return (
+          (await this.updateJob(jobRecord.exportId, {
+            status: 'ready',
+            progress: 100,
+            filePath: result.filePath,
+            downloadUrl: result.downloadUrl,
+            errorMessage: null,
+            completedAt: new Date().toISOString(),
+          })) ?? jobRecord
+        );
+      }
+
+      if (state === 'failed') {
+        return (
+          (await this.updateJob(jobRecord.exportId, {
+            status: 'failed',
+            progress: 100,
+            filePath: null,
+            downloadUrl: null,
+            errorMessage:
+              queuedJob.failedReason || 'Export dosyasi olusturulamadi.',
+            completedAt: new Date().toISOString(),
+          })) ?? jobRecord
+        );
+      }
+
+      if (state === 'active' || state === 'prioritized') {
+        return (
+          (await this.updateJob(jobRecord.exportId, {
+            status: 'processing',
+            progress,
+            errorMessage: null,
+          })) ?? jobRecord
+        );
+      }
+
+      if (
+        state === 'waiting' ||
+        state === 'delayed' ||
+        state === 'waiting-children'
+      ) {
+        return (
+          (await this.updateJob(jobRecord.exportId, {
+            status: 'pending',
+            progress: Math.max(progress, 5),
+          })) ?? jobRecord
+        );
+      }
+    } catch {
+      await this.disableExportQueue();
+    }
+
+    return jobRecord;
+  }
+
   private async processExportJob(exportId: string, payload: ExportJobPayload) {
-    this.updateJob(exportId, {
+    await this.updateJob(exportId, {
       status: 'processing',
       progress: 25,
       errorMessage: null,
@@ -158,38 +294,43 @@ export class ExportsService {
     try {
       const result = await this.generateAttendanceExportFile(payload);
 
-      this.updateJob(exportId, {
+      await this.updateJob(exportId, {
         status: 'ready',
         progress: 100,
         filePath: result.filePath,
         downloadUrl: result.downloadUrl,
         errorMessage: null,
+        completedAt: new Date().toISOString(),
       });
     } catch {
-      this.updateJob(exportId, {
+      await this.updateJob(exportId, {
         status: 'failed',
         progress: 100,
         filePath: null,
         downloadUrl: null,
         errorMessage: 'Export dosyasi olusturulamadi.',
+        completedAt: new Date().toISOString(),
       });
     }
   }
 
-  private updateJob(
+  private async updateJob(
     exportId: string,
-    patch: Partial<Omit<ExportJobRecord, 'exportId'>>,
+    patch: Partial<
+      Omit<ExportJobRecord, 'exportId' | 'eventId' | 'createdAt' | 'updatedAt'>
+    >,
   ) {
-    const current = this.jobs.get(exportId);
+    await this.exportJobsRepository.update(exportId, patch);
 
-    if (!current) {
-      return;
+    return this.exportJobsRepository.findById(exportId);
+  }
+
+  private normalizeProgress(value: unknown, fallback: number) {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+      return fallback;
     }
 
-    this.jobs.set(exportId, {
-      ...current,
-      ...patch,
-    });
+    return Math.max(0, Math.min(100, Math.round(value)));
   }
 
   private async generateAttendanceExportFile(
@@ -281,14 +422,15 @@ export class ExportsService {
     return normalized || 'attendance-export';
   }
 
-  private resolveRegistrationType(
+  private async resolveRegistrationType(
     participantId: string | null,
-  ): RegistrationType {
+  ): Promise<RegistrationType> {
     if (!participantId) {
       return 'walkIn';
     }
 
-    const participant = this.participantsRepository.findById(participantId);
+    const participant =
+      await this.participantsRepository.findById(participantId);
 
     if (!participant || participant.source === 'self_registered') {
       return 'walkIn';

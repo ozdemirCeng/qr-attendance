@@ -1,6 +1,10 @@
-import { apiFetch } from "@/lib/api";
+import { WEB_API_PROXY_PREFIX, apiFetch } from "@/lib/api";
 
-export type AttendanceExportStatus = "pending" | "processing" | "ready" | "failed";
+export type AttendanceExportStatus =
+  | "pending"
+  | "processing"
+  | "ready"
+  | "failed";
 
 export type RequestAttendanceExportResponse = {
   success: true;
@@ -22,21 +26,20 @@ export type AttendanceExportStatusResponse = {
 };
 
 export async function requestAttendanceExport(eventId: string) {
-  return apiFetch<RequestAttendanceExportResponse>(`/events/${eventId}/attendance/export`, {
-    method: "POST",
-  });
+  return apiFetch<RequestAttendanceExportResponse>(
+    `/events/${eventId}/attendance/export`,
+    {
+      method: "POST",
+    },
+  );
 }
 
 export async function getAttendanceExportStatus(exportId: string) {
-  return apiFetch<AttendanceExportStatusResponse>(`/exports/${exportId}/status`);
+  return apiFetch<AttendanceExportStatusResponse>(
+    `/exports/${exportId}/status`,
+  );
 }
 
 export function resolveAttendanceExportDownloadUrl(downloadPath: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_API_URL is required");
-  }
-
-  return `${baseUrl}${downloadPath}`;
+  return `${WEB_API_PROXY_PREFIX}${downloadPath}`;
 }

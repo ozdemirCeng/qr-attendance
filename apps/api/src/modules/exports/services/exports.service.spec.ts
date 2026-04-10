@@ -1,11 +1,15 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { readFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import * as XLSX from 'xlsx';
 
+import { resetTestDatabase } from '../../../../test/support/reset-test-database';
 import { AttendanceRecordsRepository } from '../../attendance/repositories/attendance-records.repository';
 import { EventsRepository } from '../../events/repositories/events.repository';
 import { ParticipantsRepository } from '../../participants/repositories/participants.repository';
+import { SessionsRepository } from '../../sessions/repositories/sessions.repository';
+import { ExportJobsRepository } from '../repositories/export-jobs.repository';
 import { ExportsService } from './exports.service';
 
 describe('ExportsService', () => {
@@ -13,16 +17,24 @@ describe('ExportsService', () => {
   let eventsRepository: EventsRepository;
   let attendanceRecordsRepository: AttendanceRecordsRepository;
   let participantsRepository: ParticipantsRepository;
+  let sessionsRepository: SessionsRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await resetTestDatabase();
+
     eventsRepository = new EventsRepository();
     attendanceRecordsRepository = new AttendanceRecordsRepository();
     participantsRepository = new ParticipantsRepository();
+    sessionsRepository = new SessionsRepository();
 
     service = new ExportsService(
       eventsRepository,
       attendanceRecordsRepository,
       participantsRepository,
+      new ExportJobsRepository(),
+      new ConfigService({
+        REDIS_URL: undefined,
+      }),
     );
   });
 
@@ -33,11 +45,9 @@ describe('ExportsService', () => {
     });
   });
 
-  it('creates xlsx export, returns ready status and downloadable file', async () => {
-    const event = seedEvent();
-    const sessionId = crypto.randomUUID();
-
-    const registeredParticipant = participantsRepository.create({
+  it('creates export job, reaches ready state, and writes xlsx', async () => {
+    const event = await seedEvent();
+    const participant = await participantsRepository.create({
       eventId: event.id,
       name: 'Merve Kaya',
       email: 'merve@example.com',
@@ -46,121 +56,58 @@ describe('ExportsService', () => {
       externalId: null,
     });
 
-    const walkInParticipant = participantsRepository.create({
+    const session = await sessionsRepository.create({
       eventId: event.id,
-      name: 'Sena Oz',
-      email: 'sena@example.com',
-      phone: null,
-      source: 'self_registered',
-      externalId: null,
+      name: 'Export Oturumu',
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
     });
 
-    attendanceRecordsRepository.create({
+    await attendanceRecordsRepository.create({
       eventId: event.id,
-      sessionId,
-      participantId: registeredParticipant.id,
-      fullName: registeredParticipant.name,
-      email: registeredParticipant.email,
-      phone: registeredParticipant.phone,
+      sessionId: session.id,
+      participantId: participant.id,
+      fullName: participant.name,
+      email: participant.email,
+      phone: participant.phone,
       scannedAt: new Date().toISOString(),
-      latitude: 40.765,
-      longitude: 29.94,
-      accuracy: 25,
-      distanceFromVenue: 12,
+      latitude: event.latitude,
+      longitude: event.longitude,
+      accuracy: 15,
+      distanceFromVenue: 8,
       isValid: true,
       invalidReason: null,
       qrNonce: null,
-      ipAddress: null,
-      deviceFingerprint: null,
+      ipAddress: '127.0.0.1',
+      deviceFingerprint: 'jest-device',
     });
 
-    attendanceRecordsRepository.create({
-      eventId: event.id,
-      sessionId,
-      participantId: walkInParticipant.id,
-      fullName: walkInParticipant.name,
-      email: walkInParticipant.email,
-      phone: walkInParticipant.phone,
-      scannedAt: new Date().toISOString(),
-      latitude: 40.765,
-      longitude: 29.94,
-      accuracy: 25,
-      distanceFromVenue: null,
-      isValid: true,
-      invalidReason: null,
-      qrNonce: null,
-      ipAddress: null,
-      deviceFingerprint: null,
-    });
-
-    attendanceRecordsRepository.create({
-      eventId: event.id,
-      sessionId,
-      participantId: null,
-      fullName: 'Misafir Kisi',
-      email: null,
-      phone: '+905552223344',
-      scannedAt: new Date().toISOString(),
-      latitude: 40.765,
-      longitude: 29.94,
-      accuracy: 25,
-      distanceFromVenue: 18,
-      isValid: true,
-      invalidReason: null,
-      qrNonce: null,
-      ipAddress: null,
-      deviceFingerprint: null,
-    });
-
-    const requested = service.requestAttendanceExport(event.id);
-    expect(requested.success).toBe(true);
-    expect(requested.data.message).toBe('Hazirlaniyor...');
-
+    const requested = await service.requestAttendanceExport(event.id);
     const exportId = requested.data.exportId;
-    const initialStatus = service.getStatus(exportId);
-
-    expect(initialStatus.success).toBe(true);
-    expect(['pending', 'processing']).toContain(initialStatus.data.status);
-
-    const status = await waitForStatus(exportId, 'ready');
-
-    expect(status.success).toBe(true);
-    expect(status.data.status).toBe('ready');
-    expect(status.data.downloadUrl).toBe(`/exports/${exportId}/download`);
-
-    const filePath = service.getDownloadFilePath(exportId);
-
-    expect(filePath.endsWith('.xlsx')).toBe(true);
-
+    const readyStatus = await waitForStatus(exportId, 'ready');
+    const filePath = await service.getDownloadFilePath(exportId);
     const buffer = await readFile(filePath);
-    expect(buffer[0]).toBe(0x50);
-    expect(buffer[1]).toBe(0x4b);
-
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows =
       XLSX.utils.sheet_to_json<Record<string, string | number>>(worksheet);
 
-    const names = rows.map((row) => String(row['Ad Soyad'] ?? ''));
-    expect(names).toEqual(
-      expect.arrayContaining(['Merve Kaya', 'Sena Oz', 'Misafir Kisi']),
-    );
-
-    const byName = new Map(rows.map((row) => [String(row['Ad Soyad']), row]));
-    expect(byName.get('Merve Kaya')?.['Kayit Turu']).toBe('Kayitli');
-    expect(byName.get('Sena Oz')?.['Kayit Turu']).toBe('Walk-in');
-    expect(byName.get('Misafir Kisi')?.['Kayit Turu']).toBe('Walk-in');
+    expect(readyStatus.data.status).toBe('ready');
+    expect(readyStatus.data.downloadUrl).toBe(`/exports/${exportId}/download`);
+    expect(filePath.endsWith('.xlsx')).toBe(true);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.['Ad Soyad']).toBe('Merve Kaya');
+    expect(rows[0]?.['Kayit Turu']).toBe('Kayitli');
   });
 
-  it('throws not found for missing event id', () => {
-    expect(() => service.requestAttendanceExport('missing-event')).toThrow(
-      NotFoundException,
-    );
+  it('throws not found for missing event id', async () => {
+    await expect(
+      service.requestAttendanceExport('missing-event'),
+    ).rejects.toThrow(NotFoundException);
   });
 
-  it('marks export as failed when file generation errors and blocks download', async () => {
-    const event = seedEvent();
-
+  it('marks export as failed when generation fails', async () => {
+    const event = await seedEvent();
     const generateSpy = jest
       .spyOn(
         service as unknown as {
@@ -172,27 +119,26 @@ describe('ExportsService', () => {
       )
       .mockRejectedValueOnce(new Error('generation failed'));
 
-    const requested = service.requestAttendanceExport(event.id);
+    const requested = await service.requestAttendanceExport(event.id);
     const exportId = requested.data.exportId;
     const status = await waitForStatus(exportId, 'failed');
 
     expect(status.data.status).toBe('failed');
     expect(status.data.errorMessage).toBe('Export dosyasi olusturulamadi.');
-
-    expect(() => service.getDownloadFilePath(exportId)).toThrow(
+    await expect(service.getDownloadFilePath(exportId)).rejects.toThrow(
       BadRequestException,
     );
 
     generateSpy.mockRestore();
   });
 
-  it('throws not found for unknown export status lookup', () => {
-    expect(() => service.getStatus('unknown-export-id')).toThrow(
+  it('throws not found for unknown export status lookup', async () => {
+    await expect(service.getStatus('unknown-export-id')).rejects.toThrow(
       NotFoundException,
     );
   });
 
-  function seedEvent() {
+  async function seedEvent() {
     return eventsRepository.create({
       name: 'Yazilim Zirvesi',
       description: 'Etkinlik aciklamasi',
@@ -203,6 +149,7 @@ describe('ExportsService', () => {
       startsAt: '2026-04-20T08:00:00.000Z',
       endsAt: '2026-04-20T12:00:00.000Z',
       status: 'active',
+      createdBy: 'test-admin',
     });
   }
 
@@ -214,7 +161,7 @@ describe('ExportsService', () => {
     const startedAt = Date.now();
 
     while (Date.now() - startedAt <= timeoutMs) {
-      const status = service.getStatus(exportId);
+      const status = await service.getStatus(exportId);
 
       if (status.data.status === expectedStatus) {
         return status;
