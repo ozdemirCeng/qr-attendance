@@ -19,12 +19,12 @@ import { createSession, listSessions } from "@/lib/sessions";
 
 const sessionSchema = z
   .object({
-    name: z.string().trim().min(2, "Oturum adi en az 2 karakter olmali"),
-    startsAt: z.string().min(1, "Baslangic zorunlu"),
-    endsAt: z.string().min(1, "Bitis zorunlu"),
+    name: z.string().trim().min(2, "Oturum adı en az 2 karakter olmalı"),
+    startsAt: z.string().min(1, "Başlangıç zorunlu"),
+    endsAt: z.string().min(1, "Bitiş zorunlu"),
   })
   .refine((value) => new Date(value.endsAt).getTime() > new Date(value.startsAt).getTime(), {
-    message: "Bitis zamani baslangic zamanindan sonra olmali",
+    message: "Bitiş zamanı başlangıç zamanından sonra olmalı",
     path: ["endsAt"],
   });
 
@@ -39,10 +39,10 @@ type EventTab = "general" | "sessions" | "participants" | "qr" | "attendance" | 
 const tabs: Array<{ key: EventTab; label: string }> = [
   { key: "general", label: "Genel Bilgi" },
   { key: "sessions", label: "Oturumlar" },
-  { key: "participants", label: "Katilimcilar" },
+  { key: "participants", label: "Katılımcılar" },
   { key: "qr", label: "QR" },
-  { key: "attendance", label: "Katilim" },
-  { key: "export", label: "Export" },
+  { key: "attendance", label: "Katılım" },
+  { key: "export", label: "Dışa Aktar" },
 ];
 
 function formatDate(value: string) {
@@ -55,9 +55,17 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function getCurrentDateTimeLocal() {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+}
+
 export default function EventDetailPage() {
   const params = useParams<{ id: string }>();
   const eventId = params.id;
+  const initialDateTime = getCurrentDateTimeLocal();
   const [activeTab, setActiveTab] = useState<EventTab>("general");
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(
     null,
@@ -67,8 +75,8 @@ export default function EventDetailPage() {
   const sessionForm = useForm<SessionFormValues>({
     defaultValues: {
       name: "",
-      startsAt: "",
-      endsAt: "",
+      startsAt: initialDateTime,
+      endsAt: initialDateTime,
     },
   });
 
@@ -109,7 +117,7 @@ export default function EventDetailPage() {
         endsAt: new Date(parsed.data.endsAt).toISOString(),
       });
 
-      setToast({ tone: "success", message: "Oturum basariyla eklendi." });
+      setToast({ tone: "success", message: "Oturum başarıyla eklendi." });
       sessionForm.reset();
       await queryClient.invalidateQueries({ queryKey: ["sessions", eventId] });
     } catch (error) {
@@ -117,206 +125,145 @@ export default function EventDetailPage() {
         setToast({ tone: "error", message: error.message });
         return;
       }
-      setToast({ tone: "error", message: "Oturum eklenirken hata olustu." });
+      setToast({ tone: "error", message: "Oturum eklenirken hata oluştu." });
     }
   }
 
   return (
     <AppShell>
-      <section className="space-y-4">
+      <section className="space-y-6 animate-fade-in">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            href="/dashboard"
-            className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-          >
-            Dashboarda Don
-          </Link>
-          <Link
-            href="/events/new"
-            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
-          >
-            Yeni Etkinlik
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dashboard" className="btn-secondary text-sm">← Panele Dön</Link>
+            <Link href={`/check-in/${eventId}`} className="btn-secondary text-sm">📷 Canlı Tarama</Link>
+          </div>
+          <Link href="/events/new" className="btn-primary text-sm">+ Yeni Etkinlik</Link>
         </div>
 
         {toast ? <InlineToast tone={toast.tone} message={toast.message} /> : null}
 
         {eventQuery.isPending ? (
-          <article className="animate-pulse rounded-2xl bg-white p-6 shadow-sm">
-            <div className="h-6 w-1/2 rounded bg-zinc-200" />
-            <div className="mt-3 h-4 w-2/3 rounded bg-zinc-200" />
+          <article className="glass rounded-2xl p-6">
+            <div className="skeleton h-6 w-1/2" />
+            <div className="skeleton mt-3 h-4 w-2/3" />
           </article>
         ) : null}
 
         {eventQuery.isError ? (
-          <article className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-            Etkinlik bilgisi yuklenemedi.
+          <article className="rounded-2xl p-4 text-sm" style={{ background: "var(--error-soft)", color: "var(--error)" }}>
+            Etkinlik bilgisi yüklenemedi.
           </article>
         ) : null}
 
         {!eventQuery.isPending && !eventQuery.isError ? (
           <>
-            <article className="rounded-2xl bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-zinc-900">{eventQuery.data.data.name}</h2>
-              <p className="mt-1 text-sm text-zinc-600">{eventQuery.data.data.locationName}</p>
+            <article className="glass rounded-2xl p-6">
+              <h2 className="text-xl font-bold" style={{ color: "var(--text-primary)" }} data-display="true">{eventQuery.data.data.name}</h2>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{eventQuery.data.data.locationName}</p>
             </article>
 
-            <nav className="overflow-x-auto rounded-2xl bg-white p-2 shadow-sm">
-              <div className="flex min-w-max gap-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(tab.key);
-                    }}
-                    className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                      activeTab === tab.key
-                        ? "bg-zinc-900 text-white"
-                        : "text-zinc-600 hover:bg-zinc-100"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+            <nav className="glass flex gap-1 overflow-x-auto rounded-2xl p-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => { setActiveTab(tab.key); }}
+                  className="shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-all"
+                  style={{
+                    background: activeTab === tab.key ? "linear-gradient(135deg, var(--primary-gradient-from), var(--primary-gradient-to))" : "transparent",
+                    color: activeTab === tab.key ? "white" : "var(--text-secondary)",
+                    boxShadow: activeTab === tab.key ? "var(--shadow-glow)" : "none",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </nav>
 
             {activeTab === "general" ? (
-              <article className="rounded-2xl bg-white p-6 shadow-sm">
-                <dl className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Baslangic
-                    </dt>
-                    <dd className="mt-1 text-sm text-zinc-800">
-                      {formatDate(eventQuery.data.data.startsAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Bitis
-                    </dt>
-                    <dd className="mt-1 text-sm text-zinc-800">
-                      {formatDate(eventQuery.data.data.endsAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Yaricap
-                    </dt>
-                    <dd className="mt-1 text-sm text-zinc-800">{eventQuery.data.data.radiusMeters} m</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Konum
-                    </dt>
-                    <dd className="mt-1 text-sm text-zinc-800">
-                      {eventQuery.data.data.latitude}, {eventQuery.data.data.longitude}
-                    </dd>
-                  </div>
+              <article className="glass rounded-2xl p-6">
+                <dl className="grid gap-5 md:grid-cols-2">
+                  {[
+                    { label: "Başlangıç", value: formatDate(eventQuery.data.data.startsAt) },
+                    { label: "Bitiş", value: formatDate(eventQuery.data.data.endsAt) },
+                    { label: "Yarıçap", value: `${eventQuery.data.data.radiusMeters} m` },
+                    { label: "Konum", value: `${eventQuery.data.data.latitude}, ${eventQuery.data.data.longitude}` },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-xl p-3" style={{ background: "var(--surface-soft)" }}>
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-tertiary)" }}>
+                        {item.label}
+                      </dt>
+                      <dd className="mt-1 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                        {item.value}
+                      </dd>
+                    </div>
+                  ))}
                 </dl>
               </article>
             ) : null}
 
             {activeTab === "sessions" ? (
               <section className="space-y-4">
-                <article className="rounded-2xl bg-white p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-zinc-900">Yeni Oturum Ekle</h3>
+                <article className="glass rounded-2xl p-6">
+                  <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }} data-display="true">Yeni Oturum Ekle</h3>
                   <form
                     className="mt-4 grid gap-4 md:grid-cols-3"
-                    onSubmit={sessionForm.handleSubmit((values) => {
-                      void onCreateSession(values);
-                    })}
+                    onSubmit={sessionForm.handleSubmit((values) => { void onCreateSession(values); })}
                   >
-                    <div className="space-y-1 md:col-span-3">
-                      <label className="text-sm font-medium text-zinc-700" htmlFor="sessionName">
-                        Oturum Adi
-                      </label>
-                      <input
-                        id="sessionName"
-                        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                        {...sessionForm.register("name")}
-                      />
-                      {sessionForm.formState.errors.name ? (
-                        <p className="text-xs text-rose-600">{sessionForm.formState.errors.name.message}</p>
-                      ) : null}
+                    <div className="space-y-1.5 md:col-span-3">
+                      <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="sessionName">Oturum Adı</label>
+                      <input id="sessionName" className="glass-input w-full" {...sessionForm.register("name")} />
+                      {sessionForm.formState.errors.name ? <p className="text-xs" style={{ color: "var(--error)" }}>{sessionForm.formState.errors.name.message}</p> : null}
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-zinc-700" htmlFor="sessionStartsAt">
-                        Baslangic
-                      </label>
-                      <input
-                        id="sessionStartsAt"
-                        type="datetime-local"
-                        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                        {...sessionForm.register("startsAt")}
-                      />
-                      {sessionForm.formState.errors.startsAt ? (
-                        <p className="text-xs text-rose-600">{sessionForm.formState.errors.startsAt.message}</p>
-                      ) : null}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="sessionStartsAt">Başlangıç</label>
+                      <input id="sessionStartsAt" type="datetime-local" className="glass-input w-full" {...sessionForm.register("startsAt")} />
+                      {sessionForm.formState.errors.startsAt ? <p className="text-xs" style={{ color: "var(--error)" }}>{sessionForm.formState.errors.startsAt.message}</p> : null}
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-zinc-700" htmlFor="sessionEndsAt">
-                        Bitis
-                      </label>
-                      <input
-                        id="sessionEndsAt"
-                        type="datetime-local"
-                        className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                        {...sessionForm.register("endsAt")}
-                      />
-                      {sessionForm.formState.errors.endsAt ? (
-                        <p className="text-xs text-rose-600">{sessionForm.formState.errors.endsAt.message}</p>
-                      ) : null}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="sessionEndsAt">Bitiş</label>
+                      <input id="sessionEndsAt" type="datetime-local" className="glass-input w-full" {...sessionForm.register("endsAt")} />
+                      {sessionForm.formState.errors.endsAt ? <p className="text-xs" style={{ color: "var(--error)" }}>{sessionForm.formState.errors.endsAt.message}</p> : null}
                     </div>
 
                     <div className="flex items-end">
-                      <button
-                        type="submit"
-                        disabled={sessionForm.formState.isSubmitting}
-                        className="w-full rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
-                      >
+                      <button type="submit" disabled={sessionForm.formState.isSubmitting} className="btn-primary w-full py-2.5 text-sm">
                         {sessionForm.formState.isSubmitting ? "Ekleniyor..." : "Oturum Ekle"}
                       </button>
                     </div>
                   </form>
                 </article>
 
-                <article className="rounded-2xl bg-white p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-zinc-900">Oturum Listesi</h3>
+                <article className="glass rounded-2xl p-6">
+                  <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }} data-display="true">Oturum Listesi</h3>
 
                   {sessionsQuery.isPending ? (
                     <div className="mt-4 space-y-3">
-                      {Array.from({ length: 3 }).map((_, index) => (
-                        <div key={index} className="animate-pulse rounded-xl border border-zinc-200 p-4">
-                          <div className="h-4 w-1/3 rounded bg-zinc-200" />
-                          <div className="mt-2 h-3 w-2/3 rounded bg-zinc-200" />
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="rounded-xl p-4" style={{ background: "var(--surface-soft)" }}>
+                          <div className="skeleton h-4 w-1/3" />
+                          <div className="skeleton mt-2 h-3 w-2/3" />
                         </div>
                       ))}
                     </div>
                   ) : null}
 
                   {sessionsQuery.isError ? (
-                    <p className="mt-4 text-sm text-rose-600">Oturum listesi yuklenemedi.</p>
+                    <p className="mt-4 text-sm" style={{ color: "var(--error)" }}>Oturum listesi yüklenemedi.</p>
                   ) : null}
 
-                  {!sessionsQuery.isPending &&
-                  !sessionsQuery.isError &&
-                  sessionsQuery.data.data.length === 0 ? (
-                    <p className="mt-4 text-sm text-zinc-600">Henuz oturum eklenmemis.</p>
+                  {!sessionsQuery.isPending && !sessionsQuery.isError && sessionsQuery.data.data.length === 0 ? (
+                    <p className="mt-4 text-sm" style={{ color: "var(--text-tertiary)" }}>Henüz oturum eklenmemiş.</p>
                   ) : null}
 
-                  {!sessionsQuery.isPending &&
-                  !sessionsQuery.isError &&
-                  sessionsQuery.data.data.length > 0 ? (
+                  {!sessionsQuery.isPending && !sessionsQuery.isError && sessionsQuery.data.data.length > 0 ? (
                     <div className="mt-4 space-y-3">
                       {sessionsQuery.data.data.map((session) => (
-                        <div key={session.id} className="rounded-xl border border-zinc-200 p-4">
-                          <p className="text-sm font-semibold text-zinc-900">{session.name}</p>
-                          <p className="mt-1 text-xs text-zinc-600">
+                        <div key={session.id} className="rounded-xl p-4" style={{ background: "var(--surface-soft)" }}>
+                          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{session.name}</p>
+                          <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
                             {formatDate(session.startsAt)} - {formatDate(session.endsAt)}
                           </p>
                         </div>
@@ -328,42 +275,19 @@ export default function EventDetailPage() {
             ) : null}
 
             {activeTab === "participants" ? (
-              <ParticipantsTabPanel
-                eventId={eventId}
-                onToast={(nextToast) => {
-                  setToast(nextToast);
-                }}
-              />
+              <ParticipantsTabPanel eventId={eventId} onToast={(nextToast) => { setToast(nextToast); }} />
             ) : null}
 
             {activeTab === "qr" ? (
-              <QrDisplayTabPanel
-                eventId={eventId}
-                onToast={(nextToast) => {
-                  setToast(nextToast);
-                }}
-                onOpenSessionsTab={() => {
-                  setActiveTab("sessions");
-                }}
-              />
+              <QrDisplayTabPanel eventId={eventId} onToast={(nextToast) => { setToast(nextToast); }} onOpenSessionsTab={() => { setActiveTab("sessions"); }} />
             ) : null}
 
             {activeTab === "attendance" ? (
-              <AttendanceTabPanel
-                eventId={eventId}
-                onToast={(nextToast) => {
-                  setToast(nextToast);
-                }}
-              />
+              <AttendanceTabPanel eventId={eventId} onToast={(nextToast) => { setToast(nextToast); }} />
             ) : null}
 
             {activeTab === "export" ? (
-              <ExportTabPanel
-                eventId={eventId}
-                onToast={(nextToast) => {
-                  setToast(nextToast);
-                }}
-              />
+              <ExportTabPanel eventId={eventId} onToast={(nextToast) => { setToast(nextToast); }} />
             ) : null}
           </>
         ) : null}
@@ -371,3 +295,4 @@ export default function EventDetailPage() {
     </AppShell>
   );
 }
+

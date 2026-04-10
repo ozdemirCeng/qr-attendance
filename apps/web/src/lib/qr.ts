@@ -4,6 +4,7 @@ export type CurrentQrTokenResponse = {
   success: true;
   data: {
     token: string;
+    verificationCode: string;
     expiresIn: number;
     sessionId: string;
   };

@@ -33,6 +33,17 @@ export type EventDetailResponse = {
   data: EventItem;
 };
 
+export type EventStatsResponse = {
+  success: true;
+  data: {
+    total: number;
+    active: number;
+    completed: number;
+    draft: number;
+    archived: number;
+  };
+};
+
 export type EventActionResponse = {
   success: true;
   data: EventItem;
@@ -65,6 +76,10 @@ export async function getEvent(eventId: string) {
   return apiFetch<EventDetailResponse>(`/events/${eventId}`);
 }
 
+export async function getEventStats() {
+  return apiFetch<EventStatsResponse>("/events/stats");
+}
+
 export async function createEvent(payload: CreateEventPayload) {
   return apiFetch<EventActionResponse>("/events", {
     method: "POST",
@@ -72,7 +87,10 @@ export async function createEvent(payload: CreateEventPayload) {
   });
 }
 
-export async function updateEvent(eventId: string, payload: UpdateEventPayload) {
+export async function updateEvent(
+  eventId: string,
+  payload: UpdateEventPayload,
+) {
   return apiFetch<EventActionResponse>(`/events/${eventId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
@@ -80,10 +98,10 @@ export async function updateEvent(eventId: string, payload: UpdateEventPayload) 
 }
 
 export async function removeEvent(eventId: string) {
-  return apiFetch<{ success: true; data: { id: string; deletedAt: string | null } }>(
-    `/events/${eventId}`,
-    {
-      method: "DELETE",
-    },
-  );
+  return apiFetch<{
+    success: true;
+    data: { id: string; deletedAt: string | null };
+  }>(`/events/${eventId}`, {
+    method: "DELETE",
+  });
 }

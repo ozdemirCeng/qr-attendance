@@ -8,6 +8,7 @@ export type StoredScanContext = {
 };
 
 const STORAGE_KEY = "scan-context";
+const CONTEXT_TTL_MS = 5 * 60 * 1000;
 
 export function saveScanContext(context: StoredScanContext) {
   if (typeof window === "undefined") {
@@ -29,7 +30,25 @@ export function loadScanContext(): StoredScanContext | null {
 
   try {
     const parsed = JSON.parse(raw) as Partial<StoredScanContext>;
-    if (typeof parsed.eventId !== "string" || typeof parsed.token !== "string") {
+    if (
+      typeof parsed.eventId !== "string" ||
+      typeof parsed.token !== "string"
+    ) {
+      clearScanContext();
+      return null;
+    }
+
+    const savedAt =
+      typeof parsed.savedAt === "string"
+        ? parsed.savedAt
+        : new Date().toISOString();
+    const savedAtMs = new Date(savedAt).getTime();
+
+    if (
+      !Number.isFinite(savedAtMs) ||
+      Date.now() - savedAtMs > CONTEXT_TTL_MS
+    ) {
+      clearScanContext();
       return null;
     }
 
@@ -39,10 +58,13 @@ export function loadScanContext(): StoredScanContext | null {
       lat: typeof parsed.lat === "number" ? parsed.lat : undefined,
       lng: typeof parsed.lng === "number" ? parsed.lng : undefined,
       locationAccuracy:
-        typeof parsed.locationAccuracy === "number" ? parsed.locationAccuracy : undefined,
-      savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : new Date().toISOString(),
+        typeof parsed.locationAccuracy === "number"
+          ? parsed.locationAccuracy
+          : undefined,
+      savedAt,
     };
   } catch {
+    clearScanContext();
     return null;
   }
 }

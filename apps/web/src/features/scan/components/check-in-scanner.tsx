@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { scanAttendance } from "@/lib/attendance";
 import { ApiError } from "@/lib/api";
 
-import { saveScanContext } from "../lib/scan-context";
+import { clearScanContext, saveScanContext } from "../lib/scan-context";
 
 type CheckInScannerProps = {
   eventId: string;
@@ -53,12 +53,19 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
   });
 
   const [state, setState] = useState<ScanState>("idle");
-  const [scannerMode, setScannerMode] = useState<"barcode" | "zxing" | "manual">("manual");
+  const [scannerMode, setScannerMode] = useState<
+    "barcode" | "zxing" | "manual"
+  >("manual");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [manualToken, setManualToken] = useState("");
   const [location, setLocation] = useState<ScanLocation | null>(null);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
   const [isPulseVisible, setIsPulseVisible] = useState(false);
+
+  // Identity verification step
+  const [detectedToken, setDetectedToken] = useState<string | null>(null);
+  const [identityInput, setIdentityInput] = useState("");
+  const [identitySubmitting, setIdentitySubmitting] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -81,14 +88,14 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     if (!window.isSecureContext) {
       setState("error");
       setErrorMessage(
-        "Kamera ve konum icin guvenli baglanti gerekir. HTTPS veya localhost ile acin.",
+        "Kamera ve konum için güvenli bağlantı gerekir. HTTPS veya localhost ile açın.",
       );
       return;
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setState("error");
-      setErrorMessage("Bu tarayici kamera erisimini desteklemiyor.");
+      setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor.");
       return;
     }
 
@@ -155,11 +162,15 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
         },
         (positionError) => {
           if (positionError.code === 1) {
-            setLocationNotice("Konum izni verilmedi. Check-in konum dogrulamasi basarisiz olabilir.");
+            setLocationNotice(
+              "Konum izni verilmedi. Check-in konum doğrulaması başarısız olabilir.",
+            );
           } else if (positionError.code === 3) {
-            setLocationNotice("Konum zamani asimina ugradi. Lutfen tekrar deneyin.");
+            setLocationNotice(
+              "Konum zamanı aşımına uğradı. Lütfen tekrar deneyin.",
+            );
           } else {
-            setLocationNotice("Konum bilgisi alinamadi.");
+            setLocationNotice("Konum bilgisi alınamadı.");
           }
 
           resolve(null);
@@ -173,7 +184,9 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     });
   }
 
-  async function startWithBarcodeDetector(initialLocation: ScanLocation | null) {
+  async function startWithBarcodeDetector(
+    initialLocation: ScanLocation | null,
+  ) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -187,7 +200,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
       streamRef.current = stream;
 
       if (!videoRef.current) {
-        throw new Error("Kamera alani bulunamadi.");
+        throw new Error("Kamera alanı bulunamadı.");
       }
 
       videoRef.current.srcObject = stream;
@@ -195,7 +208,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
 
       const BarcodeDetectorCtor = window.BarcodeDetector;
       if (!BarcodeDetectorCtor) {
-        throw new Error("BarcodeDetector baslatilamadi.");
+        throw new Error("BarcodeDetector başlatılamadı.");
       }
       const detector = new BarcodeDetectorCtor({ formats: ["qr_code"] });
 
@@ -207,9 +220,13 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
         }
 
         try {
-          if (videoRef.current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          if (
+            videoRef.current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+          ) {
             const result = await detector.detect(videoRef.current);
-            const rawValue = result.find((item) => typeof item.rawValue === "string")?.rawValue;
+            const rawValue = result.find(
+              (item) => typeof item.rawValue === "string",
+            )?.rawValue;
 
             if (rawValue) {
               await onTokenDetected(rawValue, initialLocation ?? location);
@@ -217,7 +234,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
             }
           }
         } catch {
-          setErrorMessage("Kamera tarama hatasi olustu.");
+          setErrorMessage("Kamera tarama hatası oluştu.");
           setState("error");
           return;
         }
@@ -232,14 +249,16 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
       });
     } catch {
       setState("error");
-      setErrorMessage("Kamera baslatilamadi. Tarayici izinlerini kontrol edin.");
+      setErrorMessage(
+        "Kamera başlatılamadı. Tarayıcı izinlerini kontrol edin.",
+      );
     }
   }
 
   async function startWithZxing(initialLocation: ScanLocation | null) {
     try {
       if (!videoRef.current) {
-        throw new Error("Kamera alani bulunamadi.");
+        throw new Error("Kamera alanı bulunamadı.");
       }
 
       const reader = new BrowserMultiFormatReader();
@@ -260,11 +279,14 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
       );
     } catch {
       setState("error");
-      setErrorMessage("Kamera acilamadi. Manuel token girmeyi deneyin.");
+      setErrorMessage("Kamera açılamadı. Manuel token girmeyi deneyin.");
     }
   }
 
-  async function onTokenDetected(token: string, currentLocation: ScanLocation | null) {
+  async function onTokenDetected(
+    token: string,
+    _currentLocation: ScanLocation | null,
+  ) {
     const normalizedToken = token.trim();
 
     if (!normalizedToken || processingRef.current) {
@@ -277,41 +299,73 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
       setIsPulseVisible(false);
     }, 500);
 
-    setState("processing");
+    // Stop scanner and show identity verification step
+    stopScanner();
+    setDetectedToken(normalizedToken);
+    setIdentityInput("");
+    setErrorMessage(null);
+    setState("idle");
+    processingRef.current = false;
+  }
+
+  async function onIdentitySubmit() {
+    if (!detectedToken || identitySubmitting) return;
+
+    const trimmedIdentity = identityInput.trim();
+    if (!trimmedIdentity) {
+      setErrorMessage("E-posta veya telefon numaranızı girin.");
+      return;
+    }
+
+    setIdentitySubmitting(true);
+    setErrorMessage(null);
+
+    const isEmail = trimmedIdentity.includes("@");
 
     try {
       const response = await scanAttendance({
-        token: normalizedToken,
-        lat: currentLocation?.lat,
-        lng: currentLocation?.lng,
-        locationAccuracy: currentLocation?.accuracy,
+        token: detectedToken,
+        lat: location?.lat,
+        lng: location?.lng,
+        locationAccuracy: location?.accuracy,
+        email: isEmail ? trimmedIdentity : undefined,
+        phone: !isEmail ? trimmedIdentity : undefined,
       });
 
-      stopScanner();
       router.replace(
         `/check-in/result?status=success&name=${encodeURIComponent(
           response.data.participant.name,
-        )}&event=${encodeURIComponent(response.data.event.name)}`,
+        )}&event=${encodeURIComponent(response.data.event.name)}&eventId=${encodeURIComponent(
+          eventId,
+        )}`,
       );
       return;
     } catch (error) {
       if (error instanceof ApiError && error.code === "REGISTRATION_REQUIRED") {
         saveScanContext({
           eventId,
-          token: normalizedToken,
-          lat: currentLocation?.lat,
-          lng: currentLocation?.lng,
-          locationAccuracy: currentLocation?.accuracy,
+          token: detectedToken,
+          lat: location?.lat,
+          lng: location?.lng,
+          locationAccuracy: location?.accuracy,
           savedAt: new Date().toISOString(),
         });
 
-        stopScanner();
         router.push(`/check-in/${eventId}/guest-form`);
         return;
       }
 
-      const code = error instanceof ApiError ? error.code ?? "HTTP_EXCEPTION" : "UNKNOWN_ERROR";
-      stopScanner();
+      const code =
+        error instanceof ApiError
+          ? (error.code ?? "HTTP_EXCEPTION")
+          : "UNKNOWN_ERROR";
+      if (
+        code === "EXPIRED_TOKEN" ||
+        code === "REPLAY_ATTACK" ||
+        code === "SESSION_INACTIVE"
+      ) {
+        clearScanContext();
+      }
       router.replace(
         `/check-in/result?status=error&code=${encodeURIComponent(code)}&eventId=${encodeURIComponent(
           eventId,
@@ -319,96 +373,140 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
       );
       return;
     } finally {
-      processingRef.current = false;
+      setIdentitySubmitting(false);
     }
   }
 
+  function onCancelIdentity() {
+    setDetectedToken(null);
+    setIdentityInput("");
+    setErrorMessage(null);
+  }
+
   return (
-    <main className="min-h-screen bg-zinc-100 px-3 py-4 text-zinc-900 sm:px-6 sm:py-6">
+    <main className="min-h-screen px-3 py-4 sm:px-6 sm:py-6">
       <section className="mx-auto max-w-3xl space-y-4">
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div className="glass rounded-2xl p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-xl font-semibold">QR Check-in</h1>
-            <Link
-              href="/scan"
-              className="min-h-11 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-            >
-              Geri
-            </Link>
+            <h1 className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }} data-display="true">QR Giriş</h1>
+            <Link href="/scan" className="btn-secondary min-h-11 text-sm">Geri Dön</Link>
           </div>
-          <p className="mt-2 text-sm text-zinc-600">Etkinlik: {eventId}</p>
+          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>Etkinlik: {eventId}</p>
           {location ? (
-            <p className="mt-1 text-xs text-zinc-500">
-              Konum hazir: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
-            </p>
+            <p className="mt-1 text-xs" style={{ color: "var(--success)" }}>📍 Konum hazır: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}</p>
           ) : (
-            <p className="mt-1 text-xs text-zinc-500">{locationNotice ?? "Konum bilgisi alinmadi."}</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>{locationNotice ?? "Konum bilgisi alınmadı."}</p>
           )}
         </div>
 
-        <article className="rounded-2xl bg-white p-5 shadow-sm">
-          <div className="relative mx-auto h-[58vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900 sm:h-auto sm:aspect-video">
-            <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div
-                className={`h-56 w-56 rounded-3xl border-4 transition ${
-                  isPulseVisible ? "border-emerald-400" : "border-white/70"
-                }`}
+        {/* ─── Identity Verification Step ─── */}
+        {detectedToken ? (
+          <article className="glass-elevated animate-scale-in rounded-2xl p-6">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-2xl" style={{ background: "var(--surface-soft)" }}>🔐</div>
+            <h2 className="text-xl font-bold" style={{ color: "var(--text-primary)" }} data-display="true">Kimliğini Doğrula</h2>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>QR kodu başarıyla okundu. Kayıtlı e-posta veya telefon numaranı gir.</p>
+
+            <div className="mt-4 space-y-3">
+              <input
+                value={identityInput}
+                onChange={(e) => { setIdentityInput(e.target.value); }}
+                placeholder="E-posta veya telefon numarası"
+                className="glass-input w-full py-3 text-base"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") { void onIdentitySubmit(); } }}
               />
+
+              {errorMessage ? <p className="text-sm" style={{ color: "var(--error)" }}>{errorMessage}</p> : null}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => { void onIdentitySubmit(); }}
+                  disabled={identitySubmitting}
+                  className="btn-primary min-h-11 flex-1 text-base"
+                >
+                  {identitySubmitting ? "Kontrol ediliyor..." : "Giriş Yap"}
+                </button>
+                <button type="button" onClick={onCancelIdentity} className="btn-secondary min-h-11 text-base">İptal</button>
+              </div>
             </div>
-          </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                void startScanner();
-              }}
-              disabled={state === "starting" || state === "processing" || state === "scanning"}
-              className="min-h-11 rounded-xl bg-zinc-900 px-4 py-2 text-base font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
-            >
-              {state === "starting" ? "Baslatiliyor..." : "Taramaya Basla"}
-            </button>
-            <button
-              type="button"
-              onClick={stopScanner}
-              className="min-h-11 rounded-xl border border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-700 hover:bg-zinc-100"
-            >
-              Durdur
-            </button>
-          </div>
+            <div className="mt-4 rounded-xl p-3" style={{ background: "var(--surface-soft)" }}>
+              <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                Kayıtlı değil misiniz?{" "}
+                <Link href={`/register/${eventId}`} className="font-semibold" style={{ color: "var(--primary)" }}>
+                  Önce kayıt olun
+                </Link>{" "}
+                veya doğrudan bilgilerinizi girerek devam edin.
+              </p>
+            </div>
+          </article>
+        ) : (
+          <>
+            {/* ─── Camera + Scanner ─── */}
+            <article className="glass rounded-2xl p-5">
+              <div className="relative mx-auto h-[58vh] w-full max-w-2xl overflow-hidden rounded-2xl sm:h-auto sm:aspect-video" style={{ background: "#0a0a0f", border: "1px solid var(--border)" }}>
+                <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div className={`h-56 w-56 rounded-3xl border-4 transition ${isPulseVisible ? "border-emerald-400" : "border-white/70"}`} />
+                </div>
+                <div className="pointer-events-none absolute inset-x-8 top-4 h-1 rounded-full opacity-70" style={{ background: "linear-gradient(90deg, transparent, var(--primary), transparent)" }} />
+              </div>
 
-          <p className="mt-3 text-xs text-zinc-500">
-            Mod: {scannerMode === "barcode" ? "BarcodeDetector" : scannerMode === "zxing" ? "ZXing" : "Manuel"}
-          </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => { void startScanner(); }}
+                  disabled={state === "starting" || state === "processing" || state === "scanning"}
+                  className="btn-primary min-h-11 text-base"
+                >
+                  {state === "starting" ? "Başlatılıyor..." : "Taramaya Başla"}
+                </button>
+                <button type="button" onClick={stopScanner} className="btn-secondary min-h-11 text-base">Durdur</button>
+              </div>
 
-          {errorMessage ? <p className="mt-2 text-sm text-rose-700">{errorMessage}</p> : null}
-        </article>
+              <p className="mt-3 text-xs" style={{ color: "var(--text-tertiary)" }}>
+                Mod: {scannerMode === "barcode" ? "BarcodeDetector" : scannerMode === "zxing" ? "ZXing" : "Manuel"}
+              </p>
 
-        <article className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold">Manuel Token Giris</h2>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <input
-              value={manualToken}
-              onChange={(event) => {
-                setManualToken(event.target.value);
-              }}
-              placeholder="QR token"
-              className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-base"
-            />
-            <button
-              type="button"
-              disabled={!manualToken.trim() || state === "processing"}
-              onClick={() => {
-                void onTokenDetected(manualToken, location);
-              }}
-              className="min-h-11 rounded-xl bg-zinc-900 px-4 py-2 text-base font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
-            >
-              Gonder
-            </button>
-          </div>
-        </article>
+              {errorMessage ? <p className="mt-2 text-sm" style={{ color: "var(--error)" }}>{errorMessage}</p> : null}
+            </article>
+
+            {/* ─── Manual Token Entry ─── */}
+            <article className="glass rounded-2xl p-5">
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }} data-display="true">Manuel Doğrulama Girişi</h2>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={manualToken}
+                  onChange={(event) => { setManualToken(event.target.value); }}
+                  placeholder="Kısa doğrulama kodu veya QR token"
+                  className="glass-input w-full py-3 text-base"
+                />
+                <button
+                  type="button"
+                  disabled={!manualToken.trim() || state === "processing"}
+                  onClick={() => { void onTokenDetected(manualToken, location); }}
+                  className="btn-primary min-h-11 shrink-0 text-base"
+                >
+                  Gönder
+                </button>
+              </div>
+            </article>
+
+            {/* ─── Quick Links ─── */}
+            <div className="rounded-xl p-3 text-center" style={{ background: "var(--surface-soft)" }}>
+              <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                Henüz kayıtlı değil misiniz?{" "}
+                <Link href={`/register/${eventId}`} className="font-semibold" style={{ color: "var(--primary)" }}>
+                  Önce kayıt olun →
+                </Link>
+              </p>
+            </div>
+          </>
+        )}
       </section>
     </main>
   );
 }
+
+

@@ -14,7 +14,7 @@ import { clearScanContext, loadScanContext } from "../lib/scan-context";
 const guestSchema = z
   .object({
     name: z.string().trim().min(2, "Ad Soyad zorunlu"),
-    email: z.string().trim().email("E-posta formati gecersiz").optional().or(z.literal("")),
+    email: z.string().trim().email("E-posta formatı geçersiz").optional().or(z.literal("")),
     phone: z.string().trim().max(32, "Telefon en fazla 32 karakter olabilir").optional().or(z.literal("")),
   })
   .refine((value) => Boolean(value.email) || Boolean(value.phone), {
@@ -22,160 +22,81 @@ const guestSchema = z
     path: ["phone"],
   });
 
-type GuestFormValues = {
-  name: string;
-  email: string;
-  phone: string;
-};
-
-type GuestCheckInFormProps = {
-  eventId: string;
-};
+type GuestFormValues = { name: string; email: string; phone: string };
+type GuestCheckInFormProps = { eventId: string };
 
 export function GuestCheckInForm({ eventId }: GuestCheckInFormProps) {
   const router = useRouter();
   const [scanContext] = useState(() => loadScanContext());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const form = useForm<GuestFormValues>({
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-    },
-  });
+  const form = useForm<GuestFormValues>({ defaultValues: { name: "", email: "", phone: "" } });
 
   const missingContext = !scanContext || scanContext.eventId !== eventId;
 
   async function onSubmit(values: GuestFormValues) {
     form.clearErrors();
     setErrorMessage(null);
-
-    if (!scanContext || scanContext.eventId !== eventId) {
-      setErrorMessage("Gecerli tarama verisi bulunamadi.");
-      return;
-    }
-
+    if (!scanContext || scanContext.eventId !== eventId) { setErrorMessage("Geçerli tarama verisi bulunamadı."); return; }
     const parsed = guestSchema.safeParse(values);
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
       const entries = Object.entries(fieldErrors) as Array<[keyof GuestFormValues, string[] | undefined]>;
-
-      for (const [field, messages] of entries) {
-        if (messages?.[0]) {
-          form.setError(field, { type: "manual", message: messages[0] });
-        }
-      }
+      for (const [field, messages] of entries) { if (messages?.[0]) { form.setError(field, { type: "manual", message: messages[0] }); } }
       return;
     }
-
     try {
       const response = await scanAttendance({
-        token: scanContext.token,
-        lat: scanContext.lat,
-        lng: scanContext.lng,
+        token: scanContext.token, lat: scanContext.lat, lng: scanContext.lng,
         locationAccuracy: scanContext.locationAccuracy,
-        name: parsed.data.name,
-        email: parsed.data.email || undefined,
-        phone: parsed.data.phone || undefined,
+        name: parsed.data.name, email: parsed.data.email || undefined, phone: parsed.data.phone || undefined,
       });
-
       clearScanContext();
-      router.replace(
-        `/check-in/result?status=success&name=${encodeURIComponent(
-          response.data.participant.name,
-        )}&event=${encodeURIComponent(response.data.event.name)}`,
-      );
+      router.replace(`/check-in/result?status=success&name=${encodeURIComponent(response.data.participant.name)}&event=${encodeURIComponent(response.data.event.name)}&eventId=${encodeURIComponent(eventId)}`);
     } catch (error) {
-      const code = error instanceof ApiError ? error.code ?? "HTTP_EXCEPTION" : "UNKNOWN_ERROR";
-      router.replace(
-        `/check-in/result?status=error&code=${encodeURIComponent(code)}&eventId=${encodeURIComponent(
-          eventId,
-        )}`,
-      );
+      const code = error instanceof ApiError ? (error.code ?? "HTTP_EXCEPTION") : "UNKNOWN_ERROR";
+      if (code === "EXPIRED_TOKEN" || code === "REPLAY_ATTACK" || code === "SESSION_INACTIVE") { clearScanContext(); }
+      router.replace(`/check-in/result?status=error&code=${encodeURIComponent(code)}&eventId=${encodeURIComponent(eventId)}`);
     }
   }
 
   if (missingContext) {
     return (
-      <article className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-        Gecerli bir QR token bulunamadi. Lutfen yeniden tarama ekranina donun.
+      <article className="rounded-2xl p-4 text-sm" style={{ background: "var(--warning-soft)", color: "var(--warning)" }}>
+        Geçerli bir QR token bulunamadı. Lütfen yeniden tarama ekranına dönün.
         <div className="mt-3">
-          <Link
-            href={`/check-in/${eventId}`}
-            className="rounded-xl border border-amber-400 px-3 py-1.5 text-xs font-semibold hover:bg-amber-100"
-          >
-            Taramaya Don
-          </Link>
+          <Link href={`/check-in/${eventId}`} className="btn-secondary px-3 py-1.5 text-xs">Taramaya Dön</Link>
         </div>
       </article>
     );
   }
 
   return (
-    <form
-      className="space-y-3"
-      onSubmit={form.handleSubmit((values) => {
-        void onSubmit(values);
-      })}
-    >
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-zinc-700" htmlFor="guestName">
-          Ad Soyad
-        </label>
-        <input
-          id="guestName"
-          className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-base"
-          {...form.register("name")}
-        />
-        {form.formState.errors.name ? (
-          <p className="text-xs text-rose-600">{form.formState.errors.name.message}</p>
-        ) : null}
+    <form className="space-y-4" onSubmit={form.handleSubmit((values) => { void onSubmit(values); })}>
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="guestName">Ad Soyad</label>
+        <input id="guestName" className="glass-input w-full py-3 text-base" {...form.register("name")} />
+        {form.formState.errors.name ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.name.message}</p> : null}
       </div>
 
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-zinc-700" htmlFor="guestEmail">
-          E-posta
-        </label>
-        <input
-          id="guestEmail"
-          className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-base"
-          {...form.register("email")}
-        />
-        {form.formState.errors.email ? (
-          <p className="text-xs text-rose-600">{form.formState.errors.email.message}</p>
-        ) : null}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="guestEmail">E-posta</label>
+        <input id="guestEmail" className="glass-input w-full py-3 text-base" {...form.register("email")} />
+        {form.formState.errors.email ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.email.message}</p> : null}
       </div>
 
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-zinc-700" htmlFor="guestPhone">
-          Telefon
-        </label>
-        <input
-          id="guestPhone"
-          className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-base"
-          {...form.register("phone")}
-        />
-        {form.formState.errors.phone ? (
-          <p className="text-xs text-rose-600">{form.formState.errors.phone.message}</p>
-        ) : null}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="guestPhone">Telefon</label>
+        <input id="guestPhone" className="glass-input w-full py-3 text-base" {...form.register("phone")} />
+        {form.formState.errors.phone ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.phone.message}</p> : null}
       </div>
 
-      {errorMessage ? <p className="text-sm text-rose-700">{errorMessage}</p> : null}
+      {errorMessage ? <p className="text-sm" style={{ color: "var(--error)" }}>{errorMessage}</p> : null}
 
       <div className="flex justify-end gap-2 pt-2">
-        <Link
-          href={`/check-in/${eventId}`}
-          className="min-h-11 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-        >
-          Geri
-        </Link>
-        <button
-          type="submit"
-          disabled={form.formState.isSubmitting}
-          className="min-h-11 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
-        >
-          {form.formState.isSubmitting ? "Gonderiliyor..." : "Katilimi Onayla"}
+        <Link href={`/check-in/${eventId}`} className="btn-secondary min-h-11 text-sm">Geri Dön</Link>
+        <button type="submit" disabled={form.formState.isSubmitting} className="btn-primary min-h-11 text-sm">
+          {form.formState.isSubmitting ? "Gönderiliyor..." : "Katılımı Onayla"}
         </button>
       </div>
     </form>

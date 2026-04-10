@@ -13,17 +13,17 @@ import { createEvent } from "@/lib/events";
 
 const createEventSchema = z
   .object({
-    name: z.string().trim().min(3, "Etkinlik adi en az 3 karakter olmali"),
-    description: z.string().trim().max(2000, "Aciklama en fazla 2000 karakter olabilir"),
-    locationName: z.string().trim().min(2, "Konum adi en az 2 karakter olmali"),
-    latitude: z.coerce.number().min(-90, "Enlem -90 ile 90 arasinda olmali").max(90),
-    longitude: z.coerce.number().min(-180, "Boylam -180 ile 180 arasinda olmali").max(180),
-    radiusMeters: z.coerce.number().min(50, "Yaricap en az 50m olmali").max(500),
-    startsAt: z.string().min(1, "Baslangic tarihi zorunlu"),
-    endsAt: z.string().min(1, "Bitis tarihi zorunlu"),
+    name: z.string().trim().min(3, "Etkinlik adı en az 3 karakter olmalı"),
+    description: z.string().trim().max(2000, "Açıklama en fazla 2000 karakter olabilir"),
+    locationName: z.string().trim().min(2, "Konum adı en az 2 karakter olmalı"),
+    latitude: z.coerce.number().min(-90, "Enlem -90 ile 90 arasında olmalı").max(90),
+    longitude: z.coerce.number().min(-180, "Boylam -180 ile 180 arasında olmalı").max(180),
+    radiusMeters: z.coerce.number().min(50, "Yarıçap en az 50m olmalı").max(500),
+    startsAt: z.string().min(1, "Başlangıç tarihi zorunlu"),
+    endsAt: z.string().min(1, "Bitiş tarihi zorunlu"),
   })
   .refine((value) => new Date(value.endsAt).getTime() > new Date(value.startsAt).getTime(), {
-    message: "Bitis zamani baslangic zamanindan sonra olmali",
+    message: "Bitiş zamanı başlangıç zamanından sonra olmalı",
     path: ["endsAt"],
   });
 
@@ -51,8 +51,16 @@ type GeocodeResponse = {
   message?: string;
 };
 
+function getCurrentDateTimeLocal() {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+}
+
 export default function NewEventPage() {
   const router = useRouter();
+  const initialDateTime = getCurrentDateTimeLocal();
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(
     null,
   );
@@ -69,8 +77,8 @@ export default function NewEventPage() {
       latitude: "40.765",
       longitude: "29.94",
       radiusMeters: 100,
-      startsAt: "",
-      endsAt: "",
+      startsAt: initialDateTime,
+      endsAt: initialDateTime,
     },
   });
 
@@ -110,7 +118,7 @@ export default function NewEventPage() {
 
       setToast({
         tone: "success",
-        message: "Etkinlik basariyla olusturuldu.",
+        message: "Etkinlik başarıyla oluşturuldu.",
       });
 
       router.replace(`/events/${created.data.id}`);
@@ -123,7 +131,7 @@ export default function NewEventPage() {
 
       setToast({
         tone: "error",
-        message: "Etkinlik olusturulurken beklenmeyen bir hata olustu.",
+        message: "Etkinlik oluşturulurken beklenmeyen bir hata oluştu.",
       });
     }
   }
@@ -153,7 +161,7 @@ export default function NewEventPage() {
           const payload = (await response.json().catch(() => null)) as GeocodeResponse | null;
 
           if (!response.ok || !payload || !payload.success) {
-            throw new Error(payload?.message ?? "Konum servisi hatasi");
+            throw new Error(payload?.message ?? "Konum servisi hatası");
           }
 
           setLocationSuggestions(payload.data);
@@ -164,7 +172,7 @@ export default function NewEventPage() {
           }
 
           setLocationSuggestions([]);
-          setLocationSearchError("Konum aramasi su an kullanilamiyor.");
+          setLocationSearchError("Konum araması şu an kullanılamıyor.");
         })
         .finally(() => {
           if (!controller.signal.aborted) {
@@ -201,61 +209,63 @@ export default function NewEventPage() {
 
   return (
     <AppShell>
-      <section className="space-y-4">
+      <section className="space-y-6 animate-fade-in">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-zinc-900">Yeni Etkinlik</h2>
-            <p className="mt-1 text-sm text-zinc-600">Etkinlik bilgilerini girerek kaydi tamamla.</p>
+            <h2 className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }} data-display="true">
+              Yeni Etkinlik
+            </h2>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>Etkinlik bilgilerini girerek kaydı tamamla.</p>
           </div>
-          <Link
-            href="/dashboard"
-            className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-          >
-            Dashboarda Don
+          <Link href="/dashboard" className="btn-secondary text-sm">
+            ← Panele Dön
           </Link>
         </div>
 
         {toast ? <InlineToast tone={toast.tone} message={toast.message} /> : null}
 
         <form
-          onSubmit={form.handleSubmit((values) => {
-            void onSubmit(values);
-          })}
-          className="rounded-2xl bg-white p-6 shadow-sm"
+          onSubmit={form.handleSubmit((values) => { void onSubmit(values); })}
+          className="space-y-6"
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="name">
-                Etkinlik Adi
-              </label>
-              <input
-                id="name"
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                {...form.register("name")}
-              />
-              {form.formState.errors.name ? (
-                <p className="text-xs text-rose-600">{form.formState.errors.name.message}</p>
-              ) : null}
+          {/* Section: Temel Bilgiler */}
+          <div className="glass rounded-2xl p-6 space-y-5">
+            <div className="flex items-center gap-3 pb-2" style={{ borderBottom: "1px solid var(--border)" }}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "var(--surface-soft)" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+              </div>
+              <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }} data-display="true">Temel Bilgiler</h3>
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="description">
-                Aciklama
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="name">
+                Etkinlik Adı
               </label>
-              <textarea
-                id="description"
-                rows={4}
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                {...form.register("description")}
-              />
-              {form.formState.errors.description ? (
-                <p className="text-xs text-rose-600">{form.formState.errors.description.message}</p>
-              ) : null}
+              <input id="name" className="glass-input w-full" placeholder="Örn: 2024 Güz Dönem Toplantısı" {...form.register("name")} />
+              {form.formState.errors.name ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.name.message}</p> : null}
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="locationSearch">
-                Yer Ismiyle Konum Ara
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="description">
+                Açıklama
+              </label>
+              <textarea id="description" rows={3} className="glass-input w-full resize-none" placeholder="Etkinlik hakkında kısa bir açıklama..." {...form.register("description")} />
+              {form.formState.errors.description ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.description.message}</p> : null}
+            </div>
+          </div>
+
+          {/* Section: Konum */}
+          <div className="glass rounded-2xl p-6 space-y-5">
+            <div className="flex items-center gap-3 pb-2" style={{ borderBottom: "1px solid var(--border)" }}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "var(--surface-soft)" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+              </div>
+              <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }} data-display="true">Konum Bilgileri</h3>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="locationSearch">
+                Yer İsmiyle Konum Ara
               </label>
               <input
                 id="locationSearch"
@@ -264,41 +274,30 @@ export default function NewEventPage() {
                 onChange={(event) => {
                   const nextQuery = event.target.value;
                   setLocationQuery(nextQuery);
-
-                  if (nextQuery.trim().length < 3) {
-                    setIsSearchingLocation(false);
-                    setLocationSearchError(null);
-                    setLocationSuggestions([]);
-                  }
+                  if (nextQuery.trim().length < 3) { setIsSearchingLocation(false); setLocationSearchError(null); setLocationSuggestions([]); }
                 }}
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                placeholder="Orn: Kocaeli Universitesi"
+                className="glass-input w-full"
+                placeholder="Örn: Kocaeli Üniversitesi"
               />
-              <p className="text-xs text-zinc-500">
-                En az 3 karakter yazin. Oneriden secince konum adi ve koordinatlar otomatik dolar.
+              <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                En az 3 karakter yazın. Öneriden seçince konum ve koordinatlar otomatik dolar.
               </p>
 
-              {isSearchingLocation ? (
-                <p className="text-xs text-zinc-500">Konum araniyor...</p>
-              ) : null}
-
-              {locationSearchError ? (
-                <p className="text-xs text-rose-600">{locationSearchError}</p>
-              ) : null}
+              {isSearchingLocation ? <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Konum aranıyor...</p> : null}
+              {locationSearchError ? <p className="text-xs" style={{ color: "var(--error)" }}>{locationSearchError}</p> : null}
 
               {locationSuggestions.length > 0 ? (
-                <div className="max-h-56 overflow-auto rounded-xl border border-zinc-200">
+                <div className="glass-elevated max-h-56 overflow-auto rounded-xl">
                   {locationSuggestions.map((suggestion, index) => (
                     <button
                       key={`${suggestion.label}-${index}`}
                       type="button"
-                      onClick={() => {
-                        applyLocationSuggestion(suggestion);
-                      }}
-                      className="w-full border-b border-zinc-100 px-3 py-2 text-left last:border-b-0 hover:bg-zinc-50"
+                      onClick={() => { applyLocationSuggestion(suggestion); }}
+                      className="w-full px-4 py-3 text-left transition-colors hover:bg-[var(--surface-hover)]"
+                      style={{ borderBottom: "1px solid var(--border)" }}
                     >
-                      <span className="block text-sm text-zinc-900">{suggestion.label}</span>
-                      <span className="block text-xs text-zinc-500">
+                      <span className="block text-sm font-medium" style={{ color: "var(--text-primary)" }}>{suggestion.label}</span>
+                      <span className="block text-xs" style={{ color: "var(--text-tertiary)" }}>
                         {suggestion.latitude.toFixed(5)}, {suggestion.longitude.toFixed(5)}
                       </span>
                     </button>
@@ -306,116 +305,70 @@ export default function NewEventPage() {
                 </div>
               ) : null}
 
-              {locationQuery.trim().length >= 3 &&
-              !isSearchingLocation &&
-              !locationSearchError &&
-              locationSuggestions.length === 0 ? (
-                <p className="text-xs text-zinc-500">Bu arama icin sonuc bulunamadi.</p>
+              {locationQuery.trim().length >= 3 && !isSearchingLocation && !locationSearchError && locationSuggestions.length === 0 ? (
+                <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>Bu arama için sonuç bulunamadı.</p>
               ) : null}
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="locationName">
-                Konum Adi
-              </label>
-              <input
-                id="locationName"
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                {...form.register("locationName")}
-              />
-              {form.formState.errors.locationName ? (
-                <p className="text-xs text-rose-600">{form.formState.errors.locationName.message}</p>
-              ) : null}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="locationName">Konum Adı</label>
+              <input id="locationName" className="glass-input w-full" {...form.register("locationName")} />
+              {form.formState.errors.locationName ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.locationName.message}</p> : null}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="latitude">
-                Enlem
-              </label>
-              <input
-                id="latitude"
-                type="number"
-                step="0.000001"
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                {...form.register("latitude")}
-              />
-              {form.formState.errors.latitude ? (
-                <p className="text-xs text-rose-600">{form.formState.errors.latitude.message}</p>
-              ) : null}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="latitude">Enlem</label>
+                <input id="latitude" type="number" step="0.000001" className="glass-input w-full" {...form.register("latitude")} />
+                {form.formState.errors.latitude ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.latitude.message}</p> : null}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="longitude">Boylam</label>
+                <input id="longitude" type="number" step="0.000001" className="glass-input w-full" {...form.register("longitude")} />
+                {form.formState.errors.longitude ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.longitude.message}</p> : null}
+              </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="longitude">
-                Boylam
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="radiusMeters">
+                Yarıçap
               </label>
-              <input
-                id="longitude"
-                type="number"
-                step="0.000001"
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                {...form.register("longitude")}
-              />
-              {form.formState.errors.longitude ? (
-                <p className="text-xs text-rose-600">{form.formState.errors.longitude.message}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="radiusMeters">
-                Yaricap: {radiusMeters ?? 100}m
-              </label>
-              <input
-                id="radiusMeters"
-                type="range"
-                min={50}
-                max={500}
-                step={10}
-                className="w-full"
-                {...form.register("radiusMeters", { valueAsNumber: true })}
-              />
-              {form.formState.errors.radiusMeters ? (
-                <p className="text-xs text-rose-600">{form.formState.errors.radiusMeters.message}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="startsAt">
-                Baslangic
-              </label>
-              <input
-                id="startsAt"
-                type="datetime-local"
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                {...form.register("startsAt")}
-              />
-              {form.formState.errors.startsAt ? (
-                <p className="text-xs text-rose-600">{form.formState.errors.startsAt.message}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="endsAt">
-                Bitis
-              </label>
-              <input
-                id="endsAt"
-                type="datetime-local"
-                className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                {...form.register("endsAt")}
-              />
-              {form.formState.errors.endsAt ? (
-                <p className="text-xs text-rose-600">{form.formState.errors.endsAt.message}</p>
-              ) : null}
+              <div className="flex items-center gap-4">
+                <input id="radiusMeters" type="range" min={50} max={500} step={10} className="flex-1" {...form.register("radiusMeters", { valueAsNumber: true })} />
+                <span className="inline-flex min-w-[4rem] items-center justify-center rounded-lg px-3 py-1.5 text-sm font-bold" style={{ background: "var(--surface-soft)", color: "var(--primary)", fontFamily: "var(--font-display)" }} data-display="true">
+                  {radiusMeters ?? 100}m
+                </span>
+              </div>
+              {form.formState.errors.radiusMeters ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.radiusMeters.message}</p> : null}
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end">
-            <button
-              type="submit"
-              disabled={form.formState.isSubmitting}
-              className="rounded-xl bg-zinc-900 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
-            >
-              {form.formState.isSubmitting ? "Kaydediliyor..." : "Etkinligi Kaydet"}
+          {/* Section: Zamanlama */}
+          <div className="glass rounded-2xl p-6 space-y-5">
+            <div className="flex items-center gap-3 pb-2" style={{ borderBottom: "1px solid var(--border)" }}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "var(--surface-soft)" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+              </div>
+              <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }} data-display="true">Zamanlama</h3>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="startsAt">Başlangıç</label>
+                <input id="startsAt" type="datetime-local" className="glass-input w-full" {...form.register("startsAt")} />
+                {form.formState.errors.startsAt ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.startsAt.message}</p> : null}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="endsAt">Bitiş</label>
+                <input id="endsAt" type="datetime-local" className="glass-input w-full" {...form.register("endsAt")} />
+                {form.formState.errors.endsAt ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.endsAt.message}</p> : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button type="submit" disabled={form.formState.isSubmitting} className="btn-primary px-8 py-3 text-sm">
+              {form.formState.isSubmitting ? "Kaydediliyor..." : "Etkinliği Kaydet"}
             </button>
           </div>
         </form>

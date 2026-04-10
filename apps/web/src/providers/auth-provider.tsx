@@ -9,8 +9,16 @@ import {
   useMemo,
   useState,
 } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
-import { getMe, login, logout, type AdminSession, type LoginPayload } from "@/lib/auth";
+import {
+  getMe,
+  login,
+  logout,
+  type AdminSession,
+  type LoginPayload,
+} from "@/lib/auth";
+import { ApiError } from "@/lib/api";
 
 type AuthContextValue = {
   user: AdminSession | null;
@@ -23,6 +31,8 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<AdminSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -30,12 +40,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       const session = await getMe();
       setUser(session);
-    } catch {
+    } catch (error) {
       setUser(null);
+
+      if (
+        error instanceof ApiError &&
+        error.statusCode === 401 &&
+        (pathname.startsWith("/dashboard") || pathname.startsWith("/events"))
+      ) {
+        router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [pathname, router]);
 
   useEffect(() => {
     void refreshSession();
@@ -50,7 +68,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const signOut = useCallback(async () => {
-    await logout();
+    try {
+      await logout();
+    } catch {
+      // Session may already be invalid; continue to local sign-out.
+    }
     setUser(null);
   }, []);
 

@@ -1,6 +1,7 @@
 import {
   ApiError,
   ApiErrorPayload,
+  WEB_API_PROXY_PREFIX,
   apiFetch,
   resolveApiErrorCode,
   resolveApiErrorMessage,
@@ -55,7 +56,12 @@ export type CsvImportResponse = {
   };
 };
 
-export async function listParticipants(eventId: string, page = 1, limit = 20, search = "") {
+export async function listParticipants(
+  eventId: string,
+  page = 1,
+  limit = 20,
+  search = "",
+) {
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),
@@ -74,13 +80,19 @@ export async function createParticipantManual(
   eventId: string,
   payload: { name: string; email?: string; phone?: string },
 ) {
-  return apiFetch<ParticipantActionResponse>(`/events/${eventId}/participants/manual`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return apiFetch<ParticipantActionResponse>(
+    `/events/${eventId}/participants/manual`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
-export async function removeParticipant(eventId: string, participantId: string) {
+export async function removeParticipant(
+  eventId: string,
+  participantId: string,
+) {
   return apiFetch<RemoveParticipantResponse>(
     `/events/${eventId}/participants/${participantId}`,
     {
@@ -94,19 +106,16 @@ export async function importParticipantsCsv(
   file: File,
   onProgress?: (value: number) => void,
 ) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_API_URL is required");
-  }
-
   const formData = new FormData();
   formData.append("file", file);
 
   return new Promise<CsvImportResponse>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
-    xhr.open("POST", `${baseUrl}/events/${eventId}/participants/import-csv`);
+    xhr.open(
+      "POST",
+      `${WEB_API_PROXY_PREFIX}/events/${eventId}/participants/import-csv`,
+    );
     xhr.withCredentials = true;
 
     xhr.upload.onprogress = (event) => {
@@ -165,3 +174,23 @@ function parseResponsePayload(raw: string) {
     return {};
   }
 }
+
+export type SelfRegisterPayload = {
+  eventId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+};
+
+export type SelfRegisterResponse = {
+  success: true;
+  data: ParticipantItem;
+};
+
+export async function selfRegisterParticipant(payload: SelfRegisterPayload) {
+  return apiFetch<SelfRegisterResponse>("/participants/self-register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+

@@ -24,8 +24,8 @@ import {
 import { listSessions } from "@/lib/sessions";
 
 const manualParticipantSchema = z.object({
-  name: z.string().trim().min(2, "Ad en az 2 karakter olmali"),
-  email: z.string().trim().email("E-posta formati gecersiz").optional().or(z.literal("")),
+  name: z.string().trim().min(2, "Ad en az 2 karakter olmalı"),
+  email: z.string().trim().email("E-posta formatı geçersiz").optional().or(z.literal("")),
   phone: z.string().trim().max(32, "Telefon en fazla 32 karakter olabilir").optional(),
 });
 
@@ -55,8 +55,15 @@ const sourceLabel: Record<ParticipantSource, string> = {
   self_registered: "Self",
 };
 
+const sourceChipClass: Record<ParticipantSource, string> = {
+  self_registered:
+    "bg-[#00855b]/10 text-[#006947] border border-[#00855b]/20",
+  csv: "bg-[#2170e4]/10 text-[var(--primary)] border border-[#2170e4]/20",
+  manual: "bg-[#d5e0f8] text-[#586377] border border-[var(--border-strong)]/50",
+};
+
 const csvTemplateHref = `data:text/csv;charset=utf-8,${encodeURIComponent(
-  "name,email,phone,external_id\nAda Lovelace,ada@example.com,+905551112233,STD-001\n",
+  "name,email,phone,external_id\nAyşe Yılmaz,ayse@ornek.com,+905551112233,STD-001\n",
 )}`;
 
 function formatDate(value: string) {
@@ -67,6 +74,16 @@ function formatDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelProps) {
@@ -190,10 +207,10 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
 
   const participantCountLabel = useMemo(() => {
     if (!pagination) {
-      return "Katilimci sayisi yukleniyor";
+      return "Katılımcı sayısı yükleniyor";
     }
 
-    return `${pagination.total} kayit`;
+    return `${pagination.total} kayıt`;
   }, [pagination]);
 
   const canManageAttendance = Boolean(resolvedAttendanceSessionId);
@@ -229,7 +246,7 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
       if (!resolvedAttendanceSessionId) {
         onToast({
           tone: "error",
-          message: "Manuel yoklama icin once bir oturum secmelisiniz.",
+          message: "Manuel yoklama için önce bir oturum seçmelisiniz.",
         });
         return false;
       }
@@ -244,14 +261,14 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
           reason,
         });
 
-        onToast({ tone: "success", message: "Yoklama kaydi guncellendi." });
+        onToast({ tone: "success", message: "Yoklama kaydı güncellendi." });
         await refreshAllRelatedQueries();
         return true;
       } catch (error) {
         if (error instanceof ApiError) {
           onToast({ tone: "error", message: error.message });
         } else {
-          onToast({ tone: "error", message: "Yoklama kaydi guncellenemedi." });
+          onToast({ tone: "error", message: "Yoklama kaydı güncellenemedi." });
         }
 
         return false;
@@ -291,7 +308,7 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
 
       setIsManualModalOpen(false);
       manualForm.reset();
-      onToast({ tone: "success", message: "Katilimci basariyla eklendi." });
+      onToast({ tone: "success", message: "Katılımcı başarıyla eklendi." });
       await queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
     } catch (error) {
       if (error instanceof ApiError) {
@@ -299,18 +316,18 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
         return;
       }
 
-      onToast({ tone: "error", message: "Katilimci eklenirken hata olustu." });
+      onToast({ tone: "error", message: "Katılımcı eklenirken hata oluştu." });
     }
   }
 
   async function onDeleteParticipant(participantId: string) {
-    if (!window.confirm("Katilimciyi silmek istediginize emin misiniz?")) {
+    if (!window.confirm("Katılımcıyı silmek istediğinize emin misiniz?")) {
       return;
     }
 
     try {
       await removeParticipant(eventId, participantId);
-      onToast({ tone: "success", message: "Katilimci silindi." });
+      onToast({ tone: "success", message: "Katılımcı silindi." });
       await queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
     } catch (error) {
       if (error instanceof ApiError) {
@@ -318,7 +335,7 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
         return;
       }
 
-      onToast({ tone: "error", message: "Katilimci silinirken hata olustu." });
+      onToast({ tone: "error", message: "Katılımcı silinirken hata oluştu." });
     }
   }
 
@@ -343,17 +360,17 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
 
   async function onBulkMarkPresent() {
     if (selectedParticipantIds.length === 0) {
-      onToast({ tone: "error", message: "Toplu islem icin en az bir katilimci secin." });
+      onToast({ tone: "error", message: "Toplu işlem için en az bir katılımcı seçin." });
       return;
     }
 
     if (!resolvedAttendanceSessionId) {
-      onToast({ tone: "error", message: "Toplu islem icin once bir oturum secin." });
+      onToast({ tone: "error", message: "Toplu işlem için önce bir oturum seçin." });
       return;
     }
 
     const approved = window.confirm(
-      `${selectedParticipantIds.length} katilimciyi VAR olarak isaretlemek istiyor musunuz?`,
+      `${selectedParticipantIds.length} katılımcıyı VAR olarak işaretlemek istiyor musunuz?`,
     );
 
     if (!approved) {
@@ -422,7 +439,7 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
 
   async function onUploadCsv() {
     if (!selectedFile) {
-      onToast({ tone: "error", message: "Once bir CSV dosyasi secmelisiniz." });
+      onToast({ tone: "error", message: "Önce bir CSV dosyası seçmelisiniz." });
       return;
     }
 
@@ -434,13 +451,13 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
       const result = await importParticipantsCsv(eventId, selectedFile, setUploadProgress);
       setImportResult(result.data);
       setSelectedFile(null);
-      onToast({ tone: "success", message: "CSV import islemi tamamlandi." });
+      onToast({ tone: "success", message: "CSV içe aktarma işlemi tamamlandı." });
       await queryClient.invalidateQueries({ queryKey: ["participants", eventId] });
     } catch (error) {
       if (error instanceof ApiError) {
         onToast({ tone: "error", message: error.message });
       } else {
-        onToast({ tone: "error", message: "CSV import sirasinda hata olustu." });
+        onToast({ tone: "error", message: "CSV içe aktarma sırasında hata oluştu." });
       }
     } finally {
       setIsUploading(false);
@@ -453,7 +470,7 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
     }
 
     if (!file.name.toLowerCase().endsWith(".csv")) {
-      onToast({ tone: "error", message: "Sadece .csv uzantili dosyalar kabul edilir." });
+      onToast({ tone: "error", message: "Sadece .csv uzantılı dosyalar kabul edilir." });
       return;
     }
 
@@ -461,98 +478,109 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
   }
 
   return (
-    <section className="space-y-4">
-      <article className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-semibold text-zinc-900">Katilimci Yonetimi</h3>
-            <p className="mt-1 text-sm text-zinc-600">{participantCountLabel}</p>
+    <section className="space-y-6">
+      <article className="rounded-2xl bg-[var(--surface-soft)] p-6 md:p-8">
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+              Yönetim Konsolu
+            </p>
+            <h3 className="text-4xl font-extrabold tracking-tight text-[var(--text-primary)]" data-display="true">
+              Katılımcı Listesi
+            </h3>
+            <p className="text-sm text-[var(--text-secondary)]">{participantCountLabel}</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <a
               href={csvTemplateHref}
               download="participants-template.csv"
-              className="rounded-xl border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+              className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-[var(--primary)] transition hover:bg-[var(--surface-hover)]"
             >
-              CSV Template
+              CSV Şablon
             </a>
             <button
               type="button"
               onClick={() => {
                 setIsManualModalOpen(true);
               }}
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+              className="rounded-full bg-gradient-to-br from-[var(--primary-gradient-from)] to-[var(--primary-gradient-to)] px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_26px_rgba(0,88,190,0.22)]"
             >
               Manuel Ekle
             </button>
           </div>
         </div>
 
-        <div className="mt-4">
-          <label htmlFor="participantsSearch" className="sr-only">
-            Katilimci ara
-          </label>
-          <input
-            id="participantsSearch"
-            value={search}
+        <div className="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="relative">
+            <input
+              id="participantsSearch"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              placeholder="Ad, e-posta veya telefon ile ara..."
+              className="w-full rounded-full border-none bg-white px-5 py-4 text-sm text-[var(--text-primary)] outline-none"
+            />
+          </div>
+          <select
+            id="attendanceSessionSelect"
+            value={attendanceSessionSelection}
             onChange={(event) => {
-              setSearch(event.target.value);
+              setAttendanceSessionSelection(event.target.value);
             }}
-            placeholder="Ad, e-posta veya telefon ile ara"
-            className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-          />
+            className="rounded-full border-none bg-white px-4 py-4 text-sm text-[var(--text-primary)] outline-none"
+          >
+            <option value="auto">Otomatik Oturum</option>
+            {sessionsQuery.data?.data.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.name}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
-          <div>
-            <label htmlFor="attendanceSessionSelect" className="text-xs font-semibold text-zinc-600">
-              Manuel Yoklama Oturumu
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+            Seçili oturum: {selectedSessionName}
+          </p>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={allRowsSelected}
+                onChange={(event) => {
+                  onToggleSelectAll(event.target.checked);
+                }}
+                className="h-4 w-4"
+              />
+              Görünenleri seç
             </label>
-            <select
-              id="attendanceSessionSelect"
-              value={attendanceSessionSelection}
-              onChange={(event) => {
-                setAttendanceSessionSelection(event.target.value);
-              }}
-              className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-            >
-              <option value="auto">Otomatik (aktif veya en son oturum)</option>
-              {sessionsQuery.data?.data.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.name}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-zinc-500">
-              Secili: {selectedSessionName}
-            </p>
-          </div>
-
-          <div className="flex items-end">
             <button
               type="button"
               disabled={!canManageAttendance || isBulkUpdating || selectedCount === 0}
               onClick={() => {
                 void onBulkMarkPresent();
               }}
-              className="w-full rounded-xl border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+              className="rounded-full border border-[#00855b]/40 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#006947] transition hover:bg-[#6ffbbe]/25 disabled:opacity-50"
             >
-              {isBulkUpdating
-                ? "Toplu islem suruyor..."
-                : `Secilileri Var Isaretle (${selectedCount})`}
+              {isBulkUpdating ? "İşleniyor..." : `Var İşaretle (${selectedCount})`}
             </button>
           </div>
         </div>
       </article>
 
-      <article className="rounded-2xl bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-zinc-900">CSV Yukleme</h3>
-        <p className="mt-1 text-sm text-zinc-600">Dosyayi surukleyip birakabilir veya sec butonunu kullanabilirsiniz.</p>
+      <article className="rounded-2xl bg-white p-6">
+        <h4 className="text-xl font-bold text-[var(--text-primary)]" data-display="true">
+          CSV İçe Aktarma
+        </h4>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">Sürükle bırak veya dosya seç.</p>
 
         <div
           className={`mt-4 rounded-2xl border-2 border-dashed p-6 text-center transition ${
-            isDragOver ? "border-zinc-900 bg-zinc-100" : "border-zinc-300"
+            isDragOver
+              ? "border-[var(--primary)] bg-[var(--surface-soft)]"
+              : "border-[var(--border-strong)] bg-[var(--surface-soft)]"
           }`}
           onDragOver={(event) => {
             event.preventDefault();
@@ -577,26 +605,27 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
               onDropCsvFile(event.target.files?.item(0) ?? null);
             }}
           />
-          <p className="text-sm text-zinc-600">
-            {selectedFile ? `Secilen dosya: ${selectedFile.name}` : "CSV dosyanizi bu alana birakin"}
+
+          <p className="text-sm text-[var(--text-secondary)]">
+            {selectedFile ? `Seçili: ${selectedFile.name}` : "CSV dosyasını buraya bırakın"}
           </p>
           <label
             htmlFor="participantsCsv"
-            className="mt-3 inline-flex cursor-pointer rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+            className="mt-3 inline-flex cursor-pointer rounded-full bg-white px-5 py-2 text-sm font-semibold text-[var(--primary)]"
           >
-            Dosya Sec
+            Dosya Seç
           </label>
         </div>
 
         {isUploading ? (
           <div className="mt-4">
-            <div className="h-2 w-full rounded-full bg-zinc-200">
+            <div className="h-2 w-full rounded-full bg-[#d3e4fe]">
               <div
-                className="h-full rounded-full bg-zinc-900 transition-all"
+                className="h-full rounded-full bg-gradient-to-r from-[var(--primary-gradient-from)] to-[var(--primary-gradient-to)] transition-all"
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-zinc-600">Yukleme: %{uploadProgress}</p>
+            <p className="mt-2 text-xs text-[var(--text-secondary)]">Yükleme %{uploadProgress}</p>
           </div>
         ) : null}
 
@@ -607,27 +636,27 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
             onClick={() => {
               void onUploadCsv();
             }}
-            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+            className="rounded-full bg-gradient-to-br from-[var(--primary-gradient-from)] to-[var(--primary-gradient-to)] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
           >
-            {isUploading ? "Yukleniyor..." : "CSV Yukle"}
+            {isUploading ? "Yükleniyor..." : "CSV İçe Aktar"}
           </button>
         </div>
 
         {importResult ? (
-          <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-            <p>Toplam Satir: {importResult.total}</p>
-            <p>Basarili: {importResult.success}</p>
-            <p>Hatali: {importResult.failed}</p>
+          <div className="mt-4 rounded-2xl bg-[var(--surface-soft)] p-4 text-sm text-[var(--text-secondary)]">
+            <p>Toplam: {importResult.total}</p>
+            <p>Başarılı: {importResult.success}</p>
+            <p>Başarısız: {importResult.failed}</p>
 
             {importResult.failed > 0 ? (
-              <details className="mt-3 rounded-lg border border-zinc-200 bg-white p-3">
-                <summary className="cursor-pointer text-sm font-semibold text-zinc-800">
-                  Basarisiz Satirlar
+              <details className="mt-3 rounded-xl bg-white p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-[var(--text-primary)]">
+                  Başarısız Satırlar
                 </summary>
                 <div className="mt-2 space-y-2">
                   {importResult.errors.map((rowError) => (
-                    <p key={`${rowError.row}-${rowError.message}`} className="text-xs text-rose-700">
-                      Satir {rowError.row}: {rowError.message}
+                    <p key={`${rowError.row}-${rowError.message}`} className="text-xs text-[var(--error)]">
+                      Satır {rowError.row}: {rowError.message}
                     </p>
                   ))}
                 </div>
@@ -637,51 +666,30 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
         ) : null}
       </article>
 
-      <article className="rounded-2xl bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-zinc-900">Katilimci Listesi</h3>
+      <section className="space-y-4">
+        <div className="flex items-end justify-between">
+          <h4 className="text-2xl font-bold text-[var(--text-primary)]" data-display="true">
+            Katılımcılar
+          </h4>
+        </div>
 
         {participantsQuery.isPending ? (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-200">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
-                <tr>
-                  <th className="px-3 py-2">&nbsp;</th>
-                  <th className="px-3 py-2">Ad</th>
-                  <th className="px-3 py-2">E-posta</th>
-                  <th className="px-3 py-2">Telefon</th>
-                  <th className="px-3 py-2">Kaynak</th>
-                  <th className="px-3 py-2">Var / Yok</th>
-                  <th className="px-3 py-2">Tarih</th>
-                  <th className="px-3 py-2">Islem</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <tr key={index} className="border-t border-zinc-100">
-                    <td className="px-3 py-2"><div className="h-4 w-4 animate-pulse rounded bg-zinc-200" /></td>
-                    <td className="px-3 py-2"><div className="h-4 w-28 animate-pulse rounded bg-zinc-200" /></td>
-                    <td className="px-3 py-2"><div className="h-4 w-32 animate-pulse rounded bg-zinc-200" /></td>
-                    <td className="px-3 py-2"><div className="h-4 w-24 animate-pulse rounded bg-zinc-200" /></td>
-                    <td className="px-3 py-2"><div className="h-4 w-16 animate-pulse rounded bg-zinc-200" /></td>
-                    <td className="px-3 py-2"><div className="h-6 w-16 animate-pulse rounded bg-zinc-200" /></td>
-                    <td className="px-3 py-2"><div className="h-4 w-24 animate-pulse rounded bg-zinc-200" /></td>
-                    <td className="px-3 py-2"><div className="h-6 w-14 animate-pulse rounded bg-zinc-200" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-52 animate-pulse rounded-2xl bg-white" />
+            ))}
           </div>
         ) : null}
 
         {participantsQuery.isError ? (
-          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          <div className="rounded-2xl border border-[var(--error)] bg-[var(--error-soft)] p-4 text-sm text-[var(--error)]">
             Katilimci listesi yuklenemedi.
             <button
               type="button"
               onClick={() => {
                 void participantsQuery.refetch();
               }}
-              className="ml-3 rounded-lg border border-rose-300 px-3 py-1 font-semibold"
+              className="ml-3 rounded-lg border border-[var(--error)] px-3 py-1 font-semibold"
             >
               Tekrar Dene
             </button>
@@ -693,8 +701,8 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
         participantsQuery.data.data.length === 0 ? (
           <EmptyState
             iconLabel="PT"
-            title="Katilimci listesi bos"
-            message="CSV yukleyin veya manuel ekleyin."
+            title="Katılımcı listesi boş"
+            message="CSV yükleyin veya manuel ekleyin."
             ctaLabel="Manuel Ekle"
             onCtaClick={() => {
               setIsManualModalOpen(true);
@@ -706,105 +714,104 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
         !participantsQuery.isError &&
         participantsQuery.data.data.length > 0 ? (
           <>
-            <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-200">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
-                  <tr>
-                    <th className="px-3 py-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {participants.map((participant) => {
+                const attendanceRecord = attendanceStatusQuery.data?.[participant.id];
+                const isPresent = Boolean(attendanceRecord?.isValid);
+                const isSelected = selectedParticipantIds.includes(participant.id);
+
+                return (
+                  <article
+                    key={participant.id}
+                    className={`relative rounded-2xl p-6 transition ${
+                      isSelected
+                        ? "bg-[#dce9ff]"
+                        : "bg-white hover:bg-[var(--surface-soft)]"
+                    }`}
+                  >
+                    <div className="absolute left-4 top-4">
                       <input
                         type="checkbox"
-                        checked={allRowsSelected}
+                        checked={isSelected}
                         onChange={(event) => {
-                          onToggleSelectAll(event.target.checked);
+                          onToggleParticipantSelection(participant.id, event.target.checked);
                         }}
-                        className="h-4 w-4 rounded border-zinc-300"
-                        aria-label="Tum satirlari sec"
+                        className="h-4 w-4"
+                        aria-label={`${participant.name} sec`}
                       />
-                    </th>
-                    <th className="px-3 py-2">Ad</th>
-                    <th className="px-3 py-2">E-posta</th>
-                    <th className="px-3 py-2">Telefon</th>
-                    <th className="px-3 py-2">Kaynak</th>
-                    <th className="px-3 py-2">Var / Yok</th>
-                    <th className="px-3 py-2">Tarih</th>
-                    <th className="px-3 py-2 text-right">Islem</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {participantsQuery.data.data.map((participant) => (
-                    <tr key={participant.id} className="border-t border-zinc-100">
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedParticipantIds.includes(participant.id)}
-                          onChange={(event) => {
-                            onToggleParticipantSelection(participant.id, event.target.checked);
-                          }}
-                          className="h-4 w-4 rounded border-zinc-300"
-                          aria-label={`${participant.name} sec`}
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-zinc-900">{participant.name}</td>
-                      <td className="px-3 py-2 text-zinc-700">{participant.email ?? "-"}</td>
-                      <td className="px-3 py-2 text-zinc-700">{participant.phone ?? "-"}</td>
-                      <td className="px-3 py-2 text-zinc-700">{sourceLabel[participant.source]}</td>
-                      <td className="px-3 py-2 text-zinc-700">
-                        {(() => {
-                          const attendanceRecord = attendanceStatusQuery.data?.[participant.id];
-                          const isPresent = Boolean(attendanceRecord?.isValid);
+                    </div>
 
-                          return (
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                disabled={!canManageAttendance || isAttendanceUpdating || attendanceStatusQuery.isPending}
-                                onClick={() => {
-                                  openAttendanceActionDialog(
-                                    participant,
-                                    !isPresent,
-                                    attendanceRecord,
-                                  );
-                                }}
-                                className={`rounded-lg border px-3 py-1 text-xs font-semibold disabled:opacity-50 ${
-                                  isPresent
-                                    ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                    : "border-zinc-300 text-zinc-700 hover:bg-zinc-100"
-                                }`}
-                              >
-                                {isPresent ? "Var" : "Yok"}
-                              </button>
-                              <span className="text-xs text-zinc-500">
-                                {attendanceRecord
-                                  ? attendanceRecord.isValid
-                                    ? "Kayitli"
-                                    : "Gecersiz"
-                                  : "Kayit Yok"}
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-3 py-2 text-zinc-700">{formatDate(participant.createdAt)}</td>
-                      <td className="px-3 py-2 text-right">
+                    <div className="absolute right-4 top-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${sourceChipClass[participant.source]}`}
+                      >
+                        {sourceLabel[participant.source]}
+                      </span>
+                    </div>
+
+                    <div className="mt-7 flex items-center gap-4">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e5eeff] text-lg font-bold text-[var(--primary)]" data-display="true">
+                        {getInitials(participant.name) || "PT"}
+                      </div>
+                      <div className="min-w-0">
+                        <h5 className="truncate text-lg font-bold text-[var(--text-primary)]" data-display="true">
+                          {participant.name}
+                        </h5>
+                        <p className="truncate text-sm text-[var(--text-secondary)]">{participant.email ?? "-"}</p>
+                        <p className="truncate text-xs text-[var(--text-secondary)]">{participant.phone ?? "-"}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex items-center justify-between gap-3 border-t border-[var(--border-strong)]/35 pt-4">
+                      <div>
+                        <button
+                          type="button"
+                          disabled={!canManageAttendance || isAttendanceUpdating || attendanceStatusQuery.isPending}
+                          onClick={() => {
+                            openAttendanceActionDialog(
+                              participant,
+                              !isPresent,
+                              attendanceRecord,
+                            );
+                          }}
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold disabled:opacity-50 ${
+                            isPresent
+                              ? "border-[var(--success)] text-[var(--success)] hover:bg-[var(--success-soft)]"
+                              : "border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"
+                          }`}
+                        >
+                          {isPresent ? "Var" : "Yok"}
+                        </button>
+                        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                          {attendanceRecord
+                            ? attendanceRecord.isValid
+                              ? "Kayıtlı"
+                              : "Geçersiz"
+                            : "Kayıt yok"}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-[11px] text-[var(--text-secondary)]">{formatDate(participant.createdAt)}</p>
                         <button
                           type="button"
                           onClick={() => {
                             void onDeleteParticipant(participant.id);
                           }}
-                          className="rounded-lg border border-rose-300 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                          className="mt-1 rounded-full border border-[var(--error)] px-3 py-1 text-[11px] font-semibold text-[var(--error)] hover:bg-[var(--error-soft)]"
                         >
                           Sil
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
 
             {pagination ? (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs text-zinc-600">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4">
+                <p className="text-xs text-[var(--text-secondary)]">
                   Sayfa {pagination.page} / {pagination.totalPages}
                 </p>
                 <div className="flex gap-2">
@@ -814,9 +821,9 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
                       setPage((current) => Math.max(1, current - 1));
                     }}
                     disabled={pagination.page <= 1}
-                    className="rounded-lg border border-zinc-300 px-3 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
+                    className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] disabled:opacity-50"
                   >
-                    Onceki
+                    Önceki
                   </button>
                   <button
                     type="button"
@@ -824,7 +831,7 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
                       setPage((current) => Math.min(pagination.totalPages, current + 1));
                     }}
                     disabled={pagination.page >= pagination.totalPages}
-                    className="rounded-lg border border-zinc-300 px-3 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:opacity-50"
+                    className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] disabled:opacity-50"
                   >
                     Sonraki
                   </button>
@@ -833,12 +840,14 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
             ) : null}
           </>
         ) : null}
-      </article>
+      </section>
 
       {isManualModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h4 className="text-lg font-semibold text-zinc-900">Manuel Katilimci Ekle</h4>
+            <h4 className="text-lg font-semibold text-[var(--text-primary)]" data-display="true">
+              Manuel Katılımcı Ekle
+            </h4>
             <form
               className="mt-4 space-y-3"
               onSubmit={manualForm.handleSubmit((values) => {
@@ -846,44 +855,44 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
               })}
             >
               <div className="space-y-1">
-                <label htmlFor="participantName" className="text-sm font-medium text-zinc-700">
+                <label htmlFor="participantName" className="text-sm font-medium text-[var(--text-secondary)]">
                   Ad Soyad
                 </label>
                 <input
                   id="participantName"
-                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface-soft)] px-3 py-2 text-sm"
                   {...manualForm.register("name")}
                 />
                 {manualForm.formState.errors.name ? (
-                  <p className="text-xs text-rose-600">{manualForm.formState.errors.name.message}</p>
+                  <p className="text-xs text-[var(--error)]">{manualForm.formState.errors.name.message}</p>
                 ) : null}
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="participantEmail" className="text-sm font-medium text-zinc-700">
+                <label htmlFor="participantEmail" className="text-sm font-medium text-[var(--text-secondary)]">
                   E-posta
                 </label>
                 <input
                   id="participantEmail"
-                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface-soft)] px-3 py-2 text-sm"
                   {...manualForm.register("email")}
                 />
                 {manualForm.formState.errors.email ? (
-                  <p className="text-xs text-rose-600">{manualForm.formState.errors.email.message}</p>
+                  <p className="text-xs text-[var(--error)]">{manualForm.formState.errors.email.message}</p>
                 ) : null}
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="participantPhone" className="text-sm font-medium text-zinc-700">
+                <label htmlFor="participantPhone" className="text-sm font-medium text-[var(--text-secondary)]">
                   Telefon
                 </label>
                 <input
                   id="participantPhone"
-                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface-soft)] px-3 py-2 text-sm"
                   {...manualForm.register("phone")}
                 />
                 {manualForm.formState.errors.phone ? (
-                  <p className="text-xs text-rose-600">{manualForm.formState.errors.phone.message}</p>
+                  <p className="text-xs text-[var(--error)]">{manualForm.formState.errors.phone.message}</p>
                 ) : null}
               </div>
 
@@ -894,14 +903,14 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
                     setIsManualModalOpen(false);
                     manualForm.reset();
                   }}
-                  className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+                  className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"
                 >
-                  Iptal
+                  İptal
                 </button>
                 <button
                   type="submit"
                   disabled={manualForm.formState.isSubmitting}
-                  className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+                  className="rounded-full bg-gradient-to-br from-[var(--primary-gradient-from)] to-[var(--primary-gradient-to)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   {manualForm.formState.isSubmitting ? "Kaydediliyor..." : "Kaydet"}
                 </button>
@@ -912,22 +921,22 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
       ) : null}
 
       {attendanceActionDialog ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h4 className="text-lg font-semibold text-zinc-900">
-              {attendanceActionDialog.nextIsValid ? "Var Olarak Isaretle" : "Yok Olarak Isaretle"}
+            <h4 className="text-lg font-semibold text-[var(--text-primary)]" data-display="true">
+              {attendanceActionDialog.nextIsValid ? "Var Olarak İşaretle" : "Yok Olarak İşaretle"}
             </h4>
-            <p className="mt-2 text-sm text-zinc-700">
-              {attendanceActionDialog.participantName} icin yoklama durumunu {" "}
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              {attendanceActionDialog.participantName} için yoklama durumunu {" "}
               <strong>{attendanceActionDialog.nextIsValid ? "VAR" : "YOK"}</strong> olarak
-              guncellemek istiyor musunuz?
+              güncellemek istiyor musunuz?
             </p>
 
             {!attendanceActionDialog.nextIsValid ? (
               <div className="mt-3 space-y-1">
                 <label
                   htmlFor="attendanceActionReason"
-                  className="text-xs font-semibold text-zinc-600"
+                  className="text-xs font-semibold text-[var(--text-secondary)]"
                 >
                   Sebep (opsiyonel)
                 </label>
@@ -946,8 +955,8 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
                       };
                     });
                   }}
-                  className="min-h-24 w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm"
-                  placeholder="Ornek: Manuel kontrol sonrasi yok"
+                  className="min-h-24 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface-soft)] px-3 py-2 text-sm"
+                  placeholder="Örnek: Manuel kontrol sonrası yok"
                 />
               </div>
             ) : null}
@@ -958,9 +967,9 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
                 onClick={() => {
                   setAttendanceActionDialog(null);
                 }}
-                className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+                className="rounded-full border border-[var(--border-strong)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"
               >
-                Iptal
+                İptal
               </button>
               <button
                 type="button"
@@ -980,9 +989,9 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
                     setAttendanceActionDialog(null);
                   });
                 }}
-                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+                className="rounded-full bg-gradient-to-br from-[var(--primary-gradient-from)] to-[var(--primary-gradient-to)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
-                {isAttendanceUpdating ? "Guncelleniyor..." : "Onayla"}
+                {isAttendanceUpdating ? "Güncelleniyor..." : "Onayla"}
               </button>
             </div>
           </div>
