@@ -12,6 +12,7 @@ import { QrNonceStoreService } from './qr-nonce-store.service';
 
 @Injectable()
 export class QrTokenService {
+  private static readonly VERIFICATION_CODE_LENGTH = 8;
   private readonly secret: string;
 
   constructor(
@@ -51,6 +52,47 @@ export class QrTokenService {
     const elapsed = nowSeconds % safeRotation;
 
     return elapsed === 0 ? safeRotation : safeRotation - elapsed;
+  }
+
+  generateVerificationCode(token: string) {
+    const digest = createHmac('sha256', this.secret)
+      .update(`code:${token}`)
+      .digest('base64url')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase();
+
+    const compact =
+      digest.slice(0, QrTokenService.VERIFICATION_CODE_LENGTH) ||
+      randomBytes(8)
+        .toString('hex')
+        .slice(0, QrTokenService.VERIFICATION_CODE_LENGTH)
+        .toUpperCase();
+
+    return `${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
+  }
+
+  async registerVerificationCode(
+    verificationCode: string,
+    token: string,
+    ttlSeconds: number,
+  ) {
+    await this.qrNonceStore.setTokenForCode(verificationCode, token, ttlSeconds);
+  }
+
+  async resolveTokenFromInput(rawInput: string) {
+    const normalized = rawInput.trim();
+
+    if (!normalized) {
+      return null;
+    }
+
+    if (this.decodeToken(normalized)) {
+      return normalized;
+    }
+
+    const mappedToken = await this.qrNonceStore.getTokenForCode(normalized);
+
+    return mappedToken ?? normalized;
   }
 
   async verifyToken(
@@ -97,12 +139,6 @@ export class QrTokenService {
       };
     }
 
-    await this.qrNonceStore.markUsed(
-      payload.sid,
-      payload.nonce,
-      safeRotation * 2,
-    );
-
     return {
       valid: true,
       sessionId: payload.sid,
@@ -110,6 +146,21 @@ export class QrTokenService {
       nonce: payload.nonce,
       tokenVersion: payload.v,
     };
+  }
+
+  async consumeNonce(
+    sessionId: string,
+    nonce: string,
+    rotationSeconds: number,
+  ) {
+    const safeRotation = this.normalizeRotation(rotationSeconds);
+
+    if (await this.qrNonceStore.isUsed(sessionId, nonce)) {
+      return false;
+    }
+
+    await this.qrNonceStore.markUsed(sessionId, nonce, safeRotation * 2);
+    return true;
   }
 
   private decodeToken(rawToken: string): QrTokenPayload | null {

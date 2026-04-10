@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
+import { resetTestDatabase } from '../../../../test/support/reset-test-database';
 import { EventsRepository } from '../../events/repositories/events.repository';
 import { SessionsRepository } from '../repositories/sessions.repository';
 import { SessionsService } from './sessions.service';
@@ -22,15 +23,16 @@ describe('SessionsService', () => {
     });
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await resetTestDatabase();
     eventsRepository = new EventsRepository();
     service = new SessionsService(new SessionsRepository(), eventsRepository);
   });
 
-  it('creates session for existing event', () => {
-    const event = seedEvent();
+  it('creates session for existing event', async () => {
+    const event = await seedEvent();
 
-    const result = service.create(event.id, {
+    const result = await service.create(event.id, {
       name: '1. Oturum',
       startsAt: '2026-04-20T08:30:00.000Z',
       endsAt: '2026-04-20T09:30:00.000Z',
@@ -41,31 +43,31 @@ describe('SessionsService', () => {
     expect(result.data.eventId).toBe(event.id);
   });
 
-  it('lists sessions by event id', () => {
-    const event = seedEvent();
+  it('lists sessions by event id', async () => {
+    const event = await seedEvent();
 
-    service.create(event.id, {
+    await service.create(event.id, {
       name: 'A',
       startsAt: '2026-04-20T08:30:00.000Z',
       endsAt: '2026-04-20T09:30:00.000Z',
     });
 
-    const result = service.list(event.id);
+    const result = await service.list(event.id);
 
     expect(result.success).toBe(true);
     expect(result.data).toHaveLength(1);
     expect(result.data[0].name).toBe('A');
   });
 
-  it('updates session values', () => {
-    const event = seedEvent();
-    const created = service.create(event.id, {
+  it('updates session values', async () => {
+    const event = await seedEvent();
+    const created = await service.create(event.id, {
       name: 'A',
       startsAt: '2026-04-20T08:30:00.000Z',
       endsAt: '2026-04-20T09:30:00.000Z',
     });
 
-    const updated = service.update(event.id, created.data.id, {
+    const updated = await service.update(event.id, created.data.id, {
       name: 'B',
       endsAt: '2026-04-20T10:00:00.000Z',
     });
@@ -75,41 +77,71 @@ describe('SessionsService', () => {
     expect(updated.data.endsAt).toBe('2026-04-20T10:00:00.000Z');
   });
 
-  it('removes session', () => {
-    const event = seedEvent();
-    const created = service.create(event.id, {
+  it('removes session', async () => {
+    const event = await seedEvent();
+    const created = await service.create(event.id, {
       name: 'A',
       startsAt: '2026-04-20T08:30:00.000Z',
       endsAt: '2026-04-20T09:30:00.000Z',
     });
 
-    const removed = service.remove(event.id, created.data.id);
+    const removed = await service.remove(event.id, created.data.id);
     expect(removed.success).toBe(true);
 
-    expect(() =>
+    await expect(
       service.update(event.id, created.data.id, { name: 'C' }),
-    ).toThrow(NotFoundException);
+    ).rejects.toThrow(NotFoundException);
   });
 
-  it('throws not found when event does not exist', () => {
-    expect(() =>
+  it('throws not found when event does not exist', async () => {
+    await expect(
       service.create('missing-event', {
         name: 'A',
         startsAt: '2026-04-20T08:30:00.000Z',
         endsAt: '2026-04-20T09:30:00.000Z',
       }),
-    ).toThrow(NotFoundException);
+    ).rejects.toThrow(NotFoundException);
   });
 
-  it('throws bad request for invalid date range', () => {
-    const event = seedEvent();
+  it('throws bad request for invalid date range', async () => {
+    const event = await seedEvent();
 
-    expect(() =>
+    await expect(
       service.create(event.id, {
         name: 'A',
         startsAt: '2026-04-20T11:00:00.000Z',
         endsAt: '2026-04-20T10:00:00.000Z',
       }),
-    ).toThrow(BadRequestException);
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws bad request when session exceeds event boundaries', async () => {
+    const event = await seedEvent();
+
+    await expect(
+      service.create(event.id, {
+        name: 'Tasiyor',
+        startsAt: '2026-04-20T07:30:00.000Z',
+        endsAt: '2026-04-20T09:00:00.000Z',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws bad request for overlapping sessions', async () => {
+    const event = await seedEvent();
+
+    await service.create(event.id, {
+      name: '1. Oturum',
+      startsAt: '2026-04-20T08:30:00.000Z',
+      endsAt: '2026-04-20T09:30:00.000Z',
+    });
+
+    await expect(
+      service.create(event.id, {
+        name: 'Cakisan Oturum',
+        startsAt: '2026-04-20T09:00:00.000Z',
+        endsAt: '2026-04-20T10:00:00.000Z',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 });

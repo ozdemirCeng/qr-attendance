@@ -15,7 +15,7 @@ type AuditLogInput = {
 export class AuditService {
   constructor(private readonly auditRepository: AuditRepository) {}
 
-  log(input: AuditLogInput): AuditLogEntity {
+  async log(input: AuditLogInput): Promise<AuditLogEntity> {
     return this.auditRepository.create({
       adminId: input.adminId,
       action: input.action,
@@ -25,7 +25,7 @@ export class AuditService {
     });
   }
 
-  listLatest(limit = 100) {
+  async listLatest(limit = 100) {
     return this.auditRepository.listLatest(limit);
   }
 }

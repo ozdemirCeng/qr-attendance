@@ -25,5 +25,6 @@ pnpm --filter @qr-attendance/api typecheck
 - Geri uyumluluk endpointi: /docs
 - Health endpoint: /health
 - Global validation ve exception filter kullanilir.
-- Export endpointleri API icinde dosya uretir; Redis/worker olmadan da calisir.
+- Export endpointleri Redis varsa `export.queue` uzerinden worker'a is birakir.
+- Redis yoksa export dosyasi API icinde uretilir.
 - Vercel API env template: `.env.vercel.api.example` (repo root)

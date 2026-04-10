@@ -19,9 +19,11 @@ import {
 } from '@nestjs/swagger';
 
 import { Audit } from '../../../common/decorators/audit.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
+import { RequestUser } from '../../../common/types/request-user.type';
 import { CreateEventDto } from '../dto/create-event.dto';
 import { ListEventsQueryDto } from '../dto/list-events-query.dto';
 import { UpdateEventDto } from '../dto/update-event.dto';
@@ -40,8 +42,15 @@ export class EventsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiOkResponse({ description: 'Etkinlik listesi donuldu.' })
   @Get()
-  list(@Query() query: ListEventsQueryDto) {
+  async list(@Query() query: ListEventsQueryDto) {
     return this.eventsService.list(query);
+  }
+
+  @ApiOperation({ summary: 'Etkinlik istatistiklerini getirir' })
+  @ApiOkResponse({ description: 'Etkinlik istatistikleri donuldu.' })
+  @Get('stats')
+  async stats() {
+    return this.eventsService.stats();
   }
 
   @ApiOperation({ summary: 'Yeni etkinlik olusturur' })
@@ -52,15 +61,18 @@ export class EventsController {
     entityIdResponsePath: 'data.id',
   })
   @Post()
-  create(@Body() payload: CreateEventDto) {
-    return this.eventsService.create(payload);
+  async create(
+    @Body() payload: CreateEventDto,
+    @CurrentUser() user: RequestUser | undefined,
+  ) {
+    return this.eventsService.create(payload, user);
   }
 
   @ApiOperation({ summary: 'Etkinlik detayini getirir' })
   @ApiOkResponse({ description: 'Etkinlik detayi donuldu.' })
   @ApiNotFoundResponse({ description: 'Etkinlik bulunamadi.' })
   @Get(':id')
-  detail(@Param('id') id: string) {
+  async detail(@Param('id') id: string) {
     return this.eventsService.detail(id);
   }
 
@@ -73,7 +85,7 @@ export class EventsController {
     entityIdParam: 'id',
   })
   @Patch(':id')
-  update(@Param('id') id: string, @Body() payload: UpdateEventDto) {
+  async update(@Param('id') id: string, @Body() payload: UpdateEventDto) {
     return this.eventsService.update(id, payload);
   }
 
@@ -87,7 +99,7 @@ export class EventsController {
     entityIdParam: 'id',
   })
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string) {
     return this.eventsService.remove(id);
   }
 }

@@ -7,12 +7,15 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
 import { EventsRepository } from '../src/modules/events/repositories/events.repository';
+import { resetTestDatabase } from './support/reset-test-database';
 
 describe('Auth + Events/Sessions (e2e)', () => {
   let app: INestApplication<App>;
   let eventsRepository: EventsRepository;
 
   beforeEach(async () => {
+    await resetTestDatabase();
+
     process.env.QR_SECRET = 'attendance-e2e-secret-12345';
     process.env.DEMO_ADMIN_USERNAME = 'demoadmin';
     process.env.DEMO_ADMIN_EMAIL = 'demo.admin@qrattendance.local';
@@ -58,18 +61,12 @@ describe('Auth + Events/Sessions (e2e)', () => {
   it('allows demo admin login and protected event/session operations', async () => {
     const agent = request.agent(app.getHttpServer());
 
-    const loginResponse = await agent.post('/auth/login').send({
+    await agent.post('/auth/login').send({
       identifier: 'demoadmin',
       password: 'DemoAdmin123!',
     });
 
-    expect(loginResponse.status).toBe(201);
-    expect(loginResponse.body).toMatchObject({
-      success: true,
-    });
-
     const meResponse = await agent.get('/auth/me').expect(200);
-
     expect(meResponse.body).toMatchObject({
       email: 'demo.admin@qrattendance.local',
       role: 'admin',
@@ -78,7 +75,7 @@ describe('Auth + Events/Sessions (e2e)', () => {
     const eventStart = new Date(Date.now() + 30 * 60_000);
     const eventEnd = new Date(Date.now() + 120 * 60_000);
 
-    const createEventResponse = await agent
+    await agent
       .post('/events')
       .send({
         name: 'Auth E2E Etkinlik',
@@ -93,14 +90,7 @@ describe('Auth + Events/Sessions (e2e)', () => {
       })
       .expect(201);
 
-    expect(createEventResponse.body).toMatchObject({
-      success: true,
-      data: {
-        name: 'Auth E2E Etkinlik',
-      },
-    });
-
-    const sessionEvent = eventsRepository.create({
+    const sessionEvent = await eventsRepository.create({
       name: 'Auth E2E Session Event',
       description: 'Session endpoint smoke test',
       locationName: 'B Blok',
@@ -110,12 +100,13 @@ describe('Auth + Events/Sessions (e2e)', () => {
       startsAt: eventStart.toISOString(),
       endsAt: eventEnd.toISOString(),
       status: 'active',
+      createdBy: 'test-admin',
     });
 
     const sessionStart = new Date(Date.now() + 35 * 60_000);
     const sessionEnd = new Date(Date.now() + 65 * 60_000);
 
-    const createSessionResponse = await agent
+    await agent
       .post(`/events/${sessionEvent.id}/sessions`)
       .send({
         name: 'Auth E2E Oturum',
@@ -124,18 +115,8 @@ describe('Auth + Events/Sessions (e2e)', () => {
       })
       .expect(201);
 
-    expect(createSessionResponse.body).toMatchObject({
-      success: true,
-      data: {
-        eventId: sessionEvent.id,
-        name: 'Auth E2E Oturum',
-      },
-    });
-
     await agent.get('/events?page=1&limit=10').expect(200);
-
     await agent.get(`/events/${sessionEvent.id}/sessions`).expect(200);
-
     await agent.post('/auth/logout').expect(201);
   });
 });

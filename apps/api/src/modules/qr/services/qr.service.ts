@@ -14,10 +14,11 @@ export class QrService {
     private readonly qrTokenService: QrTokenService,
   ) {}
 
-  getCurrentToken(eventId: string) {
-    this.ensureEventExists(eventId);
+  async getCurrentToken(eventId: string) {
+    await this.ensureEventExists(eventId);
 
-    const activeSession = this.sessionsRepository.findActiveByEventId(eventId);
+    const activeSession =
+      await this.sessionsRepository.findActiveByEventId(eventId);
     if (!activeSession) {
       throw new NotFoundException('Aktif oturum bulunamadi.');
     }
@@ -30,19 +31,26 @@ export class QrService {
       activeSession.id,
       rotationSeconds,
     );
+    const verificationCode = this.qrTokenService.generateVerificationCode(token);
+    await this.qrTokenService.registerVerificationCode(
+      verificationCode,
+      token,
+      rotationSeconds * 3,
+    );
 
     return {
       success: true,
       data: {
         token,
+        verificationCode,
         expiresIn: this.qrTokenService.getExpiresIn(rotationSeconds),
         sessionId: activeSession.id,
       },
     };
   }
 
-  private ensureEventExists(eventId: string) {
-    const event = this.eventsRepository.findById(eventId);
+  private async ensureEventExists(eventId: string) {
+    const event = await this.eventsRepository.findById(eventId);
 
     if (!event) {
       throw new NotFoundException('Etkinlik bulunamadi.');

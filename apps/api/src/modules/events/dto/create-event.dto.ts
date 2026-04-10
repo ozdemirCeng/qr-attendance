@@ -1,6 +1,7 @@
 import {
   IsEnum,
   IsDateString,
+  Max,
   IsNumber,
   IsOptional,
   IsString,
@@ -36,10 +37,14 @@ export class CreateEventDto {
 
   @ApiProperty({ example: 40.765123, minimum: -90, maximum: 90 })
   @IsNumber()
+  @Min(-90)
+  @Max(90)
   latitude!: number;
 
   @ApiProperty({ example: 29.940321, minimum: -180, maximum: 180 })
   @IsNumber()
+  @Min(-180)
+  @Max(180)
   longitude!: number;
 
   @ApiProperty({ example: 100, minimum: 30 })

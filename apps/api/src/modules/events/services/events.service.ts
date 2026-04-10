@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { RequestUser } from '../../../common/types/request-user.type';
 import { CreateEventDto } from '../dto/create-event.dto';
 import { ListEventsQueryDto } from '../dto/list-events-query.dto';
 import { UpdateEventDto } from '../dto/update-event.dto';
@@ -13,8 +14,8 @@ import { EventsRepository } from '../repositories/events.repository';
 export class EventsService {
   constructor(private readonly eventsRepository: EventsRepository) {}
 
-  list(query: ListEventsQueryDto) {
-    const result = this.eventsRepository.findAll({
+  async list(query: ListEventsQueryDto) {
+    const result = await this.eventsRepository.findAll({
       page: query.page,
       limit: query.limit,
     });
@@ -31,10 +32,10 @@ export class EventsService {
     };
   }
 
-  create(payload: CreateEventDto) {
+  async create(payload: CreateEventDto, user?: RequestUser) {
     this.validateDateRange(payload.startsAt, payload.endsAt);
 
-    const event = this.eventsRepository.create({
+    const event = await this.eventsRepository.create({
       name: payload.name,
       description: payload.description ?? null,
       locationName: payload.locationName,
@@ -44,13 +45,23 @@ export class EventsService {
       startsAt: payload.startsAt,
       endsAt: payload.endsAt,
       status: payload.status ?? 'draft',
+      createdBy: user?.id ?? 'system',
     });
 
     return { success: true, data: event };
   }
 
-  detail(id: string) {
-    const event = this.eventsRepository.findById(id);
+  async stats() {
+    const stats = await this.eventsRepository.getStats();
+
+    return {
+      success: true,
+      data: stats,
+    };
+  }
+
+  async detail(id: string) {
+    const event = await this.eventsRepository.findById(id);
 
     if (!event) {
       throw new NotFoundException('Etkinlik bulunamadi.');
@@ -59,8 +70,8 @@ export class EventsService {
     return { success: true, data: event };
   }
 
-  update(id: string, payload: UpdateEventDto) {
-    const current = this.eventsRepository.findById(id);
+  async update(id: string, payload: UpdateEventDto) {
+    const current = await this.eventsRepository.findById(id);
 
     if (!current) {
       throw new NotFoundException('Etkinlik bulunamadi.');
@@ -70,7 +81,7 @@ export class EventsService {
     const endsAt = payload.endsAt ?? current.endsAt;
     this.validateDateRange(startsAt, endsAt);
 
-    const updated = this.eventsRepository.update(id, {
+    const updated = await this.eventsRepository.update(id, {
       name: payload.name,
       description: payload.description ?? current.description,
       locationName: payload.locationName,
@@ -89,8 +100,8 @@ export class EventsService {
     return { success: true, data: updated };
   }
 
-  remove(id: string) {
-    const removed = this.eventsRepository.softDelete(id);
+  async remove(id: string) {
+    const removed = await this.eventsRepository.softDelete(id);
 
     if (!removed) {
       throw new NotFoundException('Etkinlik bulunamadi.');

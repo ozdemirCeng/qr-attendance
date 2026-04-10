@@ -16,11 +16,18 @@ export class SessionsService {
     private readonly eventsRepository: EventsRepository,
   ) {}
 
-  create(eventId: string, payload: CreateSessionDto) {
-    this.ensureEventExists(eventId);
+  async create(eventId: string, payload: CreateSessionDto) {
+    const event = await this.ensureEventExists(eventId);
     this.validateDateRange(payload.startsAt, payload.endsAt);
+    this.validateSessionWithinEventWindow(
+      event.startsAt,
+      event.endsAt,
+      payload.startsAt,
+      payload.endsAt,
+    );
+    await this.ensureNoOverlap(eventId, payload.startsAt, payload.endsAt);
 
-    const session = this.sessionsRepository.create({
+    const session = await this.sessionsRepository.create({
       eventId,
       name: payload.name,
       startsAt: payload.startsAt,
@@ -30,19 +37,19 @@ export class SessionsService {
     return { success: true, data: session };
   }
 
-  list(eventId: string) {
-    this.ensureEventExists(eventId);
+  async list(eventId: string) {
+    await this.ensureEventExists(eventId);
 
     return {
       success: true,
-      data: this.sessionsRepository.findByEventId(eventId),
+      data: await this.sessionsRepository.findByEventId(eventId),
     };
   }
 
-  update(eventId: string, sessionId: string, payload: UpdateSessionDto) {
-    this.ensureEventExists(eventId);
+  async update(eventId: string, sessionId: string, payload: UpdateSessionDto) {
+    const event = await this.ensureEventExists(eventId);
 
-    const current = this.sessionsRepository.findByEventAndId(
+    const current = await this.sessionsRepository.findByEventAndId(
       eventId,
       sessionId,
     );
@@ -54,8 +61,15 @@ export class SessionsService {
     const startsAt = payload.startsAt ?? current.startsAt;
     const endsAt = payload.endsAt ?? current.endsAt;
     this.validateDateRange(startsAt, endsAt);
+    this.validateSessionWithinEventWindow(
+      event.startsAt,
+      event.endsAt,
+      startsAt,
+      endsAt,
+    );
+    await this.ensureNoOverlap(eventId, startsAt, endsAt, sessionId);
 
-    const updated = this.sessionsRepository.update(eventId, sessionId, {
+    const updated = await this.sessionsRepository.update(eventId, sessionId, {
       name: payload.name,
       startsAt: payload.startsAt,
       endsAt: payload.endsAt,
@@ -71,10 +85,10 @@ export class SessionsService {
     };
   }
 
-  remove(eventId: string, sessionId: string) {
-    this.ensureEventExists(eventId);
+  async remove(eventId: string, sessionId: string) {
+    await this.ensureEventExists(eventId);
 
-    const removed = this.sessionsRepository.remove(eventId, sessionId);
+    const removed = await this.sessionsRepository.remove(eventId, sessionId);
 
     if (!removed) {
       throw new NotFoundException('Oturum bulunamadi.');
@@ -88,12 +102,14 @@ export class SessionsService {
     };
   }
 
-  private ensureEventExists(eventId: string) {
-    const event = this.eventsRepository.findById(eventId);
+  private async ensureEventExists(eventId: string) {
+    const event = await this.eventsRepository.findById(eventId);
 
     if (!event) {
       throw new NotFoundException('Etkinlik bulunamadi.');
     }
+
+    return event;
   }
 
   private validateDateRange(startsAt: string, endsAt: string) {
@@ -110,6 +126,52 @@ export class SessionsService {
     if (endsAtDate <= startsAtDate) {
       throw new BadRequestException(
         'Oturum bitis zamani baslangic zamanindan sonra olmalidir.',
+      );
+    }
+  }
+
+  private validateSessionWithinEventWindow(
+    eventStartsAt: string,
+    eventEndsAt: string,
+    sessionStartsAt: string,
+    sessionEndsAt: string,
+  ) {
+    const eventStart = new Date(eventStartsAt);
+    const eventEnd = new Date(eventEndsAt);
+    const sessionStart = new Date(sessionStartsAt);
+    const sessionEnd = new Date(sessionEndsAt);
+
+    if (sessionStart < eventStart || sessionEnd > eventEnd) {
+      throw new BadRequestException(
+        'Oturum zaman araligi etkinlik zaman araligi icinde olmalidir.',
+      );
+    }
+  }
+
+  private async ensureNoOverlap(
+    eventId: string,
+    startsAt: string,
+    endsAt: string,
+    ignoredSessionId?: string,
+  ) {
+    const nextStart = new Date(startsAt).getTime();
+    const nextEnd = new Date(endsAt).getTime();
+    const existingSessions =
+      await this.sessionsRepository.findByEventId(eventId);
+    const hasOverlap = existingSessions.some((session) => {
+      if (session.id === ignoredSessionId) {
+        return false;
+      }
+
+      const currentStart = new Date(session.startsAt).getTime();
+      const currentEnd = new Date(session.endsAt).getTime();
+
+      return nextStart < currentEnd && nextEnd > currentStart;
+    });
+
+    if (hasOverlap) {
+      throw new BadRequestException(
+        'Ayni etkinlik icinde cakisan oturum zaman araligi olusturulamaz.',
       );
     }
   }

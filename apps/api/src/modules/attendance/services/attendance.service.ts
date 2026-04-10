@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { isDatabaseUniqueViolation } from '../../../common/database/neon';
 import { EventsRepository } from '../../events/repositories/events.repository';
 import { ParticipantsRepository } from '../../participants/repositories/participants.repository';
 import { QrVerificationCode } from '../../qr/qr.types';
@@ -57,13 +58,19 @@ export class AttendanceService {
     );
     const ip = this.normalizeNullable(meta.ip);
     const userAgent = this.normalizeUserAgent(meta.userAgent);
+    const resolvedToken = await this.qrTokenService.resolveTokenFromInput(
+      payload.token,
+    );
 
-    let sessionIdForAttempt =
-      this.extractSessionIdFromToken(payload.token) ?? 'unknown-session';
+    if (!resolvedToken) {
+      throw this.scanError('MALFORMED_TOKEN', 'QR token gecersiz.');
+    }
+
+    let sessionIdForAttempt = this.extractSessionIdFromToken(resolvedToken);
 
     try {
       const verification = await this.qrTokenService.verifyToken(
-        payload.token,
+        resolvedToken,
         rotationSeconds,
       );
 
@@ -76,7 +83,9 @@ export class AttendanceService {
 
       sessionIdForAttempt = verification.sessionId;
 
-      const session = this.sessionsRepository.findById(verification.sessionId);
+      const session = await this.sessionsRepository.findById(
+        verification.sessionId,
+      );
       if (!session) {
         throw this.scanError(
           'SESSION_NOT_FOUND',
@@ -89,7 +98,7 @@ export class AttendanceService {
         throw this.scanError('SESSION_INACTIVE', 'Oturum aktif degil.');
       }
 
-      const event = this.eventsRepository.findById(session.eventId);
+      const event = await this.eventsRepository.findById(session.eventId);
       if (!event) {
         throw this.scanError(
           'SESSION_NOT_FOUND',
@@ -118,7 +127,7 @@ export class AttendanceService {
         );
       }
 
-      const participant = this.resolveParticipant(event.id, payload);
+      const participant = await this.resolveParticipant(event.id, payload);
 
       if (!participant) {
         throw this.scanError(
@@ -128,7 +137,7 @@ export class AttendanceService {
       }
 
       const existingRecord =
-        this.attendanceRecordsRepository.findByParticipantAndSession(
+        await this.attendanceRecordsRepository.findByParticipantAndSession(
           participant.id,
           session.id,
         );
@@ -141,27 +150,52 @@ export class AttendanceService {
         );
       }
 
-      const record = this.attendanceRecordsRepository.create({
-        eventId: event.id,
-        sessionId: session.id,
-        participantId: participant.id,
-        fullName: participant.name,
-        email: participant.email,
-        phone: participant.phone,
-        scannedAt,
-        latitude: payload.lat ?? null,
-        longitude: payload.lng ?? null,
-        accuracy: payload.locationAccuracy ?? null,
-        distanceFromVenue: locationCheck.distance,
-        isValid: true,
-        invalidReason: null,
-        qrNonce: verification.nonce,
-        ipAddress: ip,
-        deviceFingerprint: this.normalizeNullable(payload.fingerprint),
-      });
+      const consumed = await this.qrTokenService.consumeNonce(
+        verification.sessionId,
+        verification.nonce,
+        rotationSeconds,
+      );
 
-      this.attendanceAttemptsRepository.create({
+      if (!consumed) {
+        throw this.scanError('REPLAY_ATTACK', 'QR token yeniden kullanilamaz.');
+      }
+
+      let record: AttendanceRecordEntity;
+
+      try {
+        record = await this.attendanceRecordsRepository.create({
+          eventId: event.id,
+          sessionId: session.id,
+          participantId: participant.id,
+          fullName: participant.name,
+          email: participant.email,
+          phone: participant.phone,
+          scannedAt,
+          latitude: payload.lat ?? null,
+          longitude: payload.lng ?? null,
+          accuracy: payload.locationAccuracy ?? null,
+          distanceFromVenue: locationCheck.distance,
+          isValid: true,
+          invalidReason: null,
+          qrNonce: verification.nonce,
+          ipAddress: ip,
+          deviceFingerprint: this.normalizeNullable(payload.fingerprint),
+        });
+      } catch (error) {
+        if (!isDatabaseUniqueViolation(error)) {
+          throw error;
+        }
+
+        throw this.scanError(
+          'ALREADY_CHECKED_IN',
+          'Bu katilimci bu oturum icin zaten kayitli.',
+          409,
+        );
+      }
+
+      await this.attendanceAttemptsRepository.create({
         sessionId: session.id,
+        rawSessionRef: verification.sessionId,
         ip,
         userAgent,
         latitude: payload.lat ?? null,
@@ -193,8 +227,9 @@ export class AttendanceService {
     } catch (error: unknown) {
       const errorCode = this.extractErrorCode(error);
 
-      this.attendanceAttemptsRepository.create({
-        sessionId: sessionIdForAttempt,
+      await this.attendanceAttemptsRepository.create({
+        sessionId: null,
+        rawSessionRef: sessionIdForAttempt,
         ip,
         userAgent,
         latitude: payload.lat ?? null,
@@ -208,11 +243,11 @@ export class AttendanceService {
     }
   }
 
-  listByEvent(eventId: string, query: ListAttendanceQueryDto) {
-    this.ensureEventExists(eventId);
+  async listByEvent(eventId: string, query: ListAttendanceQueryDto) {
+    await this.ensureEventExists(eventId);
 
     if (query.sessionId) {
-      const session = this.sessionsRepository.findByEventAndId(
+      const session = await this.sessionsRepository.findByEventAndId(
         eventId,
         query.sessionId,
       );
@@ -222,7 +257,7 @@ export class AttendanceService {
       }
     }
 
-    const result = this.attendanceRecordsRepository.findAllByEvent({
+    const result = await this.attendanceRecordsRepository.findAllByEvent({
       eventId,
       sessionId: query.sessionId,
       page: query.page,
@@ -233,7 +268,9 @@ export class AttendanceService {
 
     return {
       success: true,
-      data: result.items.map((record) => this.toAttendanceListItem(record)),
+      data: await Promise.all(
+        result.items.map((record) => this.toAttendanceListItem(record)),
+      ),
       pagination: {
         page: result.page,
         limit: result.limit,
@@ -243,10 +280,11 @@ export class AttendanceService {
     };
   }
 
-  statsByEvent(eventId: string) {
-    this.ensureEventExists(eventId);
+  async statsByEvent(eventId: string) {
+    await this.ensureEventExists(eventId);
 
-    const records = this.attendanceRecordsRepository.findByEventId(eventId);
+    const records =
+      await this.attendanceRecordsRepository.findByEventId(eventId);
 
     let valid = 0;
     let invalid = 0;
@@ -260,7 +298,9 @@ export class AttendanceService {
         invalid += 1;
       }
 
-      if (this.resolveRegistrationType(record.participantId) === 'walkIn') {
+      if (
+        (await this.resolveRegistrationType(record.participantId)) === 'walkIn'
+      ) {
         walkIn += 1;
       } else {
         registered += 1;
@@ -279,8 +319,8 @@ export class AttendanceService {
     };
   }
 
-  updateManualStatus(id: string, payload: UpdateManualStatusDto) {
-    const current = this.attendanceRecordsRepository.findById(id);
+  async updateManualStatus(id: string, payload: UpdateManualStatusDto) {
+    const current = await this.attendanceRecordsRepository.findById(id);
 
     if (!current) {
       throw new NotFoundException('Katilim kaydi bulunamadi.');
@@ -291,7 +331,7 @@ export class AttendanceService {
       ? null
       : (normalizedReason ?? current.invalidReason ?? 'MANUAL_REVIEW');
 
-    const updated = this.attendanceRecordsRepository.update(id, {
+    const updated = await this.attendanceRecordsRepository.update(id, {
       isValid: payload.isValid,
       invalidReason,
     });
@@ -302,17 +342,17 @@ export class AttendanceService {
 
     return {
       success: true,
-      data: this.toAttendanceListItem(updated),
+      data: await this.toAttendanceListItem(updated),
     };
   }
 
-  manualUpsertForParticipant(
+  async manualUpsertForParticipant(
     eventId: string,
     payload: ManualAttendanceUpsertDto,
   ) {
-    this.ensureEventExists(eventId);
+    await this.ensureEventExists(eventId);
 
-    const participant = this.participantsRepository.findByEventAndId(
+    const participant = await this.participantsRepository.findByEventAndId(
       eventId,
       payload.participantId,
     );
@@ -321,7 +361,7 @@ export class AttendanceService {
       throw new NotFoundException('Katilimci bulunamadi.');
     }
 
-    const session = this.resolveSessionForManualAttendance(
+    const session = await this.resolveSessionForManualAttendance(
       eventId,
       payload.sessionId,
     );
@@ -331,7 +371,7 @@ export class AttendanceService {
     }
 
     const existingRecord =
-      this.attendanceRecordsRepository.findByParticipantAndSession(
+      await this.attendanceRecordsRepository.findByParticipantAndSession(
         participant.id,
         session.id,
       );
@@ -342,7 +382,7 @@ export class AttendanceService {
       : (normalizedReason ?? existingRecord?.invalidReason ?? 'MANUAL_REVIEW');
 
     if (existingRecord) {
-      const updated = this.attendanceRecordsRepository.update(
+      const updated = await this.attendanceRecordsRepository.update(
         existingRecord.id,
         {
           isValid: payload.isValid,
@@ -356,11 +396,11 @@ export class AttendanceService {
 
       return {
         success: true,
-        data: this.toAttendanceListItem(updated),
+        data: await this.toAttendanceListItem(updated),
       };
     }
 
-    const created = this.attendanceRecordsRepository.create({
+    const created = await this.attendanceRecordsRepository.create({
       eventId,
       sessionId: session.id,
       participantId: participant.id,
@@ -381,25 +421,28 @@ export class AttendanceService {
 
     return {
       success: true,
-      data: this.toAttendanceListItem(created),
+      data: await this.toAttendanceListItem(created),
     };
   }
 
-  private toAttendanceListItem(record: AttendanceRecordEntity) {
+  private async toAttendanceListItem(record: AttendanceRecordEntity) {
     return {
       ...record,
-      registrationType: this.resolveRegistrationType(record.participantId),
+      registrationType: await this.resolveRegistrationType(
+        record.participantId,
+      ),
     };
   }
 
-  private resolveRegistrationType(
+  private async resolveRegistrationType(
     participantId: string | null,
-  ): RegistrationType {
+  ): Promise<RegistrationType> {
     if (!participantId) {
       return 'walkIn';
     }
 
-    const participant = this.participantsRepository.findById(participantId);
+    const participant =
+      await this.participantsRepository.findById(participantId);
 
     if (!participant || participant.source === 'self_registered') {
       return 'walkIn';
@@ -408,15 +451,15 @@ export class AttendanceService {
     return 'registered';
   }
 
-  private ensureEventExists(eventId: string) {
-    const event = this.eventsRepository.findById(eventId);
+  private async ensureEventExists(eventId: string) {
+    const event = await this.eventsRepository.findById(eventId);
 
     if (!event) {
       throw new NotFoundException('Etkinlik bulunamadi.');
     }
   }
 
-  private resolveSessionForManualAttendance(
+  private async resolveSessionForManualAttendance(
     eventId: string,
     sessionId?: string,
   ) {
@@ -424,18 +467,22 @@ export class AttendanceService {
       return this.sessionsRepository.findByEventAndId(eventId, sessionId);
     }
 
-    const activeSession = this.sessionsRepository.findActiveByEventId(eventId);
+    const activeSession =
+      await this.sessionsRepository.findActiveByEventId(eventId);
 
     if (activeSession) {
       return activeSession;
     }
 
-    const sessions = this.sessionsRepository.findByEventId(eventId);
+    const sessions = await this.sessionsRepository.findByEventId(eventId);
 
     return sessions.at(-1) ?? null;
   }
 
-  private resolveParticipant(eventId: string, payload: ScanAttendanceDto) {
+  private async resolveParticipant(
+    eventId: string,
+    payload: ScanAttendanceDto,
+  ) {
     const normalizedEmail = this.normalizeEmail(payload.email);
     const normalizedName = this.normalizeNullable(payload.name);
     const normalizedPhone = this.normalizeNullable(payload.phone);
@@ -443,7 +490,7 @@ export class AttendanceService {
 
     if (normalizedEmail) {
       const existingParticipant =
-        this.participantsRepository.findByEventAndEmail(
+        await this.participantsRepository.findByEventAndEmail(
           eventId,
           normalizedEmail,
         );
@@ -455,7 +502,7 @@ export class AttendanceService {
 
     if (normalizedPhone) {
       const existingParticipant =
-        this.participantsRepository.findByEventAndPhone(
+        await this.participantsRepository.findByEventAndPhone(
           eventId,
           normalizedPhone,
         );

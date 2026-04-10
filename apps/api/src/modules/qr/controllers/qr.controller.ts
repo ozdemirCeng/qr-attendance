@@ -26,7 +26,7 @@ export class QrController {
     description: 'Etkinlik veya aktif oturum bulunamadi.',
   })
   @Get('current')
-  current(@Param('eventId') eventId: string) {
+  async current(@Param('eventId') eventId: string) {
     return this.qrService.getCurrentToken(eventId);
   }
 }

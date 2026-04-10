@@ -11,7 +11,7 @@ import {
 export class ScanAttendanceDto {
   @ApiProperty({
     example: 'eyJ2IjoxLCJzaWQiOiIuLi4ifQ',
-    description: 'QR token degeri',
+    description: 'QR token degeri veya kisa dogrulama kodu',
   })
   @IsString()
   @MaxLength(4096)

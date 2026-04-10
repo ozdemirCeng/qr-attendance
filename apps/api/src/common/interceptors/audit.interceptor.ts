@@ -55,20 +55,22 @@ export class AuditInterceptor implements NestInterceptor {
           responsePayload,
         );
 
-        this.auditService.log({
-          adminId: request.user?.id ?? null,
-          action: options.action,
-          entityType: options.entityType,
-          entityId,
-          metadataJson: {
-            method: request.method ?? null,
-            path: request.originalUrl ?? request.url ?? null,
-            params: request.params ?? {},
-            query: request.query ?? {},
-            body: this.sanitizeBody(request.body ?? {}),
-            response: this.extractResponseMeta(responsePayload),
-          },
-        });
+        void this.auditService
+          .log({
+            adminId: request.user?.id ?? null,
+            action: options.action,
+            entityType: options.entityType,
+            entityId,
+            metadataJson: {
+              method: request.method ?? null,
+              path: request.originalUrl ?? request.url ?? null,
+              params: request.params ?? {},
+              query: request.query ?? {},
+              body: this.sanitizeBody(request.body ?? {}),
+              response: this.extractResponseMeta(responsePayload),
+            },
+          })
+          .catch(() => undefined);
       }),
     );
   }

@@ -42,7 +42,8 @@ export type AttendanceRecordEntity = {
 
 export type AttendanceAttemptEntity = {
   id: string;
-  sessionId: string;
+  sessionId: string | null;
+  rawSessionRef: string | null;
   ip: string | null;
   userAgent: string | null;
   latitude: number | null;

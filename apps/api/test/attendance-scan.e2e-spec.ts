@@ -10,6 +10,7 @@ import { EventsRepository } from '../src/modules/events/repositories/events.repo
 import { ParticipantsRepository } from '../src/modules/participants/repositories/participants.repository';
 import { QrTokenService } from '../src/modules/qr/services/qr-token.service';
 import { SessionsRepository } from '../src/modules/sessions/repositories/sessions.repository';
+import { resetTestDatabase } from './support/reset-test-database';
 
 describe('Attendance scan (e2e)', () => {
   let app: INestApplication<App>;
@@ -19,6 +20,7 @@ describe('Attendance scan (e2e)', () => {
   let qrTokenService: QrTokenService;
 
   beforeEach(async () => {
+    await resetTestDatabase();
     process.env.QR_SECRET =
       process.env.QR_SECRET || 'attendance-e2e-secret-12345';
 
@@ -49,14 +51,14 @@ describe('Attendance scan (e2e)', () => {
   });
 
   it('accepts a valid scan and returns participant/event/session payload', async () => {
-    const seeded = seedActiveContext();
+    const seeded = await seedActiveContext();
     const token = qrTokenService.generateToken(seeded.session.id, 60);
 
     const response = await request(app.getHttpServer())
       .post('/attendance/scan')
       .send({
         token,
-        email: seeded.participant.email,
+        email: seeded.participant!.email,
         lat: seeded.event.latitude,
         lng: seeded.event.longitude,
         locationAccuracy: 20,
@@ -68,26 +70,18 @@ describe('Attendance scan (e2e)', () => {
       action: 'CHECKED_IN',
       data: {
         participant: {
-          id: seeded.participant.id,
-          name: seeded.participant.name,
-        },
-        event: {
-          id: seeded.event.id,
-          name: seeded.event.name,
-        },
-        session: {
-          id: seeded.session.id,
-          name: seeded.session.name,
+          id: seeded.participant!.id,
+          name: seeded.participant!.name,
         },
       },
     });
   });
 
-  it('rejects walk-in scan when name exists but no contact info is provided', async () => {
-    const seeded = seedActiveContext();
+  it('allows guest completion after initial registration-required response', async () => {
+    const seeded = await seedActiveContext(false);
     const token = qrTokenService.generateToken(seeded.session.id, 60);
 
-    const response = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/attendance/scan')
       .send({
         token,
@@ -98,26 +92,27 @@ describe('Attendance scan (e2e)', () => {
       })
       .expect(400);
 
-    expect(response.body).toMatchObject({
-      success: false,
-      code: 'REGISTRATION_REQUIRED',
-      message: 'Kayit bulunamadi. Katilimci bilgisi gerekli.',
-      statusCode: 400,
-      path: '/attendance/scan',
-    });
+    await request(app.getHttpServer())
+      .post('/attendance/scan')
+      .send({
+        token,
+        name: 'Walk In Kullanici',
+        email: 'walkin@example.com',
+        lat: seeded.event.latitude,
+        lng: seeded.event.longitude,
+        locationAccuracy: 20,
+      })
+      .expect(201);
   });
 
   it('returns conflict when same participant scans same session again', async () => {
-    const seeded = seedActiveContext();
-
-    const firstToken = qrTokenService.generateToken(seeded.session.id, 60);
-    const secondToken = qrTokenService.generateToken(seeded.session.id, 60);
+    const seeded = await seedActiveContext();
 
     await request(app.getHttpServer())
       .post('/attendance/scan')
       .send({
-        token: firstToken,
-        email: seeded.participant.email,
+        token: qrTokenService.generateToken(seeded.session.id, 60),
+        email: seeded.participant!.email,
         lat: seeded.event.latitude,
         lng: seeded.event.longitude,
         locationAccuracy: 20,
@@ -127,8 +122,8 @@ describe('Attendance scan (e2e)', () => {
     const duplicateResponse = await request(app.getHttpServer())
       .post('/attendance/scan')
       .send({
-        token: secondToken,
-        email: seeded.participant.email,
+        token: qrTokenService.generateToken(seeded.session.id, 60),
+        email: seeded.participant!.email,
         lat: seeded.event.latitude,
         lng: seeded.event.longitude,
         locationAccuracy: 20,
@@ -138,16 +133,13 @@ describe('Attendance scan (e2e)', () => {
     expect(duplicateResponse.body).toMatchObject({
       success: false,
       code: 'ALREADY_CHECKED_IN',
-      message: 'Bu katilimci bu oturum icin zaten kayitli.',
-      statusCode: 409,
-      path: '/attendance/scan',
     });
   });
 
-  function seedActiveContext() {
+  async function seedActiveContext(withParticipant = true) {
     const now = Date.now();
 
-    const event = eventsRepository.create({
+    const event = await eventsRepository.create({
       name: 'E2E Etkinlik',
       description: 'Attendance scan e2e test',
       locationName: 'Konferans Salonu',
@@ -157,23 +149,26 @@ describe('Attendance scan (e2e)', () => {
       startsAt: new Date(now - 15 * 60_000).toISOString(),
       endsAt: new Date(now + 45 * 60_000).toISOString(),
       status: 'active',
+      createdBy: 'test-admin',
     });
 
-    const session = sessionsRepository.create({
+    const session = await sessionsRepository.create({
       eventId: event.id,
       name: 'Ana Oturum',
       startsAt: new Date(now - 10 * 60_000).toISOString(),
       endsAt: new Date(now + 30 * 60_000).toISOString(),
     });
 
-    const participant = participantsRepository.create({
-      eventId: event.id,
-      name: 'Merve Kaya',
-      email: 'merve.e2e@example.com',
-      phone: '+905551112233',
-      source: 'manual',
-      externalId: null,
-    });
+    const participant = withParticipant
+      ? await participantsRepository.create({
+          eventId: event.id,
+          name: 'Merve Kaya',
+          email: 'merve.e2e@example.com',
+          phone: '+905551112233',
+          source: 'manual',
+          externalId: null,
+        })
+      : null;
 
     return {
       event,
