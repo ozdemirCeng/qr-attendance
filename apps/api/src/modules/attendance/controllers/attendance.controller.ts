@@ -16,7 +16,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import * as Express from 'express';
+import type { Request } from 'express';
 
 import { Audit } from '../../../common/decorators/audit.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
@@ -41,7 +41,7 @@ export class AttendanceController {
     },
   })
   @Post('scan')
-  async scan(@Body() payload: ScanAttendanceDto, @Req() request: Express.Request) {
+  async scan(@Body() payload: ScanAttendanceDto, @Req() request: Request) {
     return this.attendanceService.scan(payload, {
       ip: request.ip ?? null,
       userAgent: request.headers['user-agent'] ?? null,
