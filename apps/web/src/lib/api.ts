@@ -87,8 +87,18 @@ export function resolveApiErrorMessage(input: {
     typeof input.code === "string" && input.code.trim()
       ? input.code.trim().toUpperCase()
       : undefined;
+  const fallbackMessage = input.fallbackMessage?.trim();
 
   if (normalizedCode && errorMessageMap[normalizedCode as ApiErrorCode]) {
+    if (
+      fallbackMessage &&
+      (normalizedCode === "BAD_REQUEST" ||
+        normalizedCode === "HTTP_EXCEPTION" ||
+        normalizedCode === "INTERNAL_SERVER_ERROR")
+    ) {
+      return fallbackMessage;
+    }
+
     return (
       errorMessageMap[normalizedCode as ApiErrorCode] ??
       "İstek başarısız oldu."
@@ -99,8 +109,8 @@ export function resolveApiErrorMessage(input: {
     return errorMessageMap.NETWORK_ERROR ?? "Bağlantı sorunu oluştu.";
   }
 
-  if (input.fallbackMessage?.trim()) {
-    return input.fallbackMessage;
+  if (fallbackMessage) {
+    return fallbackMessage;
   }
 
   const fallbackCode =

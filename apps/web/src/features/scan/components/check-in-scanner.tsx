@@ -114,6 +114,7 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   const [location, setLocation] = useState<ScanLocation | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
   const [detectedToken, setDetectedToken] = useState<string | null>(null);
   const [identityInput, setIdentityInput] = useState("");
   const [identitySubmitting, setIdentitySubmitting] = useState(false);
@@ -122,10 +123,18 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   >(null);
 
   const locationRef = useRef<ScanLocation | null>(null);
+  const permissionBootstrappedRef = useRef(false);
+  const permissionRequestRef = useRef<Promise<ScanLocation | null> | null>(
+    null,
+  );
 
-  // Request location permission immediately on page load
+  // Request required permissions once on page load.
   useEffect(() => {
-    void captureLocation();
+    if (!permissionBootstrappedRef.current) {
+      permissionBootstrappedRef.current = true;
+      void ensurePermissions();
+    }
+
     return () => {
       stopScanner();
     };
@@ -139,10 +148,14 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
     if (!extracted) return;
 
     async function processUrlToken(token: string) {
-      // Ensure location is captured before proceeding
-      let currentLocation = locationRef.current;
+      const currentLocation = await ensurePermissions();
+
       if (!currentLocation) {
-        currentLocation = await captureLocation();
+        setState("error");
+        setErrorMessage(
+          "Kamera ve konum izinleri gerekli. İzinleri verip tekrar deneyin.",
+        );
+        return;
       }
 
       // If participant is logged in, auto-submit with empty photo
@@ -150,11 +163,7 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
         setDetectedToken(token);
         setIdentityInput(participantUser.email);
         setState("idle");
-        if (currentLocation) {
-          void submitWithIdentity(token, participantUser.email, "");
-        } else {
-          setErrorMessage("Konum izni gerekli. Lütfen konum iznini verin ve tekrar deneyin.");
-        }
+        void submitWithIdentity(token, participantUser.email, "");
         return;
       }
 
@@ -198,6 +207,72 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
 
     processingRef.current = false;
     setState("idle");
+  }
+
+  async function requestCameraPermission(): Promise<boolean> {
+    if (!window.isSecureContext) {
+      setErrorMessage("Kamera ve konum için HTTPS veya localhost gerekir.");
+      return false;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor.");
+      return false;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: {
+            ideal: "environment",
+          },
+        },
+        audio: false,
+      });
+
+      for (const track of stream.getTracks()) {
+        track.stop();
+      }
+
+      return true;
+    } catch {
+      setErrorMessage(
+        "Kamera izni verilmedi. Tarayıcı ayarlarından kamerayı açıp tekrar deneyin.",
+      );
+      return false;
+    }
+  }
+
+  async function ensurePermissions(): Promise<ScanLocation | null> {
+    if (permissionRequestRef.current) {
+      return permissionRequestRef.current;
+    }
+
+    permissionRequestRef.current = (async () => {
+      setIsCheckingPermissions(true);
+
+      try {
+        const currentLocation = locationRef.current ?? (await captureLocation());
+
+        if (!currentLocation) {
+          setErrorMessage("Konum izni olmadan yoklama tamamlanamaz.");
+          return null;
+        }
+
+        const cameraGranted = await requestCameraPermission();
+
+        if (!cameraGranted) {
+          return null;
+        }
+
+        return currentLocation;
+      } finally {
+        setIsCheckingPermissions(false);
+        permissionRequestRef.current = null;
+      }
+    })();
+
+    return permissionRequestRef.current;
   }
 
   async function captureLocation(): Promise<ScanLocation | null> {
@@ -267,25 +342,13 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   async function startScanner() {
     setErrorMessage(null);
 
-    if (!window.isSecureContext) {
-      setState("error");
-      setErrorMessage("Kamera ve konum için HTTPS veya localhost gerekir.");
-      return;
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setState("error");
-      setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor.");
-      return;
-    }
-
     setState("starting");
 
-    const currentLocation = await captureLocation();
+    const currentLocation = await ensurePermissions();
 
     if (!currentLocation) {
       setState("error");
-      setErrorMessage("Konum hazır olmadan tarama başlatılamaz.");
+      setErrorMessage("Kamera ve konum hazır olmadan tarama başlatılamaz.");
       return;
     }
 
@@ -735,10 +798,18 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
                   onClick={() => {
                     void startScanner();
                   }}
-                  disabled={state === "starting" || state === "scanning"}
+                  disabled={
+                    state === "starting" ||
+                    state === "scanning" ||
+                    isCheckingPermissions
+                  }
                   className="btn-primary min-h-11 text-base"
                 >
-                  {state === "starting" ? "Başlatılıyor..." : "Taramayı Başlat"}
+                  {isCheckingPermissions
+                    ? "İzinler hazırlanıyor..."
+                    : state === "starting"
+                      ? "Başlatılıyor..."
+                      : "Taramayı Başlat"}
                 </button>
                 <button
                   type="button"

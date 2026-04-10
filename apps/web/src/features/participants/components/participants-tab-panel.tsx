@@ -523,12 +523,17 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
               className="w-full rounded-full border-none bg-white px-5 py-4 text-sm text-[var(--text-primary)] outline-none"
             />
           </div>
+          <label htmlFor="attendanceSessionSelect" className="sr-only">
+            Yoklama oturumu seç
+          </label>
           <select
             id="attendanceSessionSelect"
             value={attendanceSessionSelection}
             onChange={(event) => {
               setAttendanceSessionSelection(event.target.value);
             }}
+            title="Yoklama oturumu"
+            aria-label="Yoklama oturumu"
             className="rounded-full border-none bg-white px-4 py-4 text-sm text-[var(--text-primary)] outline-none"
           >
             <option value="auto">Otomatik Oturum</option>
@@ -619,12 +624,12 @@ export function ParticipantsTabPanel({ eventId, onToast }: ParticipantsTabPanelP
 
         {isUploading ? (
           <div className="mt-4">
-            <div className="h-2 w-full rounded-full bg-[#d3e4fe]">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[var(--primary-gradient-from)] to-[var(--primary-gradient-to)] transition-all"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
+            <progress
+              value={uploadProgress}
+              max={100}
+              className="h-2 w-full overflow-hidden rounded-full bg-[#d3e4fe] [&::-webkit-progress-bar]:bg-[#d3e4fe] [&::-webkit-progress-value]:bg-gradient-to-r [&::-webkit-progress-value]:from-[var(--primary-gradient-from)] [&::-webkit-progress-value]:to-[var(--primary-gradient-to)] [&::-moz-progress-bar]:bg-gradient-to-r [&::-moz-progress-bar]:from-[var(--primary-gradient-from)] [&::-moz-progress-bar]:to-[var(--primary-gradient-to)]"
+              aria-label="CSV yükleme ilerlemesi"
+            />
             <p className="mt-2 text-xs text-[var(--text-secondary)]">Yükleme %{uploadProgress}</p>
           </div>
         ) : null}

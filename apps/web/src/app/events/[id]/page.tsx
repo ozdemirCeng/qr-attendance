@@ -71,6 +71,11 @@ function toDateTimeLocal(value: string) {
   return localDate.toISOString().slice(0, 16);
 }
 
+function toTimeValue(value: string) {
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 export default function EventDetailPage() {
   const params = useParams<{ id: string }>();
   const eventId = params.id;
@@ -138,15 +143,63 @@ export default function EventDetailPage() {
       return;
     }
 
+    const parsedStartsAt = toTimeValue(parsed.data.startsAt);
+    const parsedEndsAt = toTimeValue(parsed.data.endsAt);
+
+    if (parsedStartsAt === null || parsedEndsAt === null) {
+      setToast({ tone: "error", message: "Tarih alanı geçersiz." });
+      return;
+    }
+
+    const event = eventQuery.data?.data;
+    if (event) {
+      const eventStartsAt = toTimeValue(event.startsAt);
+      const eventEndsAt = toTimeValue(event.endsAt);
+
+      if (
+        eventStartsAt !== null &&
+        eventEndsAt !== null &&
+        (parsedStartsAt < eventStartsAt || parsedEndsAt > eventEndsAt)
+      ) {
+        const message = "Oturum zaman aralığı etkinlik aralığı içinde olmalıdır.";
+        sessionForm.setError("endsAt", { type: "manual", message });
+        setToast({ tone: "error", message });
+        return;
+      }
+    }
+
+    const sessions = sessionsQuery.data?.data ?? [];
+    const hasOverlap = sessions.some((session) => {
+      const currentStartsAt = toTimeValue(session.startsAt);
+      const currentEndsAt = toTimeValue(session.endsAt);
+
+      if (currentStartsAt === null || currentEndsAt === null) {
+        return false;
+      }
+
+      return parsedStartsAt < currentEndsAt && parsedEndsAt > currentStartsAt;
+    });
+
+    if (hasOverlap) {
+      const message = "Aynı etkinlik içinde çakışan oturum zaman aralığı oluşturulamaz.";
+      sessionForm.setError("endsAt", { type: "manual", message });
+      setToast({ tone: "error", message });
+      return;
+    }
+
     try {
       await createSession(eventId, {
         name: parsed.data.name,
-        startsAt: new Date(parsed.data.startsAt).toISOString(),
-        endsAt: new Date(parsed.data.endsAt).toISOString(),
+        startsAt: new Date(parsedStartsAt).toISOString(),
+        endsAt: new Date(parsedEndsAt).toISOString(),
       });
 
       setToast({ tone: "success", message: "Oturum başarıyla eklendi." });
-      sessionForm.reset();
+      sessionForm.reset({
+        name: "",
+        startsAt: parsed.data.startsAt,
+        endsAt: parsed.data.endsAt,
+      });
       await queryClient.invalidateQueries({ queryKey: ["sessions", eventId] });
     } catch (error) {
       if (error instanceof ApiError) {

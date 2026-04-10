@@ -2,7 +2,8 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { mkdir } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import * as XLSX from 'xlsx';
 
 type ExportJobRow = {
@@ -124,7 +125,12 @@ export class ExportProcessor extends WorkerHost {
   }
 
   private async ensureOutputDirectory(eventId: string) {
-    const outputDirectory = resolve(process.cwd(), 'tmp', 'exports', eventId);
+    const outputDirectory = join(
+      tmpdir(),
+      'qr-attendance',
+      'exports',
+      eventId,
+    );
 
     await mkdir(outputDirectory, { recursive: true });
 

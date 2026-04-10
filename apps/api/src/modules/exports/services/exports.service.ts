@@ -7,7 +7,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
 import { mkdir } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import * as XLSX from 'xlsx';
 
 import { AttendanceRecordsRepository } from '../../attendance/repositories/attendance-records.repository';
@@ -302,13 +303,18 @@ export class ExportsService implements OnModuleDestroy {
         errorMessage: null,
         completedAt: new Date().toISOString(),
       });
-    } catch {
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.message.trim()
+          ? `Export dosyasi olusturulamadi: ${error.message}`
+          : 'Export dosyasi olusturulamadi.';
+
       await this.updateJob(exportId, {
         status: 'failed',
         progress: 100,
         filePath: null,
         downloadUrl: null,
-        errorMessage: 'Export dosyasi olusturulamadi.',
+        errorMessage: reason,
         completedAt: new Date().toISOString(),
       });
     }
@@ -336,9 +342,9 @@ export class ExportsService implements OnModuleDestroy {
   private async generateAttendanceExportFile(
     payload: ExportJobPayload,
   ): Promise<ExportJobResult> {
-    const outputDirectory = resolve(
-      process.cwd(),
-      'tmp',
+    const outputDirectory = join(
+      tmpdir(),
+      'qr-attendance',
       'exports',
       payload.eventId,
     );

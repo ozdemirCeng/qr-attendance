@@ -1,7 +1,6 @@
 {
   "extends": "../../packages/config/tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "ignoreDeprecations": "5.0",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,

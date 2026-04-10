@@ -1,12 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 function resolveInitialTheme() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
   const storedTheme = window.localStorage.getItem("theme");
 
   if (storedTheme === "dark") {
@@ -21,7 +17,15 @@ function resolveInitialTheme() {
 }
 
 export function ThemeToggle() {
-  const [dark, setDark] = useState(resolveInitialTheme);
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const initialDark = root.classList.contains("dark") || resolveInitialTheme();
+
+    root.classList.toggle("dark", initialDark);
+    setDark(initialDark);
+  }, []);
 
   function toggleTheme() {
     const nextDark = !dark;
@@ -36,7 +40,6 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       className="group relative flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--surface-hover)]"
       aria-label={dark ? "Açık temaya geç" : "Koyu temaya geç"}
-      suppressHydrationWarning
     >
       {dark ? (
         <svg

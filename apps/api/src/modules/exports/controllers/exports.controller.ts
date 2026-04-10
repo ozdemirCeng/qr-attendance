@@ -6,7 +6,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { basename } from 'node:path';
 
 import { Audit } from '../../../common/decorators/audit.decorator';
