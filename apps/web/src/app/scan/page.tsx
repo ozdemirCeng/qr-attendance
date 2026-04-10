@@ -77,27 +77,12 @@ export default function ScanLandingPage() {
     setPermissionMessage(null);
 
     try {
-      if (navigator.permissions) {
-        try {
-          const permissionStatus = await navigator.permissions.query({
-            name: "geolocation",
-          });
-
-          if (permissionStatus.state === "denied") {
-            setErrorMessage(
-              "Konum izni engellendi. Tarayıcı ayarlarından konum iznini açıp tekrar deneyin.",
-            );
-            return false;
-          }
-        } catch {
-          // Permissions API not supported on some browsers.
-        }
-      }
-
-      const locationGranted = await new Promise<boolean>((resolve) => {
+      const locationResult = await new Promise<
+        { ok: true } | { ok: false; code?: number }
+      >((resolve) => {
         navigator.geolocation.getCurrentPosition(
-          () => resolve(true),
-          () => resolve(false),
+          () => resolve({ ok: true }),
+          (error) => resolve({ ok: false, code: error.code }),
           {
             timeout: 10_000,
             maximumAge: 30_000,
@@ -106,8 +91,17 @@ export default function ScanLandingPage() {
         );
       });
 
-      if (!locationGranted) {
-        setErrorMessage("Konum izni olmadan yoklama tamamlanamaz.");
+      if (!locationResult.ok) {
+        if (locationResult.code === 1) {
+          setErrorMessage(
+            "Konum izni verilmedi veya engellendi. Tarayıcı ayarlarından bu site için konumu açın ve tekrar deneyin.",
+          );
+        } else if (locationResult.code === 3) {
+          setErrorMessage("Konum alınamadı (zaman aşımı). Lütfen tekrar deneyin.");
+        } else {
+          setErrorMessage("Konum izni olmadan yoklama tamamlanamaz.");
+        }
+
         return false;
       }
 

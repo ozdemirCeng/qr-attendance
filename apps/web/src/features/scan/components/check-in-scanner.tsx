@@ -251,23 +251,6 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
       return null;
     }
 
-    // Check if geolocation permission was permanently denied via Permissions API
-    if (navigator.permissions) {
-      try {
-        const permissionStatus = await navigator.permissions.query({
-          name: "geolocation",
-        });
-        if (permissionStatus.state === "denied") {
-          setLocationNotice(
-            "Konum izni engellendi. Tarayıcı ayarlarından bu site için konum iznini açın, ardından sayfayı yenileyin.",
-          );
-          return null;
-        }
-      } catch {
-        // Permissions API not supported for geolocation — proceed with getCurrentPosition
-      }
-    }
-
     setLocationLoading(true);
     setLocationNotice("Konum alınıyor...");
 
@@ -826,12 +809,16 @@ export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
                   type="button"
                   disabled={!manualToken.trim()}
                   onClick={() => {
-                    if (!location) {
-                      setErrorMessage("Manuel giriş için önce konumu açın.");
-                      return;
-                    }
+                    void (async () => {
+                      const resolvedLocation = location ?? (await ensurePermissions());
 
-                    void onTokenDetected(manualToken, location);
+                      if (!resolvedLocation) {
+                        setErrorMessage("Manuel giriş için konum iznini verin.");
+                        return;
+                      }
+
+                      await onTokenDetected(manualToken, resolvedLocation);
+                    })();
                   }}
                   className="btn-primary min-h-11 shrink-0 text-base"
                 >
