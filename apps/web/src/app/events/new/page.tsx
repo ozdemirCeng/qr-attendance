@@ -18,7 +18,7 @@ const createEventSchema = z
     locationName: z.string().trim().min(2, "Konum adı en az 2 karakter olmalı"),
     latitude: z.coerce.number().min(-90, "Enlem -90 ile 90 arasında olmalı").max(90),
     longitude: z.coerce.number().min(-180, "Boylam -180 ile 180 arasında olmalı").max(180),
-    radiusMeters: z.coerce.number().min(50, "Yarıçap en az 50m olmalı").max(500),
+    radiusMeters: z.coerce.number().min(50, "Yarıçap en az 50m olmalı"),
     startsAt: z.string().min(1, "Başlangıç tarihi zorunlu"),
     endsAt: z.string().min(1, "Bitiş tarihi zorunlu"),
   })
@@ -140,6 +140,11 @@ export default function NewEventPage() {
     control: form.control,
     name: "radiusMeters",
   });
+  const radiusValue =
+    typeof radiusMeters === "number" && Number.isFinite(radiusMeters)
+      ? radiusMeters
+      : 100;
+  const sliderMax = Math.max(500, Math.ceil(radiusValue / 100) * 100);
 
   useEffect(() => {
     const query = locationQuery.trim();
@@ -333,10 +338,35 @@ export default function NewEventPage() {
               <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }} htmlFor="radiusMeters">
                 Yarıçap
               </label>
+              <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                Kaydırıcı hızlı ayar içindir. Yan kutuya dilediğiniz metre değerini yazarak sınırı sınırsız şekilde büyütebilirsiniz.
+              </p>
               <div className="flex items-center gap-4">
-                <input id="radiusMeters" type="range" min={50} max={500} step={10} className="flex-1" {...form.register("radiusMeters", { valueAsNumber: true })} />
+                <input
+                  id="radiusMeters"
+                  type="range"
+                  min={50}
+                  max={sliderMax}
+                  step={10}
+                  className="flex-1"
+                  value={Math.min(radiusValue, sliderMax)}
+                  onChange={(event) => {
+                    form.setValue("radiusMeters", Number(event.target.value), {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }}
+                />
+                <input
+                  type="number"
+                  min={50}
+                  step={10}
+                  className="glass-input w-28"
+                  aria-label="Yarıçap metre"
+                  {...form.register("radiusMeters", { valueAsNumber: true })}
+                />
                 <span className="inline-flex min-w-[4rem] items-center justify-center rounded-lg px-3 py-1.5 text-sm font-bold" style={{ background: "var(--surface-soft)", color: "var(--primary)", fontFamily: "var(--font-display)" }} data-display="true">
-                  {radiusMeters ?? 100}m
+                  {radiusValue}m
                 </span>
               </div>
               {form.formState.errors.radiusMeters ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.radiusMeters.message}</p> : null}

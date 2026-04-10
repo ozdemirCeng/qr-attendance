@@ -57,6 +57,10 @@ export class AttendanceService {
       'QR_ROTATION_SECONDS',
       60,
     );
+    const radiusGraceMeters = this.configService.get<number>(
+      'QR_RADIUS_GRACE_METERS',
+      12,
+    );
     const ip = this.normalizeNullable(meta.ip);
     const userAgent = this.normalizeUserAgent(meta.userAgent);
     const normalizedVerificationCode = this.normalizeVerificationCodeInput(
@@ -140,6 +144,7 @@ export class AttendanceService {
           longitude: event.longitude,
         },
         event.radiusMeters,
+        radiusGraceMeters,
       );
 
       if (!locationCheck.valid) {
@@ -610,6 +615,7 @@ export class AttendanceService {
     payload: ScanAttendanceDto,
     venue: { latitude: number; longitude: number },
     radiusMeters: number,
+    radiusGraceMeters: number,
   ): LocationCheckResult {
     if (typeof payload.lat !== 'number' || typeof payload.lng !== 'number') {
       return {
@@ -627,9 +633,16 @@ export class AttendanceService {
       venue,
     );
 
+    const safeRadius = Number.isFinite(radiusMeters)
+      ? Math.max(0, radiusMeters)
+      : 0;
+    const safeRadiusGrace = Number.isFinite(radiusGraceMeters)
+      ? Math.max(0, radiusGraceMeters)
+      : 0;
+    const effectiveRadius = safeRadius + safeRadiusGrace;
     const accuracy = Math.max(0, payload.locationAccuracy ?? 0);
-    const inRadius = distance <= radiusMeters;
-    const inTolerance = distance - accuracy <= radiusMeters;
+    const inRadius = distance <= effectiveRadius;
+    const inTolerance = distance - accuracy <= effectiveRadius;
 
     if (!inRadius && !inTolerance) {
       return {

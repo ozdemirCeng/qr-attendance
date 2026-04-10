@@ -176,6 +176,35 @@ describe('AttendanceService', () => {
     expect(result.data.session.id).toBe(session.id);
   });
 
+  it('accepts scan slightly outside radius with grace meters', async () => {
+    const { event, session } = await seedActiveEventAndSession();
+    const participant = await participantsRepository.create({
+      eventId: event.id,
+      name: 'Sinir Disi Kullanici',
+      email: 'sinir-disi@example.com',
+      phone: null,
+      source: 'manual',
+      externalId: null,
+    });
+
+    const result = await service.scan({
+      token: qrTokenService.generateToken(session.id, 60),
+      email: participant.email ?? undefined,
+      lat: event.latitude + metersToLatitudeDegrees(108),
+      lng: event.longitude,
+      locationAccuracy: 0,
+      verificationPhotoDataUrl: createVerificationPhoto(),
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.action).toBe('CHECKED_IN');
+
+    const records = await attendanceRecordsRepository.findBySessionId(
+      session.id,
+    );
+    expect(records[0]?.distanceFromVenue).toBeGreaterThan(event.radiusMeters);
+  });
+
   it('rejects duplicate check-in for the same participant and session', async () => {
     const { event, session } = await seedActiveEventAndSession();
     await participantsRepository.create({
@@ -350,4 +379,8 @@ async function expectCode(promise: Promise<unknown>, expectedCode: string) {
 
 function createVerificationPhoto() {
   return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn1Ao8AAAAASUVORK5CYII=';
+}
+
+function metersToLatitudeDegrees(meters: number) {
+  return meters / 111_320;
 }
