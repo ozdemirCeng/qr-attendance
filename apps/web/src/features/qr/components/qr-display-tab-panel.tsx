@@ -22,6 +22,11 @@ export function QrDisplayTabPanel({ eventId, onToast, onOpenSessionsTab }: QrDis
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isCompactLandscape, setIsCompactLandscape] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+
+  const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const displayUrl = `${siteOrigin}/events/${eventId}/display`;
 
   const qrQuery = useQuery<CurrentQrTokenResponse, ApiError>({
     queryKey: ["qr-current", eventId],
@@ -69,8 +74,26 @@ export function QrDisplayTabPanel({ eventId, onToast, onOpenSessionsTab }: QrDis
     return () => { mediaQuery.removeEventListener("change", update); };
   }, []);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    const syncTheme = () => {
+      setIsDarkTheme(root.classList.contains("dark"));
+    };
+
+    syncTheme();
+
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
   const progressPercent = maxCountdown > 0 ? Math.max(0, Math.min(100, (countdown / maxCountdown) * 100)) : 0;
   const forceFullscreenLayout = isCompactLandscape && !isFullscreen;
+  const qrBackground = isDarkTheme ? "#0f172a" : "#ffffff";
+  const qrForeground = isDarkTheme ? "#f8fafc" : "#111827";
 
   function handleToggleFullscreen() {
     if (!containerRef.current) return;
@@ -86,6 +109,14 @@ export function QrDisplayTabPanel({ eventId, onToast, onOpenSessionsTab }: QrDis
     anchor.href = dataUrl;
     anchor.download = `qr-${eventId}.png`;
     anchor.click();
+  }
+
+  function handleCopyDisplayUrl() {
+    void navigator.clipboard.writeText(displayUrl).then(() => {
+      setCopiedUrl(true);
+      onToast({ tone: "success", message: "QR gösterim URL'si kopyalandı!" });
+      setTimeout(() => { setCopiedUrl(false); }, 2000);
+    });
   }
 
   if (isPending) {
@@ -132,6 +163,9 @@ export function QrDisplayTabPanel({ eventId, onToast, onOpenSessionsTab }: QrDis
             <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>Oturum: {data.data.sessionId}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={handleCopyDisplayUrl} className="btn-secondary text-sm">
+              {copiedUrl ? "✓ Kopyalandı" : "QR Gösterim URL'sini Kopyala"}
+            </button>
             <button type="button" onClick={handleToggleFullscreen} className="btn-secondary text-sm">
               {isFullscreen ? "Tam Ekrandan Çık" : "Tam Ekran"}
             </button>
@@ -177,20 +211,20 @@ export function QrDisplayTabPanel({ eventId, onToast, onOpenSessionsTab }: QrDis
 
           <div className="flex flex-col items-center lg:col-span-8">
             <div className="glass-elevated relative w-full max-w-[520px] rounded-2xl p-8">
-              <div className="rounded-xl p-4" style={{ background: "white" }}>
-                <QRCodeSVG value={data.data.token} size={420} level="M" includeMargin className="h-auto w-full" />
+              <div className="rounded-xl p-4" style={{ background: qrBackground }}>
+                <QRCodeSVG value={`${siteOrigin}/check-in/${eventId}?token=${encodeURIComponent(data.data.token)}`} size={420} level="M" includeMargin className="h-auto w-full" bgColor={qrBackground} fgColor={qrForeground} />
               </div>
               <div className="pointer-events-none absolute inset-x-8 top-8 h-1 rounded-full" style={{ background: "linear-gradient(90deg, transparent, var(--primary), transparent)", opacity: 0.3 }} />
             </div>
 
-            <div className="mt-4 w-full max-w-[520px] rounded-xl border border-[#c2c6d6]/45 bg-[#f8f9ff] px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#586377]">
+            <div className="mt-4 w-full max-w-[520px] rounded-xl border px-4 py-3" style={{ borderColor: "var(--border-strong)", background: "var(--surface)" }}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-tertiary)" }}>
                 Kısa Doğrulama Kodu
               </p>
-              <p className="mt-2 font-mono text-xl font-bold tracking-[0.18em] text-[#0b1c30]" data-display="true">
+              <p className="mt-2 font-mono text-xl font-bold tracking-[0.18em]" style={{ color: "var(--text-primary)" }} data-display="true">
                 {data.data.verificationCode}
               </p>
-              <p className="mt-1 text-[11px] text-[#586377]">
+              <p className="mt-1 text-[11px]" style={{ color: "var(--text-secondary)" }}>
                 Manuel doğrulamada bu kısa kodu kullanabilirsiniz.
               </p>
             </div>
@@ -222,7 +256,7 @@ export function QrDisplayTabPanel({ eventId, onToast, onOpenSessionsTab }: QrDis
       </article>
 
       <div className="hidden">
-        <QRCodeCanvas id={downloadCanvasId} value={data.data.token} size={1024} includeMargin />
+        <QRCodeCanvas id={downloadCanvasId} value={`${siteOrigin}/check-in/${eventId}?token=${encodeURIComponent(data.data.token)}`} size={1024} includeMargin fgColor="#111827" bgColor="#ffffff" />
       </div>
     </section>
   );

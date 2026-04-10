@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { AppShell } from "@/components/layout/app-shell";
+import { UserShell } from "@/components/layout/user-shell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { getActiveSession, type PortalRole } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
@@ -46,12 +48,8 @@ export default function ScanLandingPage() {
           setActiveRole(session.data.role);
         }
       } catch (error) {
-        if (
-          isMounted &&
-          error instanceof ApiError &&
-          error.statusCode === 401
-        ) {
-          router.replace("/login?next=/scan");
+        if (isMounted && error instanceof ApiError && error.statusCode === 401) {
+          setActiveRole(null);
         }
       }
     }
@@ -65,14 +63,12 @@ export default function ScanLandingPage() {
 
   async function requestPermissions() {
     if (!window.isSecureContext) {
-      setErrorMessage(
-        "Kamera ve konum izinleri icin HTTPS veya localhost gerekir.",
-      );
+      setErrorMessage("Kamera ve konum için HTTPS veya localhost gerekir.");
       return false;
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setErrorMessage("Bu tarayici kamera erisimini desteklemiyor.");
+      setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor.");
       return false;
     }
 
@@ -101,12 +97,8 @@ export default function ScanLandingPage() {
         }
 
         navigator.geolocation.getCurrentPosition(
-          () => {
-            resolve(true);
-          },
-          () => {
-            resolve(false);
-          },
+          () => resolve(true),
+          () => resolve(false),
           {
             timeout: 10_000,
             maximumAge: 30_000,
@@ -116,20 +108,16 @@ export default function ScanLandingPage() {
       });
 
       if (!locationGranted) {
-        setErrorMessage(
-          "Konum izni olmadan check-in tamamlanamaz. Izin verip tekrar deneyin.",
-        );
+        setErrorMessage("Konum izni olmadan yoklama tamamlanamaz.");
         return false;
       }
 
       setPermissionMessage(
-        "Kamera ve konum izinleri hazir. Selfie dogrulamasi check-in adiminda alinacak.",
+        "İzinler hazır. Tarama adımında konum ve selfie doğrulaması kullanılacak.",
       );
       return true;
     } catch {
-      setErrorMessage(
-        "Kamera izni verilmedi. Tarayicidan izin verip tekrar deneyin.",
-      );
+      setErrorMessage("Kamera izni verilmedi. İzin verip tekrar deneyin.");
       return false;
     } finally {
       setIsRequestingPermissions(false);
@@ -146,204 +134,190 @@ export default function ScanLandingPage() {
     router.push("/check-in");
   }
 
+  const resolvedRole: PortalRole | null = participantUser ? "member" : user?.role ?? activeRole;
+
+  const pageContent = (
+    <section className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="glass rounded-2xl p-5">
+        {participantUser ? (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p
+                className="truncate text-sm font-semibold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {participantUser.name}
+              </p>
+              <p
+                className="truncate text-xs"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                {participantUser.email}
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Link href="/user/profile" className="btn-secondary text-xs">
+                Profil
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  void participantSignOut();
+                }}
+                className="btn-ghost text-xs"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Çıkış
+              </button>
+            </div>
+          </div>
+        ) : resolvedRole && resolvedRole !== "member" ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Admin oturumu aktif. Tarama adımına doğrudan devam edebilirsiniz.
+            </p>
+            <Link href="/dashboard" className="btn-secondary text-xs">
+              Panele Dön
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Misafir tarama açık. Giriş yaparsan profil ve geçmişin de eşlenir.
+            </p>
+            <div className="flex gap-2">
+              <Link href="/login?next=/scan" className="btn-secondary text-xs">
+                Giriş
+              </Link>
+              <Link href="/auth/signup" className="btn-primary text-xs">
+                Kayıt Ol
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <article className="glass-elevated rounded-3xl p-8">
+        <div className="mb-6 text-center">
+          <div
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--primary-gradient-from), var(--primary-gradient-to))",
+              boxShadow: "var(--shadow-glow)",
+            }}
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+          </div>
+          <h1
+            className="text-3xl font-extrabold tracking-tight"
+            style={{ color: "var(--text-primary)" }}
+            data-display="true"
+          >
+            QR Yoklama
+          </h1>
+          <p className="mt-2 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
+            Kamera, konum ve selfie doğrulaması ile yoklamayı güvenli şekilde tamamlayın.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {errorMessage ? (
+            <div
+              className="rounded-xl border px-3 py-2 text-sm"
+              style={{
+                color: "var(--error)",
+                background: "var(--error-soft)",
+                borderColor: "var(--error)",
+              }}
+            >
+              {errorMessage}
+            </div>
+          ) : null}
+
+          {permissionMessage ? (
+            <div
+              className="rounded-xl border px-3 py-2 text-sm"
+              style={{
+                color: "var(--success)",
+                background: "var(--success-soft)",
+                borderColor: "var(--success)",
+              }}
+            >
+              {permissionMessage}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => {
+              void onStart();
+            }}
+            disabled={isRequestingPermissions}
+            className="btn-primary w-full py-3 text-base"
+          >
+            {isRequestingPermissions
+              ? "İzinler kontrol ediliyor..."
+              : "Taramayı Başlat"}
+          </button>
+        </div>
+      </article>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="glass rounded-2xl p-4">
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            QR Tara
+          </p>
+          <p className="mt-1 text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
+            Etkinlik kodunu kameradan okutun.
+          </p>
+        </div>
+        <div className="glass rounded-2xl p-4">
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            Konumu Doğrula
+          </p>
+          <p className="mt-1 text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
+            Etkinlik alanında olduğunuzu kontrol edin.
+          </p>
+        </div>
+        <div className="glass rounded-2xl p-4">
+          <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            Selfie Çek
+          </p>
+          <p className="mt-1 text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
+            Profil doğrulaması için kısa bir fotoğraf alın.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+
+  if (resolvedRole === "member") {
+    return <UserShell>{pageContent}</UserShell>;
+  }
+
+  if (resolvedRole) {
+    return <AppShell>{pageContent}</AppShell>;
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="absolute right-5 top-5">
         <ThemeToggle />
       </div>
-
-      <section className="mx-auto w-full max-w-3xl">
-        {!isParticipantLoading ? (
-          <div className="mb-4 animate-fade-in">
-            {participantUser ? (
-              <div className="glass flex items-center justify-between gap-3 rounded-2xl px-5 py-3">
-                <div className="min-w-0">
-                  <p
-                    className="text-sm font-semibold truncate"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {participantUser.name}
-                  </p>
-                  <p
-                    className="text-xs truncate"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    {participantUser.email}
-                  </p>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Link href="/user/profile" className="btn-secondary text-xs">
-                    Profil
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void participantSignOut();
-                    }}
-                    className="btn-ghost text-xs"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Cikis
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="glass flex items-center justify-between gap-3 rounded-2xl px-5 py-3">
-                <p
-                  className="text-sm"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  QR tarama icin aktif oturum gerekir. Admin veya uye olarak
-                  giris yaptiktan sonra dogrulama adimlarina gecebilirsin.
-                </p>
-                <div className="flex gap-2 shrink-0">
-                  <Link href="/login?next=/scan" className="btn-secondary text-xs">
-                    Giris
-                  </Link>
-                  <Link href="/auth/signup" className="btn-primary text-xs">
-                    Kayit Ol
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : null}
-
-        <article className="glass-elevated animate-slide-up rounded-3xl p-8">
-          <div className="mb-6 text-center">
-            <div
-              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--primary-gradient-from), var(--primary-gradient-to))",
-                boxShadow: "var(--shadow-glow)",
-              }}
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </div>
-            <h1
-              className="text-3xl font-extrabold tracking-tight"
-              style={{ color: "var(--text-primary)" }}
-              data-display="true"
-            >
-              QR Yoklama
-            </h1>
-            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-              QR taradiktan sonra konum ve selfie dogrulamasi ile check-in
-              tamamlanir.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {errorMessage ? (
-              <p className="text-sm" style={{ color: "var(--error)" }}>
-                {errorMessage}
-              </p>
-            ) : null}
-            {permissionMessage ? (
-              <p className="text-sm" style={{ color: "var(--success)" }}>
-                {permissionMessage}
-              </p>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={() => {
-                void onStart();
-              }}
-              disabled={isRequestingPermissions}
-              className="btn-primary w-full py-3 text-base"
-            >
-              {isRequestingPermissions
-                ? "Izinler kontrol ediliyor..."
-                : "Taramayi Baslat"}
-            </button>
-          </div>
-
-          {participantUser ? (
-            <div
-              className="mt-4 rounded-xl p-3 text-center"
-              style={{ background: "var(--success-soft)" }}
-            >
-              <p
-                className="text-xs font-medium"
-                style={{ color: "var(--success)" }}
-              >
-                Hesap tanindi. QR sonrasi iletisim bilgilerin otomatik
-                doldurulacak.
-              </p>
-            </div>
-          ) : activeRole && activeRole !== "member" ? (
-            <div
-              className="mt-4 rounded-xl p-3 text-center"
-              style={{ background: "var(--surface-soft)" }}
-            >
-              <p
-                className="text-xs font-medium"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Admin oturumu aktif. Tarama yapabilirsin ancak profil alanlari
-                uye hesabindaki kadar otomatik dolmayacak.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-6 text-center">
-              <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                Tarama ekrani da tek giris modeli ile korunur. Oturum yoksa
-                devam etmeden once giris yapman gerekir.
-              </p>
-            </div>
-          )}
-        </article>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="glass rounded-2xl p-4">
-            <p
-              className="text-sm font-semibold"
-              style={{ color: "var(--text-primary)" }}
-            >
-              QR Tara
-            </p>
-            <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
-              Etkinlik QR kodunu kamera ile okut.
-            </p>
-          </div>
-          <div className="glass rounded-2xl p-4">
-            <p
-              className="text-sm font-semibold"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Konum Dogrula
-            </p>
-            <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
-              Etkinlik alaninda oldugunu kontrol et.
-            </p>
-          </div>
-          <div className="glass rounded-2xl p-4">
-            <p
-              className="text-sm font-semibold"
-              style={{ color: "var(--text-primary)" }}
-            >
-              Selfie Dogrula
-            </p>
-            <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
-              Profil fotografin admin panelinde gorunur.
-            </p>
-          </div>
-        </div>
-      </section>
+      {pageContent}
     </main>
   );
 }

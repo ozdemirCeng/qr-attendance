@@ -13,6 +13,7 @@ import { VerificationSelfieCapture } from "./verification-selfie-capture";
 
 type CheckInScannerProps = {
   eventId?: string;
+  initialToken?: string;
 };
 
 type ScanLocation = {
@@ -21,7 +22,7 @@ type ScanLocation = {
   accuracy: number;
 };
 
-type ScanState = "idle" | "starting" | "scanning" | "processing" | "error";
+type ScanState = "idle" | "starting" | "scanning" | "error";
 
 type DetectedBarcode = {
   rawValue?: string;
@@ -34,6 +35,12 @@ type BarcodeDetectorInstance = {
 type BarcodeDetectorConstructor = new (options?: {
   formats?: string[];
 }) => BarcodeDetectorInstance;
+
+declare global {
+  interface Window {
+    BarcodeDetector?: BarcodeDetectorConstructor;
+  }
+}
 
 function resolveScanErrorCode(error: unknown) {
   if (!error || typeof error !== "object") {
@@ -59,56 +66,44 @@ function resolveScanErrorCode(error: unknown) {
     return "REGISTRATION_REQUIRED";
   }
 
-  if (maybeError.statusCode === 400) {
-    return "BAD_REQUEST";
-  }
-
-  if (maybeError.statusCode === 401) {
-    return "UNAUTHORIZED";
-  }
-
-  if (maybeError.statusCode === 403) {
-    return "FORBIDDEN";
-  }
-
-  if (maybeError.statusCode === 404) {
-    return "NOT_FOUND";
-  }
-
-  if (maybeError.statusCode === 409) {
-    return "ALREADY_CHECKED_IN";
-  }
-
-  if (maybeError.statusCode === 429) {
-    return "TOO_MANY_REQUESTS";
-  }
-
-  if (maybeError.statusCode === 500) {
-    return "INTERNAL_SERVER_ERROR";
-  }
+  if (maybeError.statusCode === 400) return "BAD_REQUEST";
+  if (maybeError.statusCode === 401) return "UNAUTHORIZED";
+  if (maybeError.statusCode === 403) return "FORBIDDEN";
+  if (maybeError.statusCode === 404) return "NOT_FOUND";
+  if (maybeError.statusCode === 409) return "ALREADY_CHECKED_IN";
+  if (maybeError.statusCode === 429) return "TOO_MANY_REQUESTS";
+  if (maybeError.statusCode === 500) return "INTERNAL_SERVER_ERROR";
 
   return "UNKNOWN_ERROR";
 }
 
-declare global {
-  interface Window {
-    BarcodeDetector?: BarcodeDetectorConstructor;
+/**
+ * QR content may be a full URL like:
+ *   https://site.com/check-in/EVENT_ID?token=BASE64TOKEN
+ * Or a raw token string. Extract the token either way.
+ */
+function extractTokenFromQrContent(raw: string): string {
+  const trimmed = raw.trim();
+  try {
+    const url = new URL(trimmed);
+    const tokenParam = url.searchParams.get("token");
+    if (tokenParam) return tokenParam;
+  } catch {
+    // Not a URL, treat as raw token
   }
+  return trimmed;
 }
 
-export function CheckInScanner({ eventId }: CheckInScannerProps) {
+export function CheckInScanner({ eventId, initialToken }: CheckInScannerProps) {
   const router = useRouter();
   const { participantUser } = useParticipantAuth();
   const resolvedEventId = eventId?.trim();
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const processingRef = useRef(false);
-  const hasAutoStartedRef = useRef(false);
-  const startScannerRef = useRef<() => Promise<void>>(async () =>
-    Promise.resolve(),
-  );
 
   const [state, setState] = useState<ScanState>("idle");
   const [scannerMode, setScannerMode] = useState<
@@ -118,7 +113,6 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
   const [manualToken, setManualToken] = useState("");
   const [location, setLocation] = useState<ScanLocation | null>(null);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
-  const [isPulseVisible, setIsPulseVisible] = useState(false);
   const [detectedToken, setDetectedToken] = useState<string | null>(null);
   const [identityInput, setIdentityInput] = useState("");
   const [identitySubmitting, setIdentitySubmitting] = useState(false);
@@ -132,14 +126,28 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     };
   }, []);
 
+  // Auto-process token from URL (QR display flow)
   useEffect(() => {
-    if (hasAutoStartedRef.current) {
+    if (!initialToken) return;
+    const extracted = extractTokenFromQrContent(initialToken);
+    if (!extracted) return;
+
+    // If participant is logged in, auto-submit with empty photo
+    if (participantUser) {
+      setDetectedToken(extracted);
+      setIdentityInput(participantUser.email);
+      setState("idle");
+      void submitWithIdentity(extracted, participantUser.email, "");
       return;
     }
 
-    hasAutoStartedRef.current = true;
-    void startScannerRef.current();
-  }, []);
+    // Otherwise show identity step
+    setDetectedToken(extracted);
+    setIdentityInput("");
+    setErrorMessage(null);
+    setState("idle");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialToken]);
 
   function stopScanner() {
     if (animationFrameRef.current) {
@@ -189,15 +197,11 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
         },
         (positionError) => {
           if (positionError.code === 1) {
-            setLocationNotice(
-              "Konum izni verilmedi. Konum dogrulamasi olmadan devam edemezsiniz.",
-            );
+            setLocationNotice("Konum izni verilmedi.");
           } else if (positionError.code === 3) {
-            setLocationNotice(
-              "Konum alma islemi zaman asimina ugradi. Lutfen tekrar deneyin.",
-            );
+            setLocationNotice("Konum alma işlemi zaman aşımına uğradı.");
           } else {
-            setLocationNotice("Konum bilgisi alinamadi.");
+            setLocationNotice("Konum bilgisi alınamadı.");
           }
 
           resolve(null);
@@ -216,15 +220,13 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
 
     if (!window.isSecureContext) {
       setState("error");
-      setErrorMessage(
-        "Kamera ve konum icin guvenli baglanti gerekir. HTTPS veya localhost ile acin.",
-      );
+      setErrorMessage("Kamera ve konum için HTTPS veya localhost gerekir.");
       return;
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setState("error");
-      setErrorMessage("Bu tarayici kamera erisimini desteklemiyor.");
+      setErrorMessage("Bu tarayıcı kamera erişimini desteklemiyor.");
       return;
     }
 
@@ -234,9 +236,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
 
     if (!currentLocation) {
       setState("error");
-      setErrorMessage(
-        "Konum dogrulamasi basarisiz. Konumu acmadan QR tarama baslatilamaz.",
-      );
+      setErrorMessage("Konum hazır olmadan tarama başlatılamaz.");
       return;
     }
 
@@ -250,8 +250,6 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     await startWithZxing(currentLocation);
   }
 
-  startScannerRef.current = startScanner;
-
   async function startWithBarcodeDetector(initialLocation: ScanLocation) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -263,19 +261,20 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
         audio: false,
       });
 
-      streamRef.current = stream;
+      const video = videoRef.current;
 
-      if (!videoRef.current) {
-        throw new Error("Kamera alani bulunamadi.");
+      if (!video) {
+        throw new Error("Kamera alanı bulunamadı.");
       }
 
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+      streamRef.current = stream;
+      video.srcObject = stream;
+      await video.play();
 
       const BarcodeDetectorCtor = window.BarcodeDetector;
 
       if (!BarcodeDetectorCtor) {
-        throw new Error("BarcodeDetector kullanilamadi.");
+        throw new Error("BarcodeDetector kullanılamadı.");
       }
 
       const detector = new BarcodeDetectorCtor({
@@ -305,7 +304,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
           }
         } catch {
           setState("error");
-          setErrorMessage("Kamera tarama hatasi olustu.");
+          setErrorMessage("Tarama sırasında bir hata oluştu.");
           return;
         }
 
@@ -319,26 +318,25 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
       });
     } catch {
       setState("error");
-      setErrorMessage(
-        "Kamera baslatilamadi. Tarayici izinlerini kontrol edin.",
-      );
+      setErrorMessage("Kamera başlatılamadı. İzinleri kontrol edin.");
     }
   }
 
   async function startWithZxing(initialLocation: ScanLocation) {
     try {
-      if (!videoRef.current) {
-        throw new Error("Kamera alani bulunamadi.");
+      const video = videoRef.current;
+
+      if (!video) {
+        throw new Error("Kamera alanı bulunamadı.");
       }
 
       const reader = new BrowserMultiFormatReader();
       zxingReaderRef.current = reader;
-
       setState("scanning");
 
       await reader.decodeFromVideoDevice(
         null,
-        videoRef.current,
+        video,
         (result: Result | undefined) => {
           if (!result || processingRef.current) {
             return;
@@ -349,34 +347,27 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
       );
     } catch {
       setState("error");
-      setErrorMessage("Kamera acilamadi. Manuel token girmeyi deneyin.");
+      setErrorMessage("Kamera açılamadı. Manuel giriş ile devam edin.");
     }
   }
 
   async function onTokenDetected(
-    token: string,
+    rawContent: string,
     currentLocation: ScanLocation | null,
   ) {
-    const normalizedToken = token.trim();
+    const normalizedToken = extractTokenFromQrContent(rawContent);
 
     if (!normalizedToken || processingRef.current) {
       return;
     }
 
     if (!currentLocation) {
-      setErrorMessage(
-        "Konum hazir olmadan tarama dogrulanamaz. Once konumu yenileyin.",
-      );
       setState("error");
+      setErrorMessage("Konum hazır değil. Önce konumu yenileyin.");
       return;
     }
 
     processingRef.current = true;
-    setIsPulseVisible(true);
-    window.setTimeout(() => {
-      setIsPulseVisible(false);
-    }, 500);
-
     stopScanner();
     setDetectedToken(normalizedToken);
     setIdentityInput(
@@ -384,7 +375,6 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     );
     setVerificationPhotoDataUrl(null);
     setErrorMessage(null);
-    setState("idle");
     processingRef.current = false;
   }
 
@@ -394,9 +384,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     currentPhoto: string,
   ) {
     if (!location) {
-      setErrorMessage(
-        "Konum dogrulamasi olmadan check-in tamamlanamaz. Konumu yenileyin.",
-      );
+      setErrorMessage("Konum olmadan yoklama tamamlanamaz.");
       return;
     }
 
@@ -476,19 +464,17 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     const trimmedIdentity = identityInput.trim();
 
     if (!trimmedIdentity) {
-      setErrorMessage("E-posta veya telefon numaranizi girin.");
+      setErrorMessage("E-posta veya telefon numarası girin.");
       return;
     }
 
     if (!location) {
-      setErrorMessage("Konum dogrulamasi olmadan devam edemezsiniz.");
+      setErrorMessage("Konum olmadan devam edemezsiniz.");
       return;
     }
 
     if (!verificationPhotoDataUrl) {
-      setErrorMessage(
-        "Profil dogrulama icin kameradan selfie cekmeniz gerekiyor.",
-      );
+      setErrorMessage("Devam etmek için selfie ekleyin.");
       return;
     }
 
@@ -504,6 +490,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
     setIdentityInput("");
     setVerificationPhotoDataUrl(null);
     setErrorMessage(null);
+    void startScanner();
   }
 
   return (
@@ -516,7 +503,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
               style={{ color: "var(--text-primary)" }}
               data-display="true"
             >
-              QR Giris
+              QR Giriş
             </h1>
             <div className="flex flex-wrap gap-2">
               <button
@@ -529,61 +516,54 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                 Konumu Yenile
               </button>
               <Link href="/scan" className="btn-secondary min-h-11 text-sm">
-                Geri Don
+                Geri Dön
               </Link>
             </div>
           </div>
 
           {resolvedEventId ? (
-            <p
-              className="mt-2 text-sm"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
               Etkinlik: {resolvedEventId}
             </p>
           ) : (
-            <p
-              className="mt-2 text-sm"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Etkinlik bilgisi QR kodunun icinde yer alir.
+            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Etkinlik bilgisi QR kodunun içinde yer alır.
             </p>
           )}
 
           {location ? (
             <p className="mt-1 text-xs" style={{ color: "var(--success)" }}>
-              Konum hazir: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
+              Konum hazır: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
             </p>
           ) : (
             <p className="mt-1 text-xs" style={{ color: "var(--warning)" }}>
-              {locationNotice ?? "Konum henuz hazir degil."}
+              {locationNotice ?? "Konum henüz hazır değil."}
             </p>
           )}
 
           <p className="mt-2 text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Bu akista check-in icin hem konum dogrulamasi hem de selfie
-            dogrulamasi zorunludur.
+            Yoklama için konum ve selfie doğrulaması zorunludur.
           </p>
         </div>
 
         {detectedToken ? (
-          <article className="glass-elevated animate-scale-in rounded-2xl p-6">
+          <article className="glass-elevated rounded-2xl p-6">
             <div
-              className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-2xl"
+              className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-base font-bold"
               style={{ background: "var(--surface-soft)" }}
             >
-              🔐
+              QR
             </div>
             <h2
               className="text-xl font-bold"
               style={{ color: "var(--text-primary)" }}
               data-display="true"
             >
-              Kimligini Dogrula
+              Bilgilerini Doğrula
             </h2>
-            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-              QR kodu okundu. Kayitli e-posta veya telefonunu gir ve selfie ile
-              dogrulamayi tamamla.
+            <p className="mt-1 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
+              QR kodu okundu. Kayıtlı e-posta veya telefon bilginiz ve selfie ile
+              devam edin.
             </p>
 
             {participantUser ? (
@@ -594,7 +574,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                   color: "var(--success)",
                 }}
               >
-                Hesabin tanindi: {participantUser.name}
+                Hesap tanındı: {participantUser.name}
               </div>
             ) : null}
 
@@ -604,7 +584,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                 onChange={(event) => {
                   setIdentityInput(event.target.value);
                 }}
-                placeholder="E-posta veya telefon numarasi"
+                placeholder="E-posta veya telefon numarası"
                 className="glass-input w-full py-3 text-base"
                 autoFocus
                 onKeyDown={(event) => {
@@ -617,7 +597,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
               <VerificationSelfieCapture
                 value={verificationPhotoDataUrl}
                 onChange={setVerificationPhotoDataUrl}
-                description="Yuzunuz net gorunen bir selfie cekin. Bu fotograf admin panelinde gorulebilir."
+                description="Net görünen bir selfie çekin veya galeriden seçin."
               />
 
               {errorMessage ? (
@@ -635,14 +615,14 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                   disabled={identitySubmitting}
                   className="btn-primary min-h-11 flex-1 text-base"
                 >
-                  {identitySubmitting ? "Kontrol ediliyor..." : "Check-in Yap"}
+                  {identitySubmitting ? "Kontrol ediliyor..." : "Yoklama Yap"}
                 </button>
                 <button
                   type="button"
                   onClick={onCancelIdentity}
                   className="btn-secondary min-h-11 text-base"
                 >
-                  Iptal
+                  İptal
                 </button>
               </div>
             </div>
@@ -651,21 +631,21 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
               className="mt-4 rounded-xl p-3"
               style={{ background: "var(--surface-soft)" }}
             >
-              <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              <p className="text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
                 {resolvedEventId ? (
                   <>
-                    Kayitli degilseniz{" "}
+                    Kayıtlı değilseniz{" "}
                     <Link
                       href={`/register/${resolvedEventId}`}
                       className="font-semibold"
                       style={{ color: "var(--primary)" }}
                     >
-                      once kayit olun
+                      önce kayıt olun
                     </Link>{" "}
                     veya bilgilerinizi girerek devam edin.
                   </>
                 ) : (
-                  <>Kayit icin yonetici tarafindan paylasilan linki kullanin.</>
+                  <>Kayıt için yöneticinin paylaştığı linki kullanın.</>
                 )}
               </p>
             </div>
@@ -676,8 +656,8 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
               <div
                 className="relative mx-auto h-[58vh] w-full max-w-2xl overflow-hidden rounded-2xl sm:h-auto sm:aspect-video"
                 style={{
-                  background: "#0a0a0f",
-                  border: "1px solid var(--border)",
+                  background: "var(--surface-soft)",
+                  border: "1px solid var(--border-strong)",
                 }}
               >
                 <video
@@ -689,18 +669,12 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                 />
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <div
-                    className={`h-56 w-56 rounded-3xl border-4 transition ${
-                      isPulseVisible ? "border-emerald-400" : "border-white/70"
-                    }`}
+                    className="h-56 w-56 rounded-3xl border-4"
+                    style={{
+                      borderColor: "var(--border-strong)",
+                    }}
                   />
                 </div>
-                <div
-                  className="pointer-events-none absolute inset-x-8 top-4 h-1 rounded-full opacity-70"
-                  style={{
-                    background:
-                      "linear-gradient(90deg, transparent, var(--primary), transparent)",
-                  }}
-                />
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -709,16 +683,10 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                   onClick={() => {
                     void startScanner();
                   }}
-                  disabled={
-                    state === "starting" ||
-                    state === "processing" ||
-                    state === "scanning"
-                  }
+                  disabled={state === "starting" || state === "scanning"}
                   className="btn-primary min-h-11 text-base"
                 >
-                  {state === "starting"
-                    ? "Baslatiliyor..."
-                    : "Taramayi Baslat"}
+                  {state === "starting" ? "Başlatılıyor..." : "Taramayı Başlat"}
                 </button>
                 <button
                   type="button"
@@ -751,7 +719,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                 style={{ color: "var(--text-primary)" }}
                 data-display="true"
               >
-                Manuel Dogrulama Girisi
+                Manuel Doğrulama
               </h2>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <input
@@ -759,17 +727,15 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                   onChange={(event) => {
                     setManualToken(event.target.value);
                   }}
-                  placeholder="Kisa dogrulama kodu veya QR token"
+                  placeholder="Kısa doğrulama kodu veya QR token"
                   className="glass-input w-full py-3 text-base"
                 />
                 <button
                   type="button"
-                  disabled={!manualToken.trim() || state === "processing"}
+                  disabled={!manualToken.trim()}
                   onClick={() => {
                     if (!location) {
-                      setErrorMessage(
-                        "Manuel dogrulama icin once konum iznini acin.",
-                      );
+                      setErrorMessage("Manuel giriş için önce konumu açın.");
                       return;
                     }
 
@@ -777,7 +743,7 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
                   }}
                   className="btn-primary min-h-11 shrink-0 text-base"
                 >
-                  Gonder
+                  Gönder
                 </button>
               </div>
             </article>
@@ -786,20 +752,20 @@ export function CheckInScanner({ eventId }: CheckInScannerProps) {
               className="rounded-xl p-3 text-center"
               style={{ background: "var(--surface-soft)" }}
             >
-              <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              <p className="text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
                 {resolvedEventId ? (
                   <>
-                    Henuz kayitli degil misiniz?{" "}
+                    Henüz kayıtlı değil misiniz?{" "}
                     <Link
                       href={`/register/${resolvedEventId}`}
                       className="font-semibold"
                       style={{ color: "var(--primary)" }}
                     >
-                      Once kayit olun
+                      Önce kayıt olun
                     </Link>
                   </>
                 ) : (
-                  <>On kayit icin yonetici tarafindan paylasilan linki kullanin.</>
+                  <>Ön kayıt için yöneticinin paylaştığı linki kullanın.</>
                 )}
               </p>
             </div>

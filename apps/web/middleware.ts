@@ -31,20 +31,17 @@ const PARTICIPANT_COOKIE_NAME = resolveCookieName(
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const isPublicEventPath = pathname.match(/^\/events\/[^/]+\/display/);
+
   const isAdminProtectedPath =
-    pathname.startsWith("/dashboard") ||
+    (pathname.startsWith("/dashboard") ||
     pathname.startsWith("/events") ||
-    pathname.startsWith("/audit");
+    pathname.startsWith("/audit")) &&
+    !isPublicEventPath;
   const isParticipantProtectedPath =
     pathname.startsWith("/profile") || pathname.startsWith("/user");
-  const isSharedProtectedPath =
-    pathname.startsWith("/scan") || pathname.startsWith("/check-in");
 
-  if (
-    !isAdminProtectedPath &&
-    !isParticipantProtectedPath &&
-    !isSharedProtectedPath
-  ) {
+  if (!isAdminProtectedPath && !isParticipantProtectedPath) {
     return NextResponse.next();
   }
 
@@ -65,9 +62,7 @@ export function middleware(request: NextRequest) {
 
   if (
     (isAdminProtectedPath && hasAdminSessionCookie) ||
-    (isParticipantProtectedPath && hasParticipantSessionCookie) ||
-    (isSharedProtectedPath &&
-      (hasAdminSessionCookie || hasParticipantSessionCookie))
+    (isParticipantProtectedPath && hasParticipantSessionCookie)
   ) {
     return NextResponse.next();
   }
@@ -84,7 +79,5 @@ export const config = {
     "/audit/:path*",
     "/profile/:path*",
     "/user/:path*",
-    "/scan/:path*",
-    "/check-in/:path*",
   ],
 };

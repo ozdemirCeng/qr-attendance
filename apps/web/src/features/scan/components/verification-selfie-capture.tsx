@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import NextImage from "next/image";
+import { useEffect, useId, useRef, useState } from "react";
 
 type VerificationSelfieCaptureProps = {
   value: string | null;
@@ -27,7 +28,7 @@ function renderImageToDataUrl(source: CanvasImageSource) {
     return null;
   }
 
-  const maxSize = 480;
+  const maxSize = 640;
   const scale = Math.min(1, maxSize / Math.max(width, height));
   const canvas = document.createElement("canvas");
 
@@ -41,8 +42,7 @@ function renderImageToDataUrl(source: CanvasImageSource) {
   }
 
   context.drawImage(source, 0, 0, canvas.width, canvas.height);
-
-  return canvas.toDataURL("image/jpeg", 0.78);
+  return canvas.toDataURL("image/jpeg", 0.82);
 }
 
 async function readFileAsDataUrl(file: File) {
@@ -50,10 +50,9 @@ async function readFileAsDataUrl(file: File) {
 
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const nextImage = new Image();
+      const nextImage = new window.Image();
       nextImage.onload = () => resolve(nextImage);
-      nextImage.onerror = () =>
-        reject(new Error("Fotograf yuklenemedi."));
+      nextImage.onerror = () => reject(new Error("Fotoğraf yüklenemedi."));
       nextImage.src = objectUrl;
     });
 
@@ -63,18 +62,108 @@ async function readFileAsDataUrl(file: File) {
   }
 }
 
+function resolveCameraErrorMessage(error: unknown) {
+  if (error instanceof DOMException) {
+    if (error.name === "NotAllowedError") {
+      return "Kamera izni verilmedi. Tarayıcı ayarlarından kamerayı açın.";
+    }
+
+    if (error.name === "NotFoundError") {
+      return "Kullanılabilir kamera bulunamadı.";
+    }
+
+    if (error.name === "NotReadableError") {
+      return "Kamera başka bir uygulama veya sekme tarafından kullanılıyor olabilir.";
+    }
+
+    if (error.name === "OverconstrainedError") {
+      return "Bu cihazda desteklenen kamera ayarı bulunamadı.";
+    }
+
+    if (error.name === "SecurityError") {
+      return "Tarayıcı güvenlik ayarları kamerayı engelliyor.";
+    }
+  }
+
+  return "Kamera başlatılamadı. Dosyadan fotoğraf seçmeyi deneyin.";
+}
+
+async function requestSelfieStream() {
+  const candidates: MediaStreamConstraints[] = [
+    {
+      video: {
+        facingMode: { ideal: "user" },
+        width: { ideal: 720 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    },
+    {
+      video: {
+        facingMode: "user",
+      },
+      audio: false,
+    },
+    {
+      video: true,
+      audio: false,
+    },
+  ];
+
+  let lastError: unknown;
+
+  for (const constraints of candidates) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
+async function waitForVideoReady(video: HTMLVideoElement) {
+  if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("error", onError);
+    };
+
+    const onLoadedMetadata = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onError = () => {
+      cleanup();
+      reject(new Error("Kamera goruntusu hazirlanamadi."));
+    };
+
+    video.addEventListener("loadedmetadata", onLoadedMetadata, {
+      once: true,
+    });
+    video.addEventListener("error", onError, { once: true });
+  });
+}
+
 export function VerificationSelfieCapture({
   value,
   onChange,
-  title = "Profil dogrulama fotografi",
-  description = "Kameradan selfie cekin veya cihazinizdan bir fotograf secin.",
+  title = "Profil fotoğrafı",
+  description = "Kameradan selfie çekin veya cihazınızdan fotoğraf seçin.",
 }: VerificationSelfieCaptureProps) {
+  const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -99,64 +188,67 @@ export function VerificationSelfieCapture({
   }
 
   async function openCamera() {
+    stopCamera();
+
     if (!window.isSecureContext) {
       setCameraError(
-        "Kamera acmak icin HTTPS veya localhost uzerinden erisim gerekiyor.",
+        "Kamera için HTTPS veya localhost üzerinden bağlantı gerekir.",
       );
       return;
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError("Bu tarayici kamera erisimini desteklemiyor.");
+      setCameraError("Bu tarayıcı kamera erişimini desteklemiyor.");
       return;
     }
 
     setIsBusy(true);
     setCameraError(null);
+    setIsCameraOpen(true);
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: {
-            ideal: "user",
-          },
-          width: {
-            ideal: 720,
-          },
-          height: {
-            ideal: 720,
-          },
-        },
-        audio: false,
-      });
+      const stream = await requestSelfieStream();
+      const video = videoRef.current;
 
-      streamRef.current = stream;
-
-      if (!videoRef.current) {
-        throw new Error("Kamera alani bulunamadi.");
+      if (!video) {
+        throw new Error("Kamera alanı hazır değil.");
       }
 
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-      setIsCameraOpen(true);
-    } catch {
+      streamRef.current = stream;
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      await waitForVideoReady(video);
+
+      try {
+        await video.play();
+      } catch {
+        // Some browsers block play() promises even when stream is attached.
+      }
+    } catch (error) {
       stopCamera();
-      setCameraError("Kamera baslatilamadi. Izinleri kontrol edin.");
+      setCameraError(resolveCameraErrorMessage(error));
     } finally {
       setIsBusy(false);
     }
   }
 
   function capturePhoto() {
-    if (!videoRef.current) {
-      setCameraError("Kamera goruntusu hazir degil.");
+    const video = videoRef.current;
+
+    if (!video) {
+      setCameraError("Kamera görüntüsü hazır değil.");
       return;
     }
 
-    const nextValue = renderImageToDataUrl(videoRef.current);
+    const nextValue = renderImageToDataUrl(video);
 
     if (!nextValue) {
-      setCameraError("Fotograf yakalanamadi. Lutfen tekrar deneyin.");
+      setCameraError("Fotoğraf alınamadı. Tekrar deneyin.");
       return;
     }
 
@@ -177,74 +269,62 @@ export function VerificationSelfieCapture({
       const nextValue = await readFileAsDataUrl(file);
 
       if (!nextValue) {
-        throw new Error("Fotograf islenemedi.");
+        throw new Error("Fotoğraf işlenemedi.");
       }
 
       onChange(nextValue);
+      stopCamera();
     } catch {
-      setCameraError("Fotograf islenemedi. Lutfen baska bir dosya deneyin.");
+      setCameraError("Fotoğraf işlenemedi. Başka bir dosya deneyin.");
     } finally {
       setIsBusy(false);
     }
   }
 
+  const showVideo = isCameraOpen && !value;
+
   return (
     <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-soft)] p-4">
       <div className="space-y-1">
-        <p
-          className="text-sm font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <p className="text-sm font-semibold text-[var(--text-primary)]">
           {title}
         </p>
-        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+        <p className="text-xs leading-5 text-[var(--text-secondary)]">
           {description}
         </p>
       </div>
 
-      {value ? (
-        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-black/5">
-          <img
-            src={value}
-            alt="Dogrulama fotografi onizleme"
-            className="h-56 w-full object-cover"
-          />
-        </div>
-      ) : null}
-
-      {isCameraOpen ? (
-        <div className="space-y-3">
-          <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-black">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="h-56 w-full object-cover"
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-black/5">
+        {value ? (
+          <div className="relative h-56 w-full">
+            <NextImage
+              src={value}
+              alt="Profil fotoğrafı önizleme"
+              fill
+              unoptimized
+              sizes="(max-width: 768px) 100vw, 640px"
+              className="object-cover"
             />
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={capturePhoto}
-              className="btn-primary min-h-11 text-sm"
-            >
-              Fotografi Kullan
-            </button>
-            <button
-              type="button"
-              onClick={stopCamera}
-              className="btn-secondary min-h-11 text-sm"
-            >
-              Vazgec
-            </button>
+        ) : showVideo ? (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="h-56 w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-56 items-center justify-center px-6 text-center">
+            <p className="text-sm text-[var(--text-tertiary)]">
+              Kamera ile selfie çekebilir veya galeriden fotoğraf seçebilirsiniz.
+            </p>
           </div>
-        </div>
-      ) : null}
+        )}
+      </div>
 
-      {!isCameraOpen ? (
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
+        {!isCameraOpen ? (
           <button
             type="button"
             onClick={() => {
@@ -253,37 +333,65 @@ export function VerificationSelfieCapture({
             disabled={isBusy}
             className="btn-primary min-h-11 text-sm"
           >
-            {value ? "Fotografi Yenile" : "Kamerayi Ac"}
+            {value ? "Fotoğrafı Yenile" : "Kamerayı Aç"}
           </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={capturePhoto}
+              disabled={isBusy}
+              className="btn-primary min-h-11 text-sm"
+            >
+              Fotoğrafı Kullan
+            </button>
+            <button
+              type="button"
+              onClick={stopCamera}
+              disabled={isBusy}
+              className="btn-secondary min-h-11 text-sm"
+            >
+              Vazgeç
+            </button>
+          </>
+        )}
+
+        <button
+          type="button"
+          onClick={() => {
+            fileInputRef.current?.click();
+          }}
+          disabled={isBusy}
+          className="btn-secondary min-h-11 text-sm"
+        >
+          Dosyadan Seç
+        </button>
+
+        {value ? (
           <button
             type="button"
             onClick={() => {
-              fileInputRef.current?.click();
+              onChange(null);
             }}
             disabled={isBusy}
             className="btn-secondary min-h-11 text-sm"
           >
-            Dosyadan Sec
+            Kaldır
           </button>
-          {value ? (
-            <button
-              type="button"
-              onClick={() => {
-                onChange(null);
-              }}
-              className="btn-secondary min-h-11 text-sm"
-            >
-              Kaldir
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+        ) : null}
+      </div>
+
+      <label htmlFor={fileInputId} className="sr-only">
+        Profil fotoğrafı seç
+      </label>
 
       <input
+        id={fileInputId}
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="user"
+        aria-label="Profil fotoğrafı seç"
+        title="Profil fotoğrafı seç"
         className="hidden"
         onChange={(event) => {
           void onFileSelected(event.target.files?.item(0) ?? null);
@@ -292,7 +400,7 @@ export function VerificationSelfieCapture({
       />
 
       {cameraError ? (
-        <p className="text-xs" style={{ color: "var(--error)" }}>
+        <p className="text-xs text-[var(--error)]">
           {cameraError}
         </p>
       ) : null}

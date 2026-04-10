@@ -13,3 +13,7 @@ export type CurrentQrTokenResponse = {
 export async function getCurrentQrToken(eventId: string) {
   return apiFetch<CurrentQrTokenResponse>(`/events/${eventId}/qr/current`);
 }
+
+export async function getPublicQrToken(eventId: string) {
+  return apiFetch<CurrentQrTokenResponse>(`/events/${eventId}/qr/public`);
+}

@@ -35,55 +35,30 @@ function resolveScanErrorCode(error: unknown) {
     return "REGISTRATION_REQUIRED";
   }
 
-  if (maybeError.statusCode === 400) {
-    return "BAD_REQUEST";
-  }
-
-  if (maybeError.statusCode === 401) {
-    return "UNAUTHORIZED";
-  }
-
-  if (maybeError.statusCode === 403) {
-    return "FORBIDDEN";
-  }
-
-  if (maybeError.statusCode === 404) {
-    return "NOT_FOUND";
-  }
-
-  if (maybeError.statusCode === 409) {
-    return "ALREADY_CHECKED_IN";
-  }
-
-  if (maybeError.statusCode === 429) {
-    return "TOO_MANY_REQUESTS";
-  }
-
-  if (maybeError.statusCode === 500) {
-    return "INTERNAL_SERVER_ERROR";
-  }
+  if (maybeError.statusCode === 400) return "BAD_REQUEST";
+  if (maybeError.statusCode === 401) return "UNAUTHORIZED";
+  if (maybeError.statusCode === 403) return "FORBIDDEN";
+  if (maybeError.statusCode === 404) return "NOT_FOUND";
+  if (maybeError.statusCode === 409) return "ALREADY_CHECKED_IN";
+  if (maybeError.statusCode === 429) return "TOO_MANY_REQUESTS";
+  if (maybeError.statusCode === 500) return "INTERNAL_SERVER_ERROR";
 
   return "UNKNOWN_ERROR";
 }
 
 const guestSchema = z
   .object({
-    name: z.string().trim().min(2, "Ad Soyad zorunlu"),
-    email: z
-      .string()
-      .trim()
-      .email("E-posta formati gecersiz")
-      .optional()
-      .or(z.literal("")),
+    name: z.string().trim().min(2, "Ad soyad zorunlu."),
+    email: z.string().trim().email("Geçerli bir e-posta girin.").optional().or(z.literal("")),
     phone: z
       .string()
       .trim()
-      .max(32, "Telefon en fazla 32 karakter olabilir")
+      .max(32, "Telefon en fazla 32 karakter olabilir.")
       .optional()
       .or(z.literal("")),
   })
   .refine((value) => Boolean(value.email) || Boolean(value.phone), {
-    message: "Email yoksa telefon zorunludur",
+    message: "E-posta veya telefon zorunludur.",
     path: ["phone"],
   });
 
@@ -116,7 +91,7 @@ export function GuestCheckInForm() {
     setErrorMessage(null);
 
     if (!scanContext) {
-      setErrorMessage("Gecerli tarama verisi bulunamadi.");
+      setErrorMessage("Geçerli tarama bilgisi bulunamadı.");
       return;
     }
 
@@ -124,16 +99,12 @@ export function GuestCheckInForm() {
       typeof scanContext.lat !== "number" ||
       typeof scanContext.lng !== "number"
     ) {
-      setErrorMessage(
-        "Konum dogrulamasi eksik. Lutfen yeniden tarama ekranina donun.",
-      );
+      setErrorMessage("Konum bilgisi eksik. Lütfen taramayı yeniden başlatın.");
       return;
     }
 
     if (!verificationPhotoDataUrl) {
-      setErrorMessage(
-        "Check-in icin profil dogrulama fotografi zorunludur.",
-      );
+      setErrorMessage("Devam etmek için bir fotoğraf ekleyin.");
       return;
     }
 
@@ -203,10 +174,10 @@ export function GuestCheckInForm() {
           color: "var(--warning)",
         }}
       >
-        Gecerli bir QR token bulunamadi. Lutfen yeniden tarama ekranina donun.
+        Geçerli bir tarama bilgisi bulunamadı. Lütfen taramayı yeniden başlatın.
         <div className="mt-3">
           <Link href="/check-in" className="btn-secondary px-3 py-1.5 text-xs">
-            Taramaya Don
+            Taramaya Dön
           </Link>
         </div>
       </article>
@@ -214,12 +185,7 @@ export function GuestCheckInForm() {
   }
 
   return (
-    <form
-      className="space-y-4"
-      onSubmit={form.handleSubmit((values) => {
-        void onSubmit(values);
-      })}
-    >
+    <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="space-y-1.5">
         <label
           className="text-xs font-semibold uppercase tracking-wide"
@@ -283,7 +249,7 @@ export function GuestCheckInForm() {
       <VerificationSelfieCapture
         value={verificationPhotoDataUrl}
         onChange={setVerificationPhotoDataUrl}
-        description="QR tarama adiminda alinan selfie burada kullanilir. Gerekirse yeniden cekebilirsiniz."
+        description="Gerekirse fotoğrafı burada yenileyebilirsiniz."
       />
 
       {errorMessage ? (
@@ -294,7 +260,7 @@ export function GuestCheckInForm() {
 
       <div className="flex justify-end gap-2 pt-2">
         <Link href="/check-in" className="btn-secondary min-h-11 text-sm">
-          Geri Don
+          Geri Dön
         </Link>
         <button
           type="submit"
@@ -302,8 +268,8 @@ export function GuestCheckInForm() {
           className="btn-primary min-h-11 text-sm"
         >
           {form.formState.isSubmitting
-            ? "Gonderiliyor..."
-            : "Katilimi Onayla"}
+            ? "Gönderiliyor..."
+            : "Katılımı Onayla"}
         </button>
       </div>
     </form>

@@ -30,114 +30,114 @@ type ResultAction = {
 
 const errorMetaMap: Record<string, ErrorMeta> = {
   EXPIRED_TOKEN: {
-    title: "QR Suresi Doldu",
+    title: "QR Süresi Doldu",
     badge: "QR",
-    hint: "Panodaki guncel kodu tekrar okutun.",
+    hint: "Güncel kodu tekrar tarayın.",
     toneColor: "var(--warning)",
     toneBg: "var(--warning-soft)",
   },
   INVALID_SIGNATURE: {
-    title: "Gecersiz QR",
+    title: "Geçersiz QR",
     badge: "QR",
-    hint: "QR goruntusunu yenileyip tekrar tarayin.",
+    hint: "QR kodunu yenileyip tekrar deneyin.",
     toneColor: "var(--error)",
     toneBg: "var(--error-soft)",
   },
   MALFORMED_TOKEN: {
-    title: "Gecersiz QR",
+    title: "Geçersiz QR",
     badge: "QR",
-    hint: "Kod bozuk veya eksik. Yeniden tarayin.",
+    hint: "Kod eksik veya bozuk görünüyor.",
     toneColor: "var(--error)",
     toneBg: "var(--error-soft)",
   },
   REPLAY_ATTACK: {
-    title: "QR Tekrar Kullanildi",
+    title: "QR Zaten Kullanıldı",
     badge: "QR",
-    hint: "Ayni kod ikinci kez kullanilamaz.",
+    hint: "Aynı kod ikinci kez kullanılamaz.",
     toneColor: "var(--error)",
     toneBg: "var(--error-soft)",
   },
   SESSION_NOT_FOUND: {
-    title: "Etkinlik Bulunamadi",
+    title: "Etkinlik Bulunamadı",
     badge: "404",
-    hint: "Etkinlik baglantisini kontrol edip yeniden deneyin.",
+    hint: "Etkinlik bilgisini kontrol edip tekrar deneyin.",
     toneColor: "var(--text-secondary)",
     toneBg: "var(--surface-soft)",
   },
   SESSION_INACTIVE: {
-    title: "Oturum Aktif Degil",
+    title: "Oturum Aktif Değil",
     badge: "OT",
-    hint: "Oturum saati disinda tarama yapildi.",
+    hint: "Tarama zamanı dışında işlem yapıldı.",
     toneColor: "var(--primary)",
     toneBg: "var(--surface-soft)",
   },
   LOCATION_OUT_OF_RANGE: {
-    title: "Konum Uygun Degil",
+    title: "Konum Uygun Değil",
     badge: "GPS",
-    hint: "Etkinlik alanina yaklasip tekrar deneyin.",
+    hint: "Etkinlik alanına yaklaşıp tekrar deneyin.",
     toneColor: "var(--error)",
     toneBg: "var(--error-soft)",
   },
   NO_LOCATION_DATA: {
     title: "Konum Gerekli",
     badge: "GPS",
-    hint: "Konum iznini acmadan yoklama alinmaz.",
+    hint: "Konum izni olmadan yoklama tamamlanamaz.",
     toneColor: "var(--warning)",
     toneBg: "var(--warning-soft)",
   },
   PHOTO_REQUIRED: {
-    title: "Fotograf Gerekli",
+    title: "Fotoğraf Gerekli",
     badge: "CAM",
-    hint: "Selfie cekmeden check-in tamamlanamaz.",
+    hint: "Selfie ekleyip tekrar deneyin.",
     toneColor: "var(--warning)",
     toneBg: "var(--warning-soft)",
   },
   ALREADY_CHECKED_IN: {
-    title: "Zaten Katildiniz",
+    title: "Yoklama Zaten Alınmış",
     badge: "OK",
-    hint: "Ayni oturum icin ikinci yoklama alinmaz.",
+    hint: "Aynı oturum için ikinci kez yoklama alınmaz.",
     toneColor: "var(--success)",
     toneBg: "var(--success-soft)",
   },
   REGISTRATION_REQUIRED: {
-    title: "Kayit Gerekli",
+    title: "Kayıt Gerekli",
     badge: "KYT",
-    hint: "Kayit bulunamadi. Bilgilerinizi girerek devam edin.",
+    hint: "Bilgilerinizi girerek devam edin.",
     toneColor: "var(--warning)",
     toneBg: "var(--warning-soft)",
   },
   BAD_REQUEST: {
-    title: "Gonderilen Bilgi Gecersiz",
+    title: "Gönderilen Bilgi Geçersiz",
     badge: "ERR",
     hint: "Bilgileri kontrol edip tekrar deneyin.",
     toneColor: "var(--warning)",
     toneBg: "var(--warning-soft)",
   },
   UNAUTHORIZED: {
-    title: "Yetkisiz Islem",
+    title: "Yetkisiz İşlem",
     badge: "401",
-    hint: "Oturumunuz gecersiz olabilir. Tekrar deneyin.",
+    hint: "Oturumunuz kapanmış olabilir.",
     toneColor: "var(--error)",
     toneBg: "var(--error-soft)",
   },
   INTERNAL_SERVER_ERROR: {
-    title: "Sunucu Hatasi",
+    title: "Sunucu Hatası",
     badge: "500",
-    hint: "Bir sure sonra tekrar deneyin.",
+    hint: "Biraz sonra tekrar deneyin.",
     toneColor: "var(--error)",
     toneBg: "var(--error-soft)",
   },
   NETWORK_ERROR: {
-    title: "Baglanti Hatasi",
+    title: "Bağlantı Hatası",
     badge: "NET",
-    hint: "Baglanti saglandiginda tekrar tarama yapin.",
+    hint: "Bağlantı sağlandığında tekrar deneyin.",
     toneColor: "var(--text-secondary)",
     toneBg: "var(--surface-soft)",
   },
   UNKNOWN_ERROR: {
-    title: "Islem Basarisiz",
+    title: "İşlem Başarısız",
     badge: "ERR",
-    hint: "Tekrar deneyin; sorun devam ederse yoneticiye bildirin.",
+    hint: "Tekrar deneyin. Sorun devam ederse yöneticiye bildirin.",
     toneColor: "var(--text-secondary)",
     toneBg: "var(--surface-soft)",
   },
@@ -154,7 +154,7 @@ function resolveAction(
     return {
       primaryLabel: "Yeni Tarama",
       primaryHref: scanHref,
-      secondaryLabel: "Ana Ekran",
+      secondaryLabel: "Tarama Ekranı",
       secondaryHref: "/scan",
     };
   }
@@ -167,16 +167,16 @@ function resolveAction(
     return {
       primaryLabel: "Tekrar Dene",
       primaryHref: scanHref,
-      secondaryLabel: "Tarama Ekrani",
+      secondaryLabel: "Tarama Ekranı",
       secondaryHref: "/scan",
     };
   }
 
   if (code === "ALREADY_CHECKED_IN") {
     return {
-      primaryLabel: "Farkli Kod Tara",
+      primaryLabel: "Başka Kod Tara",
       primaryHref: "/check-in",
-      secondaryLabel: "Ana Ekran",
+      secondaryLabel: "Tarama Ekranı",
       secondaryHref: "/scan",
     };
   }
@@ -184,7 +184,7 @@ function resolveAction(
   return {
     primaryLabel: "Tekrar Dene",
     primaryHref: scanHref,
-    secondaryLabel: "Ana Ekran",
+    secondaryLabel: "Tarama Ekranı",
     secondaryHref: "/scan",
   };
 }
@@ -213,7 +213,7 @@ export default function CheckInResultPage({ searchParams }: ResultPageProps) {
   const action = resolveAction(isSuccess, normalizedCode, eventId);
   const errorMessage = resolveApiErrorMessage({
     code: normalizedCode,
-    fallbackMessage: "Beklenmeyen bir hata olustu. Lutfen tekrar deneyin.",
+    fallbackMessage: "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.",
   });
 
   return (
@@ -222,7 +222,7 @@ export default function CheckInResultPage({ searchParams }: ResultPageProps) {
         <ThemeToggle />
       </div>
 
-      <section className="glass-elevated w-full max-w-xl animate-scale-in rounded-3xl p-8 text-center">
+      <section className="glass-elevated w-full max-w-xl rounded-3xl p-8 text-center">
         {isSuccess ? (
           <>
             <div
@@ -236,18 +236,12 @@ export default function CheckInResultPage({ searchParams }: ResultPageProps) {
               style={{ color: "var(--text-primary)" }}
               data-display="true"
             >
-              Katilim Basarili
+              Yoklama Alındı
             </h1>
-            <p
-              className="mt-2 text-sm"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              {(name || "Katilimci") + " icin yoklama alindi."}
+            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+              {(name || "Katılımcı") + " için işlem tamamlandı."}
             </p>
-            <p
-              className="mt-1 text-sm"
-              style={{ color: "var(--text-tertiary)" }}
-            >
+            <p className="mt-1 text-sm" style={{ color: "var(--text-tertiary)" }}>
               {eventName}
             </p>
           </>
@@ -266,16 +260,10 @@ export default function CheckInResultPage({ searchParams }: ResultPageProps) {
             >
               {errorMeta.title}
             </h1>
-            <p
-              className="mt-2 text-sm"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
               {errorMessage}
             </p>
-            <p
-              className="mt-1 text-xs"
-              style={{ color: "var(--text-tertiary)" }}
-            >
+            <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
               {errorMeta.hint}
             </p>
             <p
