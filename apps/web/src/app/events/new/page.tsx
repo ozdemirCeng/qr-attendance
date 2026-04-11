@@ -51,6 +51,27 @@ type GeocodeResponse = {
   message?: string;
 };
 
+const MIN_RADIUS_METERS = 50;
+const UNLIMITED_RADIUS_METERS = 20_000_000;
+
+function formatRadiusLabel(radiusMeters: number) {
+  if (radiusMeters >= UNLIMITED_RADIUS_METERS) {
+    return "Sınırsız";
+  }
+
+  if (radiusMeters >= 1000) {
+    const maxFractionDigits = radiusMeters >= 10_000 ? 1 : 2;
+    const kilometers = radiusMeters / 1000;
+    const formattedKilometers = new Intl.NumberFormat("tr-TR", {
+      maximumFractionDigits: maxFractionDigits,
+    }).format(kilometers);
+
+    return `${formattedKilometers} km`;
+  }
+
+  return `${radiusMeters} m`;
+}
+
 function getCurrentDateTimeLocal() {
   const now = new Date();
   now.setSeconds(0, 0);
@@ -68,6 +89,7 @@ export default function NewEventPage() {
   const [locationSuggestions, setLocationSuggestions] = useState<GeocodeSuggestion[]>([]);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [locationSearchError, setLocationSearchError] = useState<string | null>(null);
+  const [lastFiniteRadius, setLastFiniteRadius] = useState(100);
 
   const form = useForm<CreateEventFormValues>({
     defaultValues: {
@@ -144,7 +166,21 @@ export default function NewEventPage() {
     typeof radiusMeters === "number" && Number.isFinite(radiusMeters)
       ? radiusMeters
       : 100;
-  const sliderMax = Math.max(500, Math.ceil(radiusValue / 100) * 100);
+  const isUnlimitedRadius = radiusValue >= UNLIMITED_RADIUS_METERS;
+  const finiteRadiusValue = isUnlimitedRadius ? lastFiniteRadius : radiusValue;
+  const sliderMax = Math.max(500, Math.ceil(finiteRadiusValue / 100) * 100);
+  const sliderValue = Math.min(Math.max(finiteRadiusValue, MIN_RADIUS_METERS), sliderMax);
+
+  useEffect(() => {
+    if (
+      typeof radiusMeters === "number" &&
+      Number.isFinite(radiusMeters) &&
+      radiusMeters >= MIN_RADIUS_METERS &&
+      radiusMeters < UNLIMITED_RADIUS_METERS
+    ) {
+      setLastFiniteRadius(Math.round(radiusMeters));
+    }
+  }, [radiusMeters]);
 
   useEffect(() => {
     const query = locationQuery.trim();
@@ -339,17 +375,39 @@ export default function NewEventPage() {
                 Yarıçap
               </label>
               <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                Kaydırıcı hızlı ayar içindir. Yan kutuya dilediğiniz metre değerini yazarak sınırı sınırsız şekilde büyütebilirsiniz.
+                Değer büyüdükçe gösterim otomatik olarak km'ye döner. Kaydırıcı hızlı ayar içindir.
               </p>
-              <div className="flex items-center gap-4">
+              <label className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                <input
+                  type="checkbox"
+                  checked={isUnlimitedRadius}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      form.setValue("radiusMeters", UNLIMITED_RADIUS_METERS, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                      return;
+                    }
+
+                    form.setValue("radiusMeters", Math.max(lastFiniteRadius, MIN_RADIUS_METERS), {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }}
+                />
+                Sınırsız
+              </label>
+              <div className="flex items-center gap-3">
                 <input
                   id="radiusMeters"
                   type="range"
-                  min={50}
+                  min={MIN_RADIUS_METERS}
                   max={sliderMax}
                   step={10}
                   className="flex-1"
-                  value={Math.min(radiusValue, sliderMax)}
+                  value={sliderValue}
+                  disabled={isUnlimitedRadius}
                   onChange={(event) => {
                     form.setValue("radiusMeters", Number(event.target.value), {
                       shouldDirty: true,
@@ -357,16 +415,29 @@ export default function NewEventPage() {
                     });
                   }}
                 />
-                <input
-                  type="number"
-                  min={50}
-                  step={10}
-                  className="glass-input w-28"
-                  aria-label="Yarıçap metre"
-                  {...form.register("radiusMeters", { valueAsNumber: true })}
-                />
+                <div className="shrink-0" style={{ width: "6.75rem" }}>
+                  {isUnlimitedRadius ? (
+                    <div
+                      className="glass-input flex items-center justify-center text-sm font-semibold"
+                      style={{ width: "100%", opacity: 0.8 }}
+                      aria-label="Yarıçap sınırsız"
+                    >
+                      Sınırsız
+                    </div>
+                  ) : (
+                    <input
+                      type="number"
+                      min={MIN_RADIUS_METERS}
+                      step={10}
+                      className="glass-input text-center"
+                      style={{ width: "100%" }}
+                      aria-label="Yarıçap metre"
+                      {...form.register("radiusMeters", { valueAsNumber: true })}
+                    />
+                  )}
+                </div>
                 <span className="inline-flex min-w-[4rem] items-center justify-center rounded-lg px-3 py-1.5 text-sm font-bold" style={{ background: "var(--surface-soft)", color: "var(--primary)", fontFamily: "var(--font-display)" }} data-display="true">
-                  {radiusValue}m
+                  {formatRadiusLabel(radiusValue)}
                 </span>
               </div>
               {form.formState.errors.radiusMeters ? <p className="text-xs" style={{ color: "var(--error)" }}>{form.formState.errors.radiusMeters.message}</p> : null}
