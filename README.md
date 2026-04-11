@@ -2,6 +2,10 @@
 
 QR kod tabanli yoklama ve katilim takibi icin gelistirilmis tam yigin (full-stack) monorepo proje.
 
+## CANLI LINK
+
+# [https://qr-attendance-web-dw44.vercel.app/](https://qr-attendance-web-dw44.vercel.app/)
+
 ## Proje Ozeti
 
 Uygulama iki ana akis uzerine kuruludur:
